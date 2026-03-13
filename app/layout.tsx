@@ -9,6 +9,8 @@ const mPlusRounded = M_PLUS_Rounded_1c({
   subsets: ["latin"],
   variable: "--font-anime",
   display: "swap",
+  // Next 14.2.x doesn't ship font override metadata for this family; disable automatic fallback adjustment.
+  adjustFontFallback: false,
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixie.example.com";

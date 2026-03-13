@@ -286,7 +286,7 @@ export default function AdminPage() {
   const [storyNsfwCid, setStoryNsfwCid] = useState("");
   const [storyAnimatedCid, setStoryAnimatedCid] = useState("");
   const [showStoryForm, setShowStoryForm] = useState(false);
-  const [storyUploading, setStoryUploading] = useState<"" | "image" | "nsfw">("");
+  const [storyUploading, setStoryUploading] = useState<"" | "image" | "nsfw" | "animated">("");
   const [storyPaid, setStoryPaid] = useState(false);
   const [storyPriceUsdc, setStoryPriceUsdc] = useState("");
   const [storyDurationHours, setStoryDurationHours] = useState(24);
