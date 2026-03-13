@@ -1,0 +1,44 @@
+import { createConfig, createStorage, http, injected } from "wagmi";
+import { base } from "wagmi/chains";
+
+/**
+ * Storage that reads/writes localStorage at call time (not at config creation).
+ * Config is created on server (window undefined); when client runs reconnect/persist,
+ * getItem/setItem are called in the browser so connection is persisted.
+ */
+const lazyLocalStorage = {
+  getItem(key: string): string | null {
+    if (typeof window !== "undefined" && window.localStorage)
+      return window.localStorage.getItem(key);
+    return null;
+  },
+  setItem(key: string, value: string): void {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        // QuotaExceededError, etc.
+      }
+    }
+  },
+  removeItem(key: string): void {
+    if (typeof window !== "undefined" && window.localStorage)
+      window.localStorage.removeItem(key);
+  },
+};
+const clientStorage = createStorage({ storage: lazyLocalStorage });
+
+/**
+ * Browser extension wallets only (MetaMask, Brave, etc.).
+ * No WalletConnect, no MetaMask SDK — avoids relay/async-storage errors.
+ * clientStorage persists connection across page refreshes.
+ */
+export const config = createConfig({
+  chains: [base],
+  ssr: true,
+  storage: clientStorage,
+  transports: {
+    [base.id]: http(),
+  },
+  connectors: [injected()],
+});

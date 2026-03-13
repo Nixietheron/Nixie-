@@ -1,0 +1,183 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-size: 16px;
+  --nixie-primary: #D27A92;
+  --nixie-secondary: #E1A1B0;
+  --nixie-card: #16131f;
+  --nixie-background: #0f0d14;
+  --nixie-accent: #B8A9C9;
+  --background: #0f0d14;
+  --foreground: #e8e4f0;
+  --card: #16131f;
+  --card-foreground: #e8e4f0;
+  --primary: #D27A92;
+  --primary-foreground: #ffffff;
+  --secondary: #B8A9C9;
+  --muted: #8B7A9E;
+  --muted-foreground: #a89bb8;
+  --accent: #B8A9C9;
+  --accent-foreground: #e8e4f0;
+  --border: rgba(184, 169, 201, 0.2);
+  --ring: #D27A92;
+  --radius: 1rem;
+  /* Anime palette */
+  --anime-pink: #D27A92;
+  --anime-coral: #D27A92;
+  --anime-lavender: #B8A9C9;
+  --anime-violet: #7B68C0;
+  --anime-cyan: #6EC5E8;
+  --anime-night: #0f0d14;
+  --anime-night-card: #16131f;
+  --anime-glow: rgba(255, 107, 157, 0.35);
+}
+
+html {
+  font-size: var(--font-size);
+  scroll-behavior: smooth;
+  background-color: #0f0d14;
+}
+
+body {
+  background-color: #0f0d14;
+  background-image: url("/bg-leaves.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: #e8e4f0;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 13, 20, 0.5);
+  pointer-events: none;
+  z-index: 0;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(184, 169, 201, 0.4) #0f0d14;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0f0d14;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(184, 169, 201, 0.4);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(184, 169, 201, 0.6);
+}
+
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
+}
+
+.nixie-shadow-soft {
+  box-shadow: 0 4px 20px rgba(210, 122, 146, 0.1);
+}
+
+.nixie-shadow-medium {
+  box-shadow: 0 8px 30px rgba(210, 122, 146, 0.15);
+}
+
+.nixie-shadow-strong {
+  box-shadow: 0 12px 40px rgba(210, 122, 146, 0.2);
+}
+
+button, a, input, textarea {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+.nixie-gradient-text {
+  background: linear-gradient(135deg, #D27A92 0%, #B8A9C9 50%, #6EC5E8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.anime-gradient-text {
+  background: linear-gradient(135deg, #D27A92 0%, #B8A9C9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.nixie-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(to right, #F7E8EB 0%, #ECC1CE 20%, #F7E8EB 40%, #F7E8EB 100%);
+  background-size: 1000px 100%;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.nixie-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.nixie-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Soft anime background orbs for main feed */
+.anime-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(40px);
+  opacity: 0.6;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.anime-orb--pink {
+  background: radial-gradient(circle at 30% 30%, #D27A92 0%, rgba(210,122,146,0.0) 70%);
+}
+
+.anime-orb--lavender {
+  background: radial-gradient(circle at 70% 40%, #E1A1B0 0%, rgba(225,161,176,0.0) 70%);
+}
+
+.anime-orb--peach {
+  background: radial-gradient(circle at 20% 80%, #EFD4CC 0%, rgba(239,212,204,0.0) 70%);
+}
+

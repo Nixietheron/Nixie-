@@ -1,0 +1,139 @@
+/* Nixie Custom Styles */
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar but keep functionality */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(210, 122, 146, 0.3) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(210, 122, 146, 0.3);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(210, 122, 146, 0.5);
+}
+
+/* Mobile viewport optimization */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Soft shadows for elevated elements */
+.nixie-shadow-soft {
+  box-shadow: 0 4px 20px rgba(210, 122, 146, 0.1);
+}
+
+.nixie-shadow-medium {
+  box-shadow: 0 8px 30px rgba(210, 122, 146, 0.15);
+}
+
+.nixie-shadow-strong {
+  box-shadow: 0 12px 40px rgba(210, 122, 146, 0.2);
+}
+
+/* Smooth transitions for all interactive elements */
+button, a, input, textarea {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Prevent text selection on buttons */
+button {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Backdrop blur support */
+@supports (backdrop-filter: blur(10px)) {
+  .nixie-blur {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Gradient text */
+.nixie-gradient-text {
+  background: linear-gradient(135deg, #D27A92 0%, #E1A1B0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Shimmer loading effect */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.nixie-shimmer {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    to right,
+    #F7E8EB 0%,
+    #ECC1CE 20%,
+    #F7E8EB 40%,
+    #F7E8EB 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* Floating animation for decorative elements */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.nixie-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Pulse animation for highlights */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.nixie-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
