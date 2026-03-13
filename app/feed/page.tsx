@@ -341,6 +341,7 @@ export default function FeedScreen() {
                 <div className="flex gap-2.5 overflow-x-auto scrollbar-hide py-3 px-2 -mx-1 w-full">
                   {stories.map((story, index) => {
                     const isNsfw = !!story.nsfw_cid || (story.is_paid && !story.unlocked);
+                    const walletConnected = !!address;
                     return (
                       <motion.button
                         key={story.id}
@@ -357,9 +358,24 @@ export default function FeedScreen() {
                         >
                           <div className="w-full h-full rounded-full overflow-hidden bg-[#1a161c]/88 backdrop-blur-[1px] flex items-center justify-center ring-1 ring-inset ring-white/[0.04]">
                             {story.animated_cid && story.image_cid === story.animated_cid ? (
-                              <video src={ipfsUrl(story.image_cid)} muted loop playsInline className={`w-full h-full object-cover ${isNsfw ? "blur-md" : ""}`} preload="metadata" />
+                              <video
+                                src={ipfsUrl(story.image_cid)}
+                                muted
+                                loop
+                                playsInline
+                                className={`w-full h-full object-cover ${
+                                  isNsfw || !walletConnected ? "blur-md" : ""
+                                }`}
+                                preload="metadata"
+                              />
                             ) : (
-                              <img src={ipfsUrl(story.image_cid)} alt="" className={`w-full h-full object-cover ${isNsfw ? "blur-md" : ""}`} />
+                              <img
+                                src={ipfsUrl(story.image_cid)}
+                                alt=""
+                                className={`w-full h-full object-cover ${
+                                  isNsfw || !walletConnected ? "blur-md" : ""
+                                }`}
+                              />
                             )}
                           </div>
                         </div>
@@ -426,6 +442,7 @@ export default function FeedScreen() {
                 <div className="flex gap-2.5 overflow-x-auto scrollbar-hide py-3 px-3">
                   {stories.map((story, index) => {
                     const isNsfw = !!story.nsfw_cid || (story.is_paid && !story.unlocked);
+                    const walletConnected = !!address;
                     return (
                       <motion.button
                         key={story.id}
@@ -439,9 +456,24 @@ export default function FeedScreen() {
                         >
                           <div className="w-full h-full rounded-full overflow-hidden bg-[#0f0d14]/88 backdrop-blur-[1px] flex items-center justify-center ring-1 ring-inset ring-white/[0.04]">
                             {story.animated_cid && story.image_cid === story.animated_cid ? (
-                              <video src={ipfsUrl(story.image_cid)} muted loop playsInline className={`w-full h-full object-cover ${isNsfw ? "blur-md" : ""}`} preload="metadata" />
+                              <video
+                                src={ipfsUrl(story.image_cid)}
+                                muted
+                                loop
+                                playsInline
+                                className={`w-full h-full object-cover ${
+                                  isNsfw || !walletConnected ? "blur-md" : ""
+                                }`}
+                                preload="metadata"
+                              />
                             ) : (
-                              <img src={ipfsUrl(story.image_cid)} alt="" className={`w-full h-full object-cover ${isNsfw ? "blur-md" : ""}`} />
+                              <img
+                                src={ipfsUrl(story.image_cid)}
+                                alt=""
+                                className={`w-full h-full object-cover ${
+                                  isNsfw || !walletConnected ? "blur-md" : ""
+                                }`}
+                              />
                             )}
                           </div>
                         </div>

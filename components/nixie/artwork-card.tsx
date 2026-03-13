@@ -95,6 +95,7 @@ export function ArtworkCard({
   const nsfwUnlocked = artwork.nsfwUnlocked ?? false;
   const animatedUnlocked = artwork.animatedUnlocked ?? false;
   const isFree = artwork.price === 0;
+  const walletConnected = !!walletAddress;
 
   // What to show in the single image area. NSFW and Animated unlock separately.
   const showSfw = viewMode === "sfw";
@@ -152,7 +153,13 @@ export function ArtworkCard({
                   loop
                   muted
                   playsInline
-                  className={compact ? "w-full h-full object-contain" : "w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 hover:scale-[1.01]"}
+                  className={
+                    compact
+                      ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
+                      : `w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 ${
+                          walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
+                        }`
+                  }
                   onError={() => setAnimatedUseVideo(false)}
                 />
               )}
@@ -160,7 +167,13 @@ export function ArtworkCard({
                 <ImageWithFallback
                   src={imageSrc}
                   alt="Animated"
-                  className={compact ? "w-full h-full object-contain" : "w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 hover:scale-[1.01]"}
+                  className={
+                    compact
+                      ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
+                      : `w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 ${
+                          walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
+                        }`
+                  }
                 />
               )}
             </>
@@ -169,10 +182,25 @@ export function ArtworkCard({
               src={imageSrc}
               alt={showSfw ? "SFW preview" : "NSFW full"}
               errorVariant={showNsfwLocked ? "locked" : undefined}
-              className={compact
-                ? `w-full h-full object-contain ${showNsfwLocked ? "blur-xl scale-105" : ""}`
-                : `w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 ${showNsfwLocked ? "blur-xl scale-105" : "hover:scale-[1.01]"}`}
+              className={
+                compact
+                  ? `w-full h-full object-contain ${
+                      showNsfwLocked || !walletConnected ? "blur-xl scale-105" : ""
+                    }`
+                  : `w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 ${
+                      showNsfwLocked || !walletConnected ? "blur-xl scale-105" : "hover:scale-[1.01]"
+                    }`
+              }
             />
+          )}
+
+          {/* Wallet not connected hint over blurred media */}
+          {!walletConnected && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="px-3 py-1.5 rounded-full bg-black/70 border border-white/20 text-[11px] font-medium text-white/80">
+                Connect wallet to view clearly
+              </div>
+            </div>
           )}
 
           <div className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none bg-gradient-to-t from-black/40 to-transparent" />
