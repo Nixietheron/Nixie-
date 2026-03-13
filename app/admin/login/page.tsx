@@ -34,13 +34,21 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7E8EB] flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-[#D27A92]/10 p-8">
+    <div
+      className="min-h-screen flex items-center justify-center p-6"
+      style={{
+        backgroundImage: "url('/bg-leaves.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="w-full max-w-md bg-black/75 rounded-3xl shadow-xl shadow-black/60 p-8 border border-white/15 backdrop-blur-xl">
         <h1 className="text-2xl text-[#5A3D45] mb-2">Nixie Admin</h1>
         <p className="text-sm text-[#8B6B73] mb-6">Sign in to publish content</p>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#5A3D45] mb-1">
+            <label className="block text-sm font-medium text-white/85 mb-1">
               Email
             </label>
             <input
@@ -48,12 +56,12 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full bg-[#F7E8EB] rounded-xl px-4 py-3 text-[#5A3D45] outline-none focus:ring-2 focus:ring-[#D27A92]"
+              className="w-full bg-white/10 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-[#D27A92] placeholder:text-white/40"
               placeholder="admin@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#5A3D45] mb-1">
+            <label className="block text-sm font-medium text-white/85 mb-1">
               Password
             </label>
             <input
@@ -61,7 +69,7 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full bg-[#F7E8EB] rounded-xl px-4 py-3 text-[#5A3D45] outline-none focus:ring-2 focus:ring-[#D27A92]"
+              className="w-full bg-white/10 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-[#D27A92]"
             />
           </div>
           {error && (
