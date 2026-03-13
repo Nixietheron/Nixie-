@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, X, Lock, Menu } from "lucide-react";
+import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, X, Lock, Menu, Loader2 } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { wrapFetchWithPayment } from "@x402/fetch";
@@ -666,16 +666,9 @@ export default function FeedScreen() {
         {/* ─── FEED ─── */}
         <main className="flex-1 w-full max-w-[960px] lg:max-w-[880px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-5">
         {loading ? (
-          <div className={isGrid ? `grid gap-3 lg:gap-5 ${gridCols === 2 ? "grid-cols-2" : gridCols === 3 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}` : "space-y-4 max-w-[420px] sm:max-w-[480px] lg:max-w-[520px] mx-auto"}>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-xl overflow-hidden animate-pulse bg-white/[0.04]">
-                <div className="aspect-[4/5] lg:aspect-[4/3] bg-white/[0.03]" />
-                <div className="p-2.5 space-y-1.5">
-                  <div className="h-2.5 w-24 rounded-full bg-white/[0.06]" />
-                  <div className="h-2 w-14 rounded-full bg-white/[0.04]" />
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <Loader2 className="w-10 h-10 text-anime-pink animate-spin" aria-hidden />
+            <p className="text-white/50 text-sm">Loading feed…</p>
           </div>
         ) : sortedArtworks.length === 0 ? (
           <motion.div

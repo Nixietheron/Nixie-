@@ -570,8 +570,19 @@ export default function AdminPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-anime-night p-4 sm:p-6 text-white">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen relative text-white">
+      {/* Fixed background layer so it always shows (incl. on Vercel) */}
+      <div
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: "url('/bg-leaves.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div className="relative z-10 p-4 sm:p-6">
+      <div className="max-w-2xl mx-auto bg-black/70 rounded-3xl border border-white/15 shadow-xl shadow-black/50 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-black text-white">Nixie Admin</h1>
@@ -1194,6 +1205,7 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
