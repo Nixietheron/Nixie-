@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decodePaymentSignatureHeader, encodePaymentResponseHeader } from "@x402/core/http";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { BASE_CHAIN_ID } from "@/lib/constants";
 import {
-  getFacilitatorClient,
   buildPaymentRequired,
   encodePaymentRequired,
   verifyAndSettle,
@@ -68,29 +66,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ unlocked: true });
   }
 
-  const facilitator = getFacilitatorClient();
   const paymentSignature =
     request.headers.get("payment-signature") ??
     request.headers.get("PAYMENT-SIGNATURE") ??
     request.headers.get("x-payment") ??
     request.headers.get("X-PAYMENT");
 
-  // --- Real x402: CDP facilitator verify + settle ---
-  if (facilitator && paymentSignature) {
+  // --- Real x402: verify + settle (Base/Solana via CDP) ---
+  if (RECIPIENT_WALLET && paymentSignature) {
     try {
       const paymentPayload = decodePaymentSignatureHeader(paymentSignature);
       const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/unlock`;
-      const paymentRequired = buildPaymentRequired({
+      const paymentRequired = await buildPaymentRequired({
         priceUsdc,
         payTo: RECIPIENT_WALLET!,
         resource,
         contentId,
       });
-      const requirement = paymentRequired.accepts[0];
-      if (!requirement) {
+      if (!paymentRequired.accepts.length) {
         return NextResponse.json({ error: "Invalid payment requirements" }, { status: 400 });
       }
-      const settleResult = await verifyAndSettle(paymentPayload, requirement);
+      const settleResult = await verifyAndSettle(paymentPayload, paymentRequired);
       const txFromSettle = (settleResult as { transaction?: string }).transaction;
 
       const admin = createAdminClient();
@@ -117,45 +113,23 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // --- 402: require payment (x402 format when CDP enabled, else legacy) ---
+  // --- 402: require payment (x402 format: Base and/or Avalanche USDC) ---
   if (!txHash) {
     if (RECIPIENT_WALLET) {
-      if (facilitator) {
-        const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/unlock`;
-        const paymentRequired = buildPaymentRequired({
-          priceUsdc,
-          payTo: RECIPIENT_WALLET,
-          resource,
-          contentId,
-        });
-        return NextResponse.json(paymentRequired, {
-          status: 402,
-          headers: {
-            "PAYMENT-REQUIRED": encodePaymentRequired(paymentRequired),
-            "Content-Type": "application/json",
-          },
-        });
-      }
-      return NextResponse.json(
-        {
-          code: 402,
-          message: "Payment Required",
-          payment: {
-            amount: priceUsdc,
-            currency: "USDC",
-            chainId: BASE_CHAIN_ID,
-            recipient: RECIPIENT_WALLET,
-            contentId,
-          },
+      const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/unlock`;
+      const paymentRequired = await buildPaymentRequired({
+        priceUsdc,
+        payTo: RECIPIENT_WALLET,
+        resource,
+        contentId,
+      });
+      return NextResponse.json(paymentRequired, {
+        status: 402,
+        headers: {
+          "PAYMENT-REQUIRED": encodePaymentRequired(paymentRequired),
+          "Content-Type": "application/json",
         },
-        {
-          status: 402,
-          headers: {
-            "X-Payment-Required": "true",
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      });
     }
     const admin = createAdminClient();
     const { error: insertError } = await admin.from("unlocks").insert({
@@ -170,8 +144,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ unlocked: true });
   }
 
-  // When CDP facilitator is enabled, only PAYMENT-SIGNATURE is accepted; txHash is ignored
-  if (facilitator) {
+  // When x402 is used (402 response), only PAYMENT-SIGNATURE is accepted; txHash is ignored
+  if (RECIPIENT_WALLET) {
     return NextResponse.json(
       { error: "Payment must be made via x402 (sign with wallet). Direct transfer is not accepted." },
       { status: 400 }

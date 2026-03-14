@@ -2,18 +2,10 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 
-// SFW panel images — will come from Supabase content table later
-const PANELS = [
-  "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=500&q=90",
-  "https://images.unsplash.com/photo-1609220136736-443140cffec6?w=500&q=90",
-  "https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=500&q=90",
-  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=500&q=90",
-  "https://images.unsplash.com/photo-1541961017774-22349e4a1262?w=500&q=90",
-  "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=500&q=90",
-];
+const HERO_IMAGE = "/2026-03-15%2001.38.51.jpg";
 
 export default function SplashScreen() {
   const [ready, setReady] = useState(false);
@@ -27,32 +19,22 @@ export default function SplashScreen() {
     <div className="min-h-screen w-full relative overflow-hidden" style={{ background: "#0a080c" }}>
 
       {/* ═══════════════════════════════════
-          BACKGROUND — visible art panels
+          BACKGROUND — aynı foto 5 panel yan yana, aynı solukluk
       ════════════════════════════════════ */}
       <div className="absolute inset-0 flex gap-[2px]">
-        {PANELS.map((src, i) => (
+        {[0, 1, 2, 3, 4].map((i) => (
           <motion.div
             key={i}
-            className="relative overflow-hidden"
-            style={{ flex: i === 2 ? "1.4" : "1" }}
-            initial={{ opacity: 0, y: 30 }}
+            className="relative overflow-hidden flex-1"
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{
-              delay: 0.08 * i,
-              duration: 1.4,
-              ease: [0.22, 1, 0.36, 1],
-            }}
+            transition={{ delay: 0.06 * i, duration: 1, ease: [0.22, 1, 0.36, 1] }}
           >
-            {/* Actual artwork */}
             <div
-              className="absolute inset-0 bg-cover bg-center scale-[1.04] hover:scale-100 transition-transform duration-[3000ms]"
-              style={{ backgroundImage: `url(${src})` }}
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${HERO_IMAGE})` }}
             />
-
-            {/* Very light uniform tint so images remain visible */}
             <div className="absolute inset-0" style={{ background: "rgba(10,8,12,0.30)" }} />
-
-            {/* Subtle pink tint hint */}
             <div
               className="absolute inset-0"
               style={{
@@ -60,9 +42,12 @@ export default function SplashScreen() {
                   "linear-gradient(180deg, rgba(210,122,146,0.08) 0%, transparent 60%)",
               }}
             />
-
-            {/* Thin separator line */}
-            <div className="absolute top-0 right-0 bottom-0 w-px" style={{ background: "rgba(210,122,146,0.25)" }} />
+            {i < 4 && (
+              <div
+                className="absolute top-0 right-0 bottom-0 w-px"
+                style={{ background: "rgba(210,122,146,0.2)" }}
+              />
+            )}
           </motion.div>
         ))}
 
@@ -111,10 +96,6 @@ export default function SplashScreen() {
               Nixie — Exclusive Art
             </span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-white/50 text-xs">Base Network</span>
-          </div>
         </motion.div>
 
         {/* Centre — main hero text */}
@@ -161,43 +142,19 @@ export default function SplashScreen() {
                 transition={{ delay: 0.65, duration: 0.8 }}
                 className="text-white/55 text-base sm:text-[17px] leading-[1.65] mb-8 max-w-sm"
               >
-                I&apos;m Nixie — a digital anime artist. Browse SFW previews
-                for free, then unlock the full artwork with USDC on Base.
-                Every drop is exclusive.
+                I&apos;m Nixie — a digital anime artist. Browse previews for free,
+                then unlock the full artwork with USDC. Every drop is exclusive.
               </motion.p>
             )}
           </AnimatePresence>
 
-          {/* Stats row */}
+          {/* CTA — sadece Enter Gallery */}
           <AnimatePresence>
             {ready && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.75, duration: 0.7 }}
-                className="flex items-center gap-6 mb-9"
-              >
-                {[
-                  { value: "USDC", label: "Payment" },
-                  { value: "IPFS", label: "Storage" },
-                  { value: "Free", label: "Preview" },
-                ].map((s) => (
-                  <div key={s.label} className="flex flex-col">
-                    <span className="text-white font-bold text-lg leading-none">{s.value}</span>
-                    <span className="text-white/35 text-[11px] mt-1 tracking-wide">{s.label}</span>
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* CTA buttons */}
-          <AnimatePresence>
-            {ready && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.85, duration: 0.7 }}
                 className="flex items-center gap-3"
               >
                 <Link href="/feed">
@@ -208,17 +165,6 @@ export default function SplashScreen() {
                   >
                     Enter Gallery
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
-                </Link>
-
-                <Link href="/feed">
-                  <motion.button
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="flex items-center gap-2 px-6 py-3.5 rounded-2xl border border-white/15 text-white/60 hover:text-white hover:border-white/30 text-[15px] font-medium transition-all duration-200 backdrop-blur-sm"
-                  >
-                    <Sparkles className="w-4 h-4 text-[#D27A92]" />
-                    Free Preview
                   </motion.button>
                 </Link>
               </motion.div>
@@ -232,21 +178,9 @@ export default function SplashScreen() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 1.1, duration: 0.9 }}
-              className="flex items-center justify-between"
+              transition={{ delay: 1, duration: 0.9 }}
+              className="flex items-center justify-end"
             >
-              <div className="flex items-center gap-3">
-                {["Base", "x402", "IPFS", "USDC"].map((tag, i) => (
-                  <span
-                    key={tag}
-                    className="text-[11px] text-white/25 border border-white/08 rounded-full px-3 py-1"
-                    style={{ borderColor: "rgba(255,255,255,0.08)" }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
               <div className="hidden sm:flex items-center gap-2 text-white/20 text-xs">
                 <span>Scroll to explore</span>
                 <div className="w-8 h-px bg-white/15" />
@@ -256,27 +190,6 @@ export default function SplashScreen() {
         </AnimatePresence>
       </div>
 
-      {/* Panel count badge (top-right on images) */}
-      <AnimatePresence>
-        {ready && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 1.2, duration: 0.6 }}
-            className="absolute top-10 right-8 z-30 hidden sm:flex flex-col items-end gap-1"
-          >
-            <div
-              className="px-3 py-1.5 rounded-xl backdrop-blur-md text-xs font-semibold text-[#D27A92]"
-              style={{
-                background: "rgba(210,122,146,0.12)",
-                border: "1px solid rgba(210,122,146,0.25)",
-              }}
-            >
-              SFW Preview
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

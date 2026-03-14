@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Artwork } from "@/lib/types";
 import { ipfsProxyUrl } from "@/lib/constants";
 import { ImageWithFallback } from "./image-with-fallback";
-import { UnlockModal } from "./unlock-modal";
+import { UnlockModal, type PaymentNetwork } from "./unlock-modal";
 import { CommentsPanel, CommentDisplay } from "./comments-panel";
 
 interface ArtworkCardProps {
@@ -14,13 +14,23 @@ interface ArtworkCardProps {
   comments: CommentDisplay[];
   onLike?: (contentId: string, currentlyLiked: boolean) => void | Promise<void>;
   onUnlock?: () => void;
-  /** Called when user pays to unlock; receives contentId and which type (nsfw | animated) */
-  onUnlockPayment?: (contentId: string, unlockType: "nsfw" | "animated") => void | Promise<void>;
+  /** Called when user pays to unlock; receives contentId, unlockType, and payment network (base/solana). */
+  onUnlockPayment?: (contentId: string, unlockType: "nsfw" | "animated", paymentNetwork: PaymentNetwork) => void | Promise<void>;
+  /** When true, "Pay with Solana" is enabled in the unlock modal. */
+  solanaWalletConnected?: boolean;
+  /** Called when user clicks "Connect Solana wallet" in the unlock modal. */
+  onConnectSolanaClick?: () => void;
+  /** When true, Base (EVM) wallet is connected and on Base network (ready for x402). */
+  baseWalletReady?: boolean;
+  /** When true, an EVM wallet is connected (to show "switch network" vs "connect" in modal). */
+  baseWalletConnected?: boolean;
   onSubmitComment?: (text: string) => Promise<void>;
   onNewComment?: (contentId: string, comment: CommentDisplay) => void;
   walletDisplay?: string;
-  /** Full wallet address for protected NSFW image URL (required for paid unlock) */
+  /** Full wallet address for protected NSFW image URL (required for paid unlock). Used for display/comment. */
   walletAddress?: string | null;
+  /** All connected wallets (Base + Solana) for image unlock check; if set, used in ipfs-image URL so either wallet can load. */
+  walletAddresses?: string[];
   compact?: boolean;
 }
 
@@ -54,6 +64,11 @@ export function ArtworkCard({
   onNewComment,
   walletDisplay,
   walletAddress,
+  walletAddresses,
+  solanaWalletConnected = false,
+  onConnectSolanaClick,
+  baseWalletReady = false,
+  baseWalletConnected = false,
   compact = false,
 }: ArtworkCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => getInitialViewMode(artwork));
@@ -72,12 +87,12 @@ export function ArtworkCard({
     onLike?.(artwork.id, isLiked);
   };
 
-  const handleUnlock = async () => {
+  const handleUnlock = async (paymentNetwork: PaymentNetwork) => {
     setUnlockError(null);
     if (onUnlockPayment) {
       setUnlockLoading(true);
       try {
-        await onUnlockPayment(artwork.id, unlockTypeToPay);
+        await onUnlockPayment(artwork.id, unlockTypeToPay, paymentNetwork);
         setShowUnlockModal(false);
         onUnlock?.();
       } catch (e) {
@@ -105,13 +120,14 @@ export function ArtworkCard({
   const showAnimatedLocked = showAnimated && !artwork.animatedVersion;
   const showAnimatedUnlocked = showAnimated && !!artwork.animatedVersion;
   const rawImageSrc = showSfw ? artwork.sfwPreview : showAnimatedUnlocked ? artwork.animatedVersion : artwork.nsfwFull;
+  const walletQuery =
+    (walletAddresses?.length ? walletAddresses.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null) ??
+    (walletAddress ? `wallet=${encodeURIComponent(walletAddress)}` : null);
   const imageSrc = showSfw
     ? (rawImageSrc?.includes("/ipfs/") ? ipfsProxyUrl(rawImageSrc) || rawImageSrc : rawImageSrc || "")
     : showAnimatedUnlocked
-      ? (rawImageSrc || "") + (walletAddress ? `&wallet=${encodeURIComponent(walletAddress)}` : "")
-      : (rawImageSrc
-          ? rawImageSrc + (walletAddress ? `&wallet=${encodeURIComponent(walletAddress)}` : "")
-          : "");
+      ? (rawImageSrc || "") + (walletQuery ? `&${walletQuery}` : "")
+      : (rawImageSrc ? rawImageSrc + (walletQuery ? `&${walletQuery}` : "") : "");
 
   return (
     <>
@@ -124,7 +140,7 @@ export function ArtworkCard({
       >
         <div
           className={`relative overflow-hidden bg-[#0f0d14] ${
-            compact ? "aspect-square flex items-center justify-center" : "min-h-[200px]"
+            compact ? "aspect-square flex items-center justify-center" : "aspect-[3/4] min-h-[280px] flex items-center justify-center"
           }`}
         >
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-black/20" />
@@ -156,7 +172,7 @@ export function ArtworkCard({
                   className={
                     compact
                       ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
-                      : `w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 ${
+                      : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
                           walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
                         }`
                   }
@@ -170,7 +186,7 @@ export function ArtworkCard({
                   className={
                     compact
                       ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
-                      : `w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 ${
+                      : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
                           walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
                         }`
                   }
@@ -187,7 +203,7 @@ export function ArtworkCard({
                   ? `w-full h-full object-contain ${
                       showNsfwLocked || !walletConnected ? "blur-xl scale-105" : ""
                     }`
-                  : `w-full h-auto max-h-[80vh] object-contain block transition-all duration-500 ${
+                  : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
                       showNsfwLocked || !walletConnected ? "blur-xl scale-105" : "hover:scale-[1.01]"
                     }`
               }
@@ -281,17 +297,26 @@ export function ArtworkCard({
         {/* ── FOOTER ── */}
         <div className={compact ? "p-2" : "p-3 sm:p-3.5"}>
 
-          {/* SFW / NSFW / Animated toggle buttons */}
-          <div className="flex gap-1.5 mb-2">
+          {/* SFW / NSFW / Animated toggle buttons — selected = pink */}
+          <div className="flex gap-1.5 mb-2 p-0.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
             {artwork.sfwPreview && (
               <button
                 type="button"
                 onClick={() => setViewMode("sfw")}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
                   viewMode === "sfw"
-                    ? "bg-white/12 text-white border border-white/20"
-                    : "bg-white/5 text-white/50 border border-white/10 hover:text-white/70"
+                    ? "text-white shadow-sm"
+                    : "text-white/50 hover:text-white/75"
                 }`}
+                style={
+                  viewMode === "sfw"
+                    ? {
+                        background: "linear-gradient(180deg, rgba(210,122,146,0.35) 0%, rgba(210,122,146,0.18) 100%)",
+                        border: "1px solid rgba(210,122,146,0.5)",
+                        boxShadow: "0 1px 0 0 rgba(255,255,255,0.08) inset",
+                      }
+                    : { border: "1px solid transparent", background: "transparent" }
+                }
               >
                 SFW
               </button>
@@ -300,13 +325,22 @@ export function ArtworkCard({
               <button
                 type="button"
                 onClick={() => setViewMode("nsfw")}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 ${
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
                   viewMode === "nsfw"
-                    ? "bg-[#D27A92]/20 text-[#D27A92] border border-[#D27A92]/40"
-                    : "bg-white/5 text-white/50 border border-white/10 hover:text-white/70"
+                    ? "text-white shadow-sm"
+                    : "text-white/50 hover:text-white/75"
                 }`}
+                style={
+                  viewMode === "nsfw"
+                    ? {
+                        background: "linear-gradient(180deg, rgba(210,122,146,0.35) 0%, rgba(210,122,146,0.18) 100%)",
+                        border: "1px solid rgba(210,122,146,0.5)",
+                        boxShadow: "0 1px 0 0 rgba(255,255,255,0.08) inset",
+                      }
+                    : { border: "1px solid transparent", background: "transparent" }
+                }
               >
-                {!nsfwUnlocked && <Lock className="w-3.5 h-3.5" />}
+                {!nsfwUnlocked && <Lock className="w-3.5 h-3.5 opacity-80" />}
                 NSFW
               </button>
             )}
@@ -314,11 +348,20 @@ export function ArtworkCard({
               <button
                 type="button"
                 onClick={() => setViewMode("animated")}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1 ${
+                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${
                   viewMode === "animated"
-                    ? "bg-anime-lavender/20 text-anime-lavender border border-anime-lavender/40"
-                    : "bg-white/5 text-white/50 border border-white/10 hover:text-white/70"
+                    ? "text-white shadow-sm"
+                    : "text-white/50 hover:text-white/75"
                 }`}
+                style={
+                  viewMode === "animated"
+                    ? {
+                        background: "linear-gradient(180deg, rgba(210,122,146,0.35) 0%, rgba(210,122,146,0.18) 100%)",
+                        border: "1px solid rgba(210,122,146,0.5)",
+                        boxShadow: "0 1px 0 0 rgba(255,255,255,0.08) inset",
+                      }
+                    : { border: "1px solid transparent", background: "transparent" }
+                }
               >
                 <Play className="w-3 h-3" />
                 Animated
@@ -380,14 +423,14 @@ export function ArtworkCard({
             </div>
             {((viewMode === "sfw" && artwork.sfwPreview) || (viewMode === "nsfw" && nsfwUnlocked) || (viewMode === "animated" && !!artwork.animatedVersion)) && (
               <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => { setFullscreenViewMode(viewMode); setShowFullscreenImage(true); }}
-                className="flex items-center gap-1.5 rounded-xl font-medium text-xs px-3 py-1.5"
+                className="flex items-center gap-2 rounded-xl font-semibold text-xs px-3.5 py-2 text-white"
                 style={{
-                  background: isFree ? "rgba(59,130,246,0.12)" : "rgba(52,211,153,0.1)",
-                  border: "1px solid rgba(52,211,153,0.25)",
-                  color: "rgb(52,211,153)",
+                  background: "linear-gradient(135deg, rgba(210,122,146,0.45) 0%, rgba(225,161,176,0.3) 50%, rgba(210,122,146,0.35) 100%)",
+                  border: "1px solid rgba(210,122,146,0.55)",
+                  boxShadow: "0 1px 0 0 rgba(255,255,255,0.12) inset, 0 2px 8px rgba(210,122,146,0.2)",
                 }}
               >
                 <Eye className="w-3.5 h-3.5" />
@@ -410,6 +453,10 @@ export function ArtworkCard({
           onUnlock={handleUnlock}
           isLoading={unlockLoading}
           error={unlockError}
+          solanaWalletConnected={solanaWalletConnected}
+          onConnectSolanaClick={onConnectSolanaClick}
+          baseWalletReady={baseWalletReady}
+          baseWalletConnected={baseWalletConnected}
         />
       )}
 
@@ -449,7 +496,7 @@ export function ArtworkCard({
               {fullscreenViewMode === "animated" && artwork.animatedVersion ? (
                 <>
                   <video
-                    src={artwork.animatedVersion + (walletAddress ? `&wallet=${encodeURIComponent(walletAddress)}` : "")}
+                    src={artwork.animatedVersion + (walletQuery ? `&${walletQuery}` : "")}
                     autoPlay
                     loop
                     muted
@@ -459,7 +506,7 @@ export function ArtworkCard({
                 </>
               ) : fullscreenViewMode === "nsfw" && artwork.nsfwFull ? (
                 <ImageWithFallback
-                  src={artwork.nsfwFull + (walletAddress ? `&wallet=${encodeURIComponent(walletAddress)}` : "")}
+                  src={artwork.nsfwFull + (walletQuery ? `&${walletQuery}` : "")}
                   alt={artwork.title || "Full artwork"}
                   className="max-w-full max-h-[88vh] w-auto h-auto object-contain rounded-xl"
                 />

@@ -1,18 +1,25 @@
 "use client";
 
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useState, useRef, useEffect } from "react";
+
+type OpenMenu = "evm" | "solana" | null;
 
 export function ConnectButton() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
-  const { disconnect } = useDisconnect();
-  const [open, setOpen] = useState(false);
+  const { openConnectModal } = useConnectModal();
+  const { disconnect: disconnectEvm } = useDisconnect();
+  const solana = useWallet();
+  const { setVisible: setSolanaModalVisible } = useWalletModal();
+  const [open, setOpen] = useState<OpenMenu>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(null);
     }
     if (open) {
       document.addEventListener("mousedown", handleClickOutside);
@@ -20,56 +27,110 @@ export function ConnectButton() {
     }
   }, [open]);
 
-  const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
+  const evmShort = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
+  const solanaShort =
+    solana.publicKey
+      ? `${solana.publicKey.toBase58().slice(0, 4)}…${solana.publicKey.toBase58().slice(-4)}`
+      : "";
 
-  if (isConnected && address) {
-    return (
-      <div className="relative" ref={menuRef}>
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors"
-          style={{
-            background: "rgba(255,255,255,0.08)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            color: "rgba(255,255,255,0.9)",
-          }}
-        >
-          <div className="w-6 h-6 rounded-full bg-anime-pink/50" />
-          <span className="hidden sm:inline font-mono">{short}</span>
-        </button>
-        {open && (
-          <div
-            className="absolute right-0 top-full mt-1 py-1 rounded-xl shadow-xl z-50 min-w-[160px]"
-            style={{
-              background: "#131115",
-              border: "1px solid rgba(255,255,255,0.1)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => { disconnect(); setOpen(false); }}
-              className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
-            >
-              Disconnect
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const handleDisconnectEvm = () => {
+    disconnectEvm();
+    setOpen(null);
+  };
 
-  const injected = connectors.find((c) => c.id === "injected" || c.type === "injected");
-  const connector = injected ?? connectors[0];
+  const handleDisconnectSolana = () => {
+    solana.disconnect();
+    setOpen(null);
+  };
+
+  const pillStyle = {
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    color: "rgba(255,255,255,0.9)",
+  };
+  const dropdownStyle = {
+    background: "#131115",
+    border: "1px solid rgba(255,255,255,0.1)",
+  };
 
   return (
-    <button
-      type="button"
-      onClick={() => connector && connect({ connector })}
-      disabled={!connector || isPending}
-      className="px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 bg-anime-pink/20 border border-anime-pink/40 text-anime-pink hover:bg-anime-pink/30 hover:shadow-anime-soft"
-    >
-      {isPending ? "Connecting…" : "Connect Wallet"}
-    </button>
+    <div className="flex flex-col gap-2 w-full min-w-0" ref={menuRef}>
+      {/* ─── EVM (Base/Avalanche) ─── */}
+      {isConnected && address ? (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => (o === "evm" ? null : "evm"))}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors w-full text-left"
+            style={pillStyle}
+          >
+            <div className="w-5 h-5 rounded-full bg-anime-pink/50 flex-shrink-0" />
+            <span className="font-mono truncate">{evmShort}</span>
+            <span className="text-[10px] text-white/50 ml-auto flex-shrink-0">EVM</span>
+          </button>
+          {open === "evm" && (
+            <div
+              className="absolute left-0 right-0 bottom-full mb-1 py-1 rounded-xl shadow-xl z-50 min-w-[140px]"
+              style={dropdownStyle}
+            >
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); handleDisconnectEvm(); }}
+                className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
+              >
+                Disconnect EVM
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => openConnectModal?.()}
+          disabled={!openConnectModal}
+          className="px-3 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50 bg-anime-pink/20 border border-anime-pink/40 text-anime-pink hover:bg-anime-pink/30 hover:shadow-anime-soft w-full"
+        >
+          Connect EVM
+        </button>
+      )}
+
+      {/* ─── Solana ─── */}
+      {solana.connected && solana.publicKey ? (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => (o === "solana" ? null : "solana"))}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors w-full text-left"
+            style={pillStyle}
+          >
+            <div className="w-5 h-5 rounded-full bg-[#9945FF]/50 flex-shrink-0" />
+            <span className="font-mono truncate">{solanaShort}</span>
+            <span className="text-[10px] text-white/50 ml-auto flex-shrink-0">SOL</span>
+          </button>
+          {open === "solana" && (
+            <div
+              className="absolute left-0 right-0 bottom-full mb-1 py-1 rounded-xl shadow-xl z-50 min-w-[140px]"
+              style={dropdownStyle}
+            >
+              <button
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); handleDisconnectSolana(); }}
+                className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
+              >
+                Disconnect Solana
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setSolanaModalVisible(true)}
+          className="px-3 py-2 rounded-xl text-sm font-medium transition-all bg-[#9945FF]/20 border border-[#9945FF]/40 text-[#9945FF] hover:bg-[#9945FF]/30 hover:shadow-md w-full"
+        >
+          Connect Solana
+        </button>
+      )}
+    </div>
   );
 }

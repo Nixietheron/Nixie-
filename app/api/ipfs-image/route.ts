@@ -11,7 +11,14 @@ function isValidCid(cid: string): boolean {
 export async function GET(request: NextRequest) {
   const contentId = request.nextUrl.searchParams.get("contentId");
   const cidParam = request.nextUrl.searchParams.get("cid");
-  const wallet = request.nextUrl.searchParams.get("wallet") ?? null;
+  const walletMultiple = request.nextUrl.searchParams.getAll("wallet").filter(Boolean);
+  const walletParam = request.nextUrl.searchParams.get("wallet") ?? null;
+  const wallets =
+    walletMultiple.length > 0
+      ? walletMultiple
+      : walletParam
+        ? walletParam.split(",").map((w) => w.trim()).filter(Boolean)
+        : null;
   const type = request.nextUrl.searchParams.get("type"); // "animated" | undefined (nsfw)
 
   let cid: string | null = null;
@@ -23,11 +30,11 @@ export async function GET(request: NextRequest) {
     }
     cid = cidParam;
   } else if (contentId) {
-    // Protected: ?contentId=...&wallet=... [&type=animated]
+    // Protected: ?contentId=...&wallet=... [&type=animated]. wallet can be comma-separated (Base + Solana).
     if (type === "animated") {
-      cid = await getAnimatedCidIfAllowed(wallet, contentId);
+      cid = await getAnimatedCidIfAllowed(wallets, contentId);
     } else {
-      cid = await getNsfwCidIfAllowed(wallet, contentId);
+      cid = await getNsfwCidIfAllowed(wallets, contentId);
     }
     if (!cid) {
       return new NextResponse(null, { status: 403 });

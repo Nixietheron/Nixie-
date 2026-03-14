@@ -4,7 +4,7 @@ import { contentToArtwork } from "@/lib/types";
 import type { ContentRow, StoryRow } from "@/lib/types";
 import type { CommentDisplay } from "@/components/nixie/comments-panel";
 
-export async function getContentWithCounts(wallet: string | undefined) {
+export async function getContentWithCounts(wallet: string | string[] | undefined) {
   const supabase = await createServerSupabase();
 
   const { data: contentRows, error: contentError } = await supabase
@@ -17,10 +17,13 @@ export async function getContentWithCounts(wallet: string | undefined) {
   }
 
   const contentIds = (contentRows as ContentRow[]).map((c) => c.id);
+  const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
 
+  // Unlock'ları service role ile oku: RLS yüzünden satın almış kullanıcılar kilitlenmesin (fiyat güncellense bile).
+  const admin = createAdminClient();
   const [unlocksRes, likesRes, commentsRes] = await Promise.all([
-    wallet
-      ? supabase.from("unlocks").select("content_id, unlock_type").eq("wallet", wallet)
+    wallets.length > 0
+      ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets)
       : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
     supabase.from("likes").select("content_id").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
@@ -59,9 +62,96 @@ export async function getContentWithCounts(wallet: string | undefined) {
   return { artworks, error: null };
 }
 
-/** Returns nsfw_cid only if wallet may access (free content or has unlock). Otherwise null. */
+const TRENDING_DAYS = 7;
+const TRENDING_LIMIT = 8;
+
+/** Trending: content ordered by unlock count in last 7 days. */
+export async function getTrendingArtworks(
+  wallet: string | string[] | undefined,
+  limit: number = TRENDING_LIMIT
+): Promise<{ artworks: import("@/lib/types").Artwork[] }> {
+  const admin = createAdminClient();
+  const supabase = await createServerSupabase();
+  const since = new Date();
+  since.setDate(since.getDate() - TRENDING_DAYS);
+  const sinceIso = since.toISOString();
+
+  const { data: recentUnlocks } = await admin
+    .from("unlocks")
+    .select("content_id")
+    .gte("created_at", sinceIso);
+
+  const countByContent: Record<string, number> = {};
+  (recentUnlocks ?? []).forEach((u) => {
+    countByContent[u.content_id] = (countByContent[u.content_id] ?? 0) + 1;
+  });
+  const sortedIds = Object.entries(countByContent)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id)
+    .slice(0, limit);
+
+  if (sortedIds.length === 0) {
+    return { artworks: [] };
+  }
+
+  const { data: contentRows, error: contentError } = await supabase
+    .from("content")
+    .select("*")
+    .in("id", sortedIds);
+
+  if (contentError || !contentRows?.length) {
+    return { artworks: [] };
+  }
+
+  const order = new Map(sortedIds.map((id, i) => [id, i]));
+  const rows = (contentRows as ContentRow[]).sort(
+    (a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999)
+  );
+  const contentIds = rows.map((c) => c.id);
+  const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+
+  const [unlocksRes, likesRes, commentsRes] = await Promise.all([
+    wallets.length > 0
+      ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets).in("content_id", contentIds)
+      : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
+    supabase.from("likes").select("content_id").in("content_id", contentIds),
+    supabase.from("comments").select("content_id").in("content_id", contentIds),
+  ]);
+
+  const nsfwUnlockedIds = new Set(
+    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "nsfw").map((u) => u.content_id)
+  );
+  const animatedUnlockedIds = new Set(
+    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "animated").map((u) => u.content_id)
+  );
+  const likeCountByContent: Record<string, number> = {};
+  (likesRes.data ?? []).forEach((l) => {
+    likeCountByContent[l.content_id] = (likeCountByContent[l.content_id] ?? 0) + 1;
+  });
+  const commentCountByContent: Record<string, number> = {};
+  (commentsRes.data ?? []).forEach((c) => {
+    commentCountByContent[c.content_id] = (commentCountByContent[c.content_id] ?? 0) + 1;
+  });
+
+  const artworks = rows.map((c) => {
+    const priceUsdc = c.price_usdc ?? 0;
+    const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
+    const nsfwUnlocked = priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
+    const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
+    return contentToArtwork(c, {
+      likes: likeCountByContent[c.id] ?? 0,
+      comments: commentCountByContent[c.id] ?? 0,
+      nsfwUnlocked,
+      animatedUnlocked,
+    });
+  });
+
+  return { artworks };
+}
+
+/** Returns nsfw_cid only if at least one wallet may access (free content or has unlock). Otherwise null. */
 export async function getNsfwCidIfAllowed(
-  wallet: string | null,
+  wallet: string | string[] | null,
   contentId: string
 ): Promise<string | null> {
   const supabase = await createServerSupabase();
@@ -72,20 +162,22 @@ export async function getNsfwCidIfAllowed(
     .single();
   if (error || !row?.nsfw_cid) return null;
   if (row.price_usdc === 0) return row.nsfw_cid;
-  if (!wallet) return null;
-  const { data: unlock } = await supabase
+  const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  if (wallets.length === 0) return null;
+  const admin = createAdminClient();
+  const { data: unlocks } = await admin
     .from("unlocks")
     .select("content_id")
     .eq("content_id", contentId)
-    .eq("wallet", wallet)
     .eq("unlock_type", "nsfw")
-    .maybeSingle();
-  return unlock ? row.nsfw_cid : null;
+    .in("wallet", wallets)
+    .limit(1);
+  return unlocks?.length ? row.nsfw_cid : null;
 }
 
-/** Returns animated_cid only if wallet may access (free or has unlock). Otherwise null. */
+/** Returns animated_cid only if at least one wallet may access (free or has unlock). Otherwise null. */
 export async function getAnimatedCidIfAllowed(
-  wallet: string | null,
+  wallet: string | string[] | null,
   contentId: string
 ): Promise<string | null> {
   const supabase = await createServerSupabase();
@@ -97,15 +189,17 @@ export async function getAnimatedCidIfAllowed(
   if (error || !row?.animated_cid) return null;
   const priceAnimated = Number((row as { price_animated_usdc?: number }).price_animated_usdc ?? 0);
   if (priceAnimated === 0) return row.animated_cid;
-  if (!wallet) return null;
-  const { data: unlock } = await supabase
+  const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  if (wallets.length === 0) return null;
+  const admin = createAdminClient();
+  const { data: unlocks } = await admin
     .from("unlocks")
     .select("content_id")
     .eq("content_id", contentId)
-    .eq("wallet", wallet)
     .eq("unlock_type", "animated")
-    .maybeSingle();
-  return unlock ? row.animated_cid : null;
+    .in("wallet", wallets)
+    .limit(1);
+  return unlocks?.length ? row.animated_cid : null;
 }
 
 export async function getCommentsByContentId(
@@ -258,17 +352,18 @@ export async function getActiveStories(): Promise<StoryRow[]> {
 export type StoryWithUnlock = StoryRow & { unlocked?: boolean };
 
 export async function getActiveStoriesWithUnlock(
-  wallet: string | undefined
+  wallet: string | string[] | undefined
 ): Promise<StoryWithUnlock[]> {
   const stories = await getActiveStories();
-  if (!wallet || stories.length === 0) {
+  const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  if (wallets.length === 0 || stories.length === 0) {
     return stories.map((s) => ({ ...s, unlocked: !s.is_paid }));
   }
-  const supabase = await createServerSupabase();
-  const { data: unlocks } = await supabase
+  const admin = createAdminClient();
+  const { data: unlocks } = await admin
     .from("story_unlocks")
     .select("story_id")
-    .eq("wallet", wallet);
+    .in("wallet", wallets);
   const unlockedSet = new Set((unlocks ?? []).map((u) => u.story_id));
   return stories.map((s) => ({
     ...s,
@@ -317,4 +412,139 @@ export async function deleteStory(id: string) {
   const supabase = createAdminClient();
   const { error } = await supabase.from("stories").delete().eq("id", id);
   return { error };
+}
+
+// ─── Koleksiyon listeleri ────────────────────────────────────────────────────
+
+export type ListRow = { id: string; wallet: string; name: string; created_at: string };
+export type ListItemRow = { list_id: string; content_id: string; created_at: string };
+
+export async function createList(wallet: string, name: string): Promise<{ data: ListRow | null; error: { message: string } | null }> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("lists")
+    .insert({ wallet, name: name.trim() || "New list" })
+    .select("id, wallet, name, created_at")
+    .single();
+  return { data: data as ListRow | null, error: error ? { message: error.message } : null };
+}
+
+export async function getListsByWallet(wallet: string): Promise<ListRow[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from("lists")
+    .select("id, wallet, name, created_at")
+    .eq("wallet", wallet)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return (data ?? []) as ListRow[];
+}
+
+export async function addListItem(listId: string, contentId: string, wallet: string): Promise<{ error: { message: string } | null }> {
+  const supabase = createAdminClient();
+  const { data: list } = await supabase.from("lists").select("wallet").eq("id", listId).single();
+  if (!list || (list as { wallet: string }).wallet !== wallet) {
+    return { error: { message: "List not found or access denied" } };
+  }
+  const { error } = await supabase.from("list_items").upsert(
+    { list_id: listId, content_id: contentId },
+    { onConflict: "list_id,content_id" }
+  );
+  return { error: error ? { message: error.message } : null };
+}
+
+export async function removeListItem(listId: string, contentId: string, wallet: string): Promise<{ error: { message: string } | null }> {
+  const supabase = createAdminClient();
+  const { data: list } = await supabase.from("lists").select("wallet").eq("id", listId).single();
+  if (!list || (list as { wallet: string }).wallet !== wallet) {
+    return { error: { message: "List not found or access denied" } };
+  }
+  const { error } = await supabase
+    .from("list_items")
+    .delete()
+    .eq("list_id", listId)
+    .eq("content_id", contentId);
+  return { error: error ? { message: error.message } : null };
+}
+
+export async function getListWithArtworks(
+  listId: string,
+  wallet: string | string[] | undefined
+): Promise<{ list: ListRow | null; artworks: import("@/lib/types").Artwork[] }> {
+  const supabase = await createServerSupabase();
+  const admin = createAdminClient();
+  const { data: list, error: listError } = await supabase
+    .from("lists")
+    .select("id, wallet, name, created_at")
+    .eq("id", listId)
+    .single();
+  if (listError || !list) return { list: null, artworks: [] };
+  const listRow = list as ListRow;
+  const { data: items } = await supabase
+    .from("list_items")
+    .select("content_id")
+    .eq("list_id", listId)
+    .order("created_at", { ascending: false });
+  const contentIds = (items ?? []).map((i) => (i as { content_id: string }).content_id);
+  if (contentIds.length === 0) return { list: listRow, artworks: [] };
+  const { data: contentRows, error: contentError } = await supabase
+    .from("content")
+    .select("*")
+    .in("id", contentIds);
+  if (contentError || !contentRows?.length) return { list: listRow, artworks: [] };
+  const order = new Map(contentIds.map((id, i) => [id, i]));
+  const rows = (contentRows as ContentRow[]).sort(
+    (a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999)
+  );
+  const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  const [unlocksRes, likesRes, commentsRes] = await Promise.all([
+    wallets.length > 0
+      ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets).in("content_id", contentIds)
+      : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
+    supabase.from("likes").select("content_id").in("content_id", contentIds),
+    supabase.from("comments").select("content_id").in("content_id", contentIds),
+  ]);
+  const nsfwUnlockedIds = new Set(
+    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "nsfw").map((u) => u.content_id)
+  );
+  const animatedUnlockedIds = new Set(
+    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "animated").map((u) => u.content_id)
+  );
+  const likeCountByContent: Record<string, number> = {};
+  (likesRes.data ?? []).forEach((l) => {
+    likeCountByContent[l.content_id] = (likeCountByContent[l.content_id] ?? 0) + 1;
+  });
+  const commentCountByContent: Record<string, number> = {};
+  (commentsRes.data ?? []).forEach((c) => {
+    commentCountByContent[c.content_id] = (commentCountByContent[c.content_id] ?? 0) + 1;
+  });
+  const artworks = rows.map((c) => {
+    const priceUsdc = c.price_usdc ?? 0;
+    const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
+    const nsfwUnlocked = priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
+    const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
+    return contentToArtwork(c, {
+      likes: likeCountByContent[c.id] ?? 0,
+      comments: commentCountByContent[c.id] ?? 0,
+      nsfwUnlocked,
+      animatedUnlocked,
+    });
+  });
+  return { list: listRow, artworks };
+}
+
+export async function getListItemsContentIds(listId: string): Promise<string[]> {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase.from("list_items").select("content_id").eq("list_id", listId);
+  return (data ?? []).map((i) => (i as { content_id: string }).content_id);
+}
+
+export async function deleteList(listId: string, wallet: string): Promise<{ error: { message: string } | null }> {
+  const supabase = createAdminClient();
+  const { data: list } = await supabase.from("lists").select("wallet").eq("id", listId).single();
+  if (!list || (list as { wallet: string }).wallet !== wallet) {
+    return { error: { message: "List not found or access denied" } };
+  }
+  const { error } = await supabase.from("lists").delete().eq("id", listId);
+  return { error: error ? { message: error.message } : null };
 }

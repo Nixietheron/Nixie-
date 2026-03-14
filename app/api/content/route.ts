@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContentWithCounts } from "@/lib/supabase/data";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.json({ artworks: [] });
   }
-  const wallet = request.nextUrl.searchParams.get("wallet") ?? undefined;
+  const walletParam = request.nextUrl.searchParams.get("wallet");
+  const walletMultiple = request.nextUrl.searchParams.getAll("wallet").filter(Boolean);
+  const wallet =
+    walletMultiple.length > 0 ? walletMultiple : walletParam ? walletParam : undefined;
   try {
     const { artworks, error } = await getContentWithCounts(wallet);
     if (error) {

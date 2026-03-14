@@ -2,20 +2,25 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, X, Lock, Menu, Loader2 } from "lucide-react";
+import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, Flame, X, Lock, Loader2, CheckCircle } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { wrapFetchWithPayment } from "@x402/fetch";
 import { x402Client } from "@x402/core/client";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { ExactEvmSchemeV1 } from "@x402/evm/exact/v1/client";
+import { ExactSvmSchemeV1 } from "@x402/svm/exact/v1/client";
+import { address as toSolanaAddress } from "@solana/addresses";
 import { ArtworkCard } from "@/components/nixie";
+import type { PaymentNetwork } from "@/components/nixie/unlock-modal";
 import type { Artwork } from "@/lib/types";
 import type { CommentDisplay } from "@/components/nixie/comments-panel";
-import { ipfsUrl } from "@/lib/constants";
+import { ipfsUrl, X402_CHAIN_IDS, SOLANA_RPC, SOLANA_MAINNET_CAIP2, BASE_CHAIN_ID } from "@/lib/constants";
+import { createWalletAdapterSolanaSigner } from "@/lib/solana-x402-signer";
 import Link from "next/link";
-
-const BASE_CHAIN_ID = 8453;
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 
 type StoryItem = {
   id: string;
@@ -29,22 +34,24 @@ type StoryItem = {
   unlocked?: boolean;
 };
 
-type SortKey = "new" | "old" | "top";
+type SortKey = "new" | "old" | "top" | "trending";
 type LayoutKey = "list" | "2" | "3" | "4";
 
 const SORT_OPTIONS: { key: SortKey; label: string; icon: React.ReactNode }[] = [
   { key: "new", label: "New", icon: <Clock className="w-3.5 h-3.5" /> },
   { key: "old", label: "Old", icon: <Clock className="w-3.5 h-3.5 scale-x-[-1]" /> },
   { key: "top", label: "Top", icon: <TrendingUp className="w-3.5 h-3.5" /> },
+  { key: "trending", label: "Trending", icon: <Flame className="w-3.5 h-3.5" /> },
 ];
 
 const STORY_VIEW_SECONDS = 5;
 
 export default function FeedScreen() {
   const [artworks, setArtworks] = useState<Artwork[]>([]);
+  const [trendingArtworks, setTrendingArtworks] = useState<Artwork[]>([]);
   const [stories, setStories] = useState<StoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [layout, setLayout] = useState<LayoutKey>("list");
+  const [layout, setLayout] = useState<LayoutKey>("2");
   const isGrid = layout !== "list";
   const gridCols = layout === "list" ? 1 : (Number(layout) as 2 | 3 | 4);
   const [sort, setSort] = useState<SortKey>("new");
@@ -54,15 +61,19 @@ export default function FeedScreen() {
   const storyStartTimeRef = useRef<number>(0);
   const storyProgressRef = useRef<number>(0);
   const [storyUnlockingId, setStoryUnlockingId] = useState<string | null>(null);
+  const [storyUnlockError, setStoryUnlockError] = useState<string | null>(null);
   const [scrollY, setScrollY] = useState(0);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showUnlockSuccess, setShowUnlockSuccess] = useState(false);
+  const unlockSuccessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
+  const solanaWallet = useWallet();
+  const { setVisible: setSolanaWalletModalVisible } = useWalletModal();
 
   const fetchWithPayment = useMemo(() => {
-    if (chainId !== BASE_CHAIN_ID) return null;
+    if (!X402_CHAIN_IDS.includes(chainId as (typeof X402_CHAIN_IDS)[number])) return null;
     if (!walletClient?.account || !publicClient) return null;
     const signer = {
       address: walletClient.account.address,
@@ -75,15 +86,40 @@ export default function FeedScreen() {
     return wrapFetchWithPayment(fetch, client);
   }, [chainId, walletClient, publicClient]);
 
+  /** Base (EVM) ready for x402: connected and on Base chain. */
+  const baseWalletReady = !!address && chainId === BASE_CHAIN_ID && !!fetchWithPayment;
+
+  const fetchWithPaymentSolana = useMemo(() => {
+    if (!solanaWallet.publicKey || !solanaWallet.signTransaction) return null;
+    try {
+      const solanaAddress = toSolanaAddress(solanaWallet.publicKey.toBase58());
+      const signer = createWalletAdapterSolanaSigner(solanaAddress, solanaWallet.signTransaction);
+      const svmScheme = new ExactSvmSchemeV1(signer, { rpcUrl: SOLANA_RPC });
+      const client = new x402Client();
+      client.registerV1("solana", svmScheme);
+      client.registerV1(SOLANA_MAINNET_CAIP2, svmScheme);
+      return wrapFetchWithPayment(fetch, client);
+    } catch {
+      return null;
+    }
+  }, [solanaWallet.publicKey, solanaWallet.signTransaction]);
+
+  /** EVM or Solana: used for content/stories fetch and for blur (either connected = show unblurred). */
+  const effectiveWallet = address ?? solanaWallet.publicKey?.toBase58() ?? null;
   const walletDisplay = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
-    : undefined;
+    : solanaWallet.publicKey
+      ? `${solanaWallet.publicKey.toBase58().slice(0, 4)}…${solanaWallet.publicKey.toBase58().slice(-4)}`
+      : undefined;
+
+  const contentWalletParam = useMemo(() => {
+    const list = [...(address ? [address] : []), ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : [])];
+    return list.length ? list.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null;
+  }, [address, solanaWallet.publicKey]);
 
   useEffect(() => {
-    const url = address
-      ? `/api/content?wallet=${encodeURIComponent(address)}`
-      : "/api/content";
-    fetch(url)
+    const url = contentWalletParam ? `/api/content?${contentWalletParam}` : "/api/content";
+    fetch(url, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         setArtworks(Array.isArray(d.artworks) ? d.artworks : []);
@@ -94,19 +130,30 @@ export default function FeedScreen() {
         setArtworks([]);
       })
       .finally(() => setLoading(false));
-  }, [address]);
+  }, [contentWalletParam]);
+
+  const storiesWalletParam = useMemo(() => {
+    const list = [...(address ? [address] : []), ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : [])];
+    return list.length ? list.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null;
+  }, [address, solanaWallet.publicKey]);
 
   useEffect(() => {
-    const url = address
-      ? `/api/stories?wallet=${encodeURIComponent(address)}`
-      : "/api/stories";
-    fetch(url)
+    const url = storiesWalletParam ? `/api/stories?${storiesWalletParam}` : "/api/stories";
+    fetch(url, { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => {
-        setStories(Array.isArray(d.stories) ? d.stories : []);
-      })
+      .then((d) => setStories(Array.isArray(d.stories) ? d.stories : []))
       .catch(() => setStories([]));
-  }, [address]);
+  }, [storiesWalletParam]);
+
+  useEffect(() => {
+    const url = contentWalletParam
+      ? `/api/feed/trending?${contentWalletParam}&limit=20`
+      : "/api/feed/trending?limit=20";
+    fetch(url, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setTrendingArtworks(Array.isArray(d.artworks) ? d.artworks : []))
+      .catch(() => setTrendingArtworks([]));
+  }, [contentWalletParam]);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -114,8 +161,9 @@ export default function FeedScreen() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Reset start time when opening a new story
+  // Reset start time and clear story error when opening a new story
   useEffect(() => {
+    setStoryUnlockError(null);
     if (storyViewerIndex === null || !stories[storyViewerIndex]) return;
     storyStartTimeRef.current = Date.now();
     storyProgressRef.current = 0;
@@ -150,6 +198,10 @@ export default function FeedScreen() {
     return arr;
   }, [artworks, sort]);
 
+  /** Grid shows trending when "Trending" is selected, otherwise sorted main feed. */
+  const displayArtworks = sort === "trending" ? trendingArtworks : sortedArtworks;
+  const displayCount = displayArtworks.length;
+
   const [commentsByArtwork, setCommentsByArtwork] = useState<Record<string, CommentDisplay[]>>({});
 
   const loadComments = (artworkId: string) => {
@@ -165,11 +217,11 @@ export default function FeedScreen() {
   };
 
   const handleSubmitComment = async (artworkId: string, text: string) => {
-    if (!address) return;
+    if (!effectiveWallet) return;
     const res = await fetch("/api/comments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet: address, contentId: artworkId, text }),
+      body: JSON.stringify({ wallet: effectiveWallet, contentId: artworkId, text }),
     });
     const d = await res.json();
     if (d.comment) {
@@ -178,11 +230,11 @@ export default function FeedScreen() {
   };
 
   const handleLike = async (contentId: string, currentlyLiked: boolean) => {
-    if (!address) return;
+    if (!effectiveWallet) return;
     await fetch("/api/like", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet: address, contentId, action: currentlyLiked ? "unlike" : "like" }),
+      body: JSON.stringify({ wallet: effectiveWallet, contentId, action: currentlyLiked ? "unlike" : "like" }),
     });
     setArtworks((prev) =>
       prev.map((a) =>
@@ -191,12 +243,53 @@ export default function FeedScreen() {
     );
   };
 
-  const refetchAfterUnlock = async (artworkId: string, unlockType: "nsfw" | "animated") => {
-    if (!address) return;
-    const r2 = await fetch(`/api/content?wallet=${encodeURIComponent(address)}`);
+  const refetchAfterUnlock = async (
+    artworkId: string,
+    unlockType: "nsfw" | "animated",
+    _wallet: string | null
+  ) => {
+    const param = contentWalletParam ?? (_wallet ? `wallet=${encodeURIComponent(_wallet)}` : null);
+    if (!param) return;
+    const r2 = await fetch(`/api/content?${param}`, { cache: "no-store" });
     const data = await r2.json().catch(() => ({}));
-    if (Array.isArray(data.artworks)) setArtworks(data.artworks);
-    else
+    const markUnlocked = (a: Artwork) =>
+      a.id === artworkId
+        ? {
+            ...a,
+            nsfwUnlocked: unlockType === "nsfw" ? true : (a.nsfwUnlocked ?? false),
+            animatedUnlocked: unlockType === "animated" ? true : (a.animatedUnlocked ?? false),
+            isUnlocked: true,
+          }
+        : a;
+    if (Array.isArray(data.artworks)) {
+      setArtworks(data.artworks.map(markUnlocked));
+    } else {
+      setArtworks((prev) => prev.map(markUnlocked));
+    }
+  };
+
+  const dismissUnlockSuccess = useCallback(() => {
+    if (unlockSuccessTimeoutRef.current) {
+      clearTimeout(unlockSuccessTimeoutRef.current);
+      unlockSuccessTimeoutRef.current = null;
+    }
+    setShowUnlockSuccess(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showUnlockSuccess) return;
+    unlockSuccessTimeoutRef.current = setTimeout(dismissUnlockSuccess, 5000);
+    return () => {
+      if (unlockSuccessTimeoutRef.current) clearTimeout(unlockSuccessTimeoutRef.current);
+    };
+  }, [showUnlockSuccess, dismissUnlockSuccess]);
+
+  const handleUnlockPayment = async (
+    artworkId: string,
+    unlockType: "nsfw" | "animated",
+    paymentNetwork: PaymentNetwork
+  ) => {
+    const onSuccess = () => {
       setArtworks((prev) =>
         prev.map((a) =>
           a.id === artworkId
@@ -209,43 +302,99 @@ export default function FeedScreen() {
             : a
         )
       );
-  };
+      setShowUnlockSuccess(true);
+    };
 
-  const handleUnlockPayment = async (artworkId: string, unlockType: "nsfw" | "animated") => {
-    if (!address) return;
+    if (paymentNetwork === "solana") {
+      if (!solanaWallet.connected || !solanaWallet.publicKey || !fetchWithPaymentSolana) {
+        throw new Error("Connect your Solana wallet (e.g. Phantom) to pay with USDC on Solana.");
+      }
+      const body = JSON.stringify({
+        wallet: solanaWallet.publicKey.toBase58(),
+        contentId: artworkId,
+        unlockType,
+      });
+      const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
+      const res = await fetchWithPaymentSolana("/api/unlock", opts);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? "Unlock failed");
+      if (d.unlocked) {
+        onSuccess();
+        if (solanaWallet.publicKey) await refetchAfterUnlock(artworkId, unlockType, solanaWallet.publicKey.toBase58());
+      }
+      return;
+    }
+    if (!address) {
+      throw new Error("Connect your Base wallet to pay with USDC.");
+    }
     if (!fetchWithPayment) {
       if (chainId !== BASE_CHAIN_ID) {
-        throw new Error("Switch to Base network. x402 signature required for payment.");
+        throw new Error("Switch your wallet to Base network, then try again.");
       }
-      throw new Error("Wallet signature not ready. Refresh the page and try again.");
+      throw new Error("Base wallet not ready. Connect your wallet and refresh the page if needed.");
     }
     const body = JSON.stringify({ wallet: address, contentId: artworkId, unlockType });
     const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
     const res = await fetchWithPayment("/api/unlock", opts);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error ?? "Unlock failed");
-    if (d.unlocked) await refetchAfterUnlock(artworkId, unlockType);
+    if (d.unlocked) {
+      onSuccess();
+      await refetchAfterUnlock(artworkId, unlockType, address);
+    }
   };
 
   const refetchStories = useCallback(() => {
-    const url = address
-      ? `/api/stories?wallet=${encodeURIComponent(address)}`
-      : "/api/stories";
-    return fetch(url)
+    const url = storiesWalletParam ? `/api/stories?${storiesWalletParam}` : "/api/stories";
+    return fetch(url, { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setStories(Array.isArray(d.stories) ? d.stories : []))
       .catch(() => {});
-  }, [address]);
+  }, [storiesWalletParam]);
 
-  const handleStoryUnlock = async (storyId: string) => {
+  type StoryPaymentNetwork = "base" | "solana";
+
+  const handleStoryUnlock = async (storyId: string, paymentNetwork: StoryPaymentNetwork) => {
+    setStoryUnlockError(null);
+    if (paymentNetwork === "solana") {
+      if (!solanaWallet.connected || !solanaWallet.publicKey || !fetchWithPaymentSolana) {
+        setStoryUnlockError("Connect your Solana wallet (e.g. Phantom) to pay.");
+        return;
+      }
+      setStoryUnlockingId(storyId);
+      try {
+        const body = JSON.stringify({
+          wallet: solanaWallet.publicKey.toBase58(),
+          storyId,
+        });
+        const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
+        const res = await fetchWithPaymentSolana("/api/story-unlock", opts);
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error ?? "Unlock failed");
+        if (d.unlocked) {
+          setStories((prev) => prev.map((s) => (s.id === storyId ? { ...s, unlocked: true } : s)));
+          await refetchStories();
+          storyStartTimeRef.current = Date.now();
+          storyProgressRef.current = 0;
+          setStoryProgress(0);
+        }
+      } catch (e) {
+        setStoryUnlockError(e instanceof Error ? e.message : "Unlock failed");
+      } finally {
+        setStoryUnlockingId(null);
+      }
+      return;
+    }
     if (!address) return;
     setStoryUnlockingId(storyId);
     try {
       if (!fetchWithPayment) {
         if (chainId !== BASE_CHAIN_ID) {
-          throw new Error("Switch to Base network. x402 signature required for payment.");
+          setStoryUnlockError("Switch your wallet to Base network, then try again.");
+          return;
         }
-        throw new Error("Wallet signature not ready.");
+        setStoryUnlockError("Base wallet not ready. Connect and refresh if needed.");
+        return;
       }
       const body = JSON.stringify({ wallet: address, storyId });
       const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
@@ -253,16 +402,14 @@ export default function FeedScreen() {
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? "Unlock failed");
       if (d.unlocked) {
-        // Optimistically mark this story as unlocked so the Pay button
-        // never appears again for this user on this story in this session.
-        setStories((prev) =>
-          prev.map((s) => (s.id === storyId ? { ...s, unlocked: true } : s))
-        );
+        setStories((prev) => prev.map((s) => (s.id === storyId ? { ...s, unlocked: true } : s)));
         await refetchStories();
         storyStartTimeRef.current = Date.now();
         storyProgressRef.current = 0;
         setStoryProgress(0);
       }
+    } catch (e) {
+      setStoryUnlockError(e instanceof Error ? e.message : "Unlock failed");
     } finally {
       setStoryUnlockingId(null);
     }
@@ -270,6 +417,35 @@ export default function FeedScreen() {
 
   return (
     <div className="relative min-h-screen font-anime flex flex-col lg:flex-row overflow-hidden">
+      {/* Ödeme başarılı toast — 5 sn veya X ile kapat */}
+      <AnimatePresence>
+        {showUnlockSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl max-w-[90vw]"
+            style={{
+              background: "linear-gradient(135deg, rgba(16,14,20,0.98) 0%, rgba(26,22,28,0.98) 100%)",
+              border: "1px solid rgba(210,122,146,0.4)",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(210,122,146,0.15)",
+            }}
+          >
+            <CheckCircle className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+            <span className="text-white font-medium text-sm">Payment successful — content unlocked</span>
+            <button
+              type="button"
+              onClick={dismissUnlockSuccess}
+              className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/60 hover:text-white"
+              aria-label="Kapat"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Subtle anime orbs in the background */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="anime-orb anime-orb--pink w-[280px] h-[280px] -top-24 left-10 opacity-60" />
@@ -341,7 +517,7 @@ export default function FeedScreen() {
                 <div className="flex gap-2.5 overflow-x-auto scrollbar-hide py-3 px-2 -mx-1 w-full">
                   {stories.map((story, index) => {
                     const isNsfw = !!story.nsfw_cid || (story.is_paid && !story.unlocked);
-                    const walletConnected = !!address;
+                    const walletConnected = !!address || solanaWallet.connected;
                     return (
                       <motion.button
                         key={story.id}
@@ -387,49 +563,41 @@ export default function FeedScreen() {
             ) : (
               <div className="order-1 flex-1" />
             )}
-            <div className="order-2 flex-shrink-0 relative">
-              <button type="button" onClick={() => setMobileMenuOpen((o) => !o)} className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10" aria-label="Menu">
-                <Menu className="w-5 h-5" />
-              </button>
-              <AnimatePresence>
-                {mobileMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" aria-hidden onClick={() => setMobileMenuOpen(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: -4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded-xl py-2 shadow-xl border border-white/10 bg-anime-night-card/98 backdrop-blur-xl"
-                    >
-                      <Link href="/profile" className="block px-4 py-2.5 text-sm text-white/80 hover:text-white hover:bg-white/5" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
-                      <div className="px-3 py-2 border-t border-white/10"><ConnectButton /></div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
           </div>
-          <div className="flex items-center gap-1.5 pb-1.5">
-            {SORT_OPTIONS.map(({ key, label, icon }) => (
-              <motion.button
-                key={key}
-                onClick={() => setSort(key)}
-                whileTap={{ scale: 0.95 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${sort === key ? "text-white" : "text-white/35 hover:text-white/60"}`}
-                style={sort === key ? { background: "rgba(255,107,157,0.2)", border: "1px solid rgba(255,107,157,0.5)" } : { border: "1px solid transparent" }}
-              >
-                {icon}
-                {label}
-              </motion.button>
-            ))}
-            {!loading && artworks.length > 0 && <span className="text-white/20 text-xs tabular-nums ml-1">{artworks.length}</span>}
+          <div className="flex items-center gap-2 pb-1.5">
+            <div className="flex items-center gap-1 rounded-xl p-1 bg-white/[0.04] border border-white/[0.06]">
+              {SORT_OPTIONS.map(({ key, label, icon }) => (
+                <motion.button
+                  key={key}
+                  onClick={() => setSort(key)}
+                  whileTap={{ scale: 0.96 }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    sort === key
+                      ? "text-white shadow-sm"
+                      : "text-white/50 hover:text-white/80"
+                  }`}
+                  style={
+                    sort === key
+                      ? {
+                          background: "linear-gradient(135deg, rgba(210,122,146,0.35) 0%, rgba(225,161,176,0.25) 100%)",
+                          border: "1px solid rgba(210,122,146,0.45)",
+                          boxShadow: "0 0 0 1px rgba(255,255,255,0.06) inset",
+                        }
+                      : { border: "1px solid transparent", background: "transparent" }
+                  }
+                >
+                  {icon}
+                  {label}
+                </motion.button>
+              ))}
+            </div>
+            {!loading && displayCount > 0 && <span className="text-white/25 text-xs tabular-nums ml-0.5">{displayCount}</span>}
           </div>
         </div>
       </header>
 
       {/* ─── WEB: Main content — compact header, full-width feed ─── */}
-      <div className="flex-1 lg:pl-[200px] min-h-screen flex flex-col relative z-10">
+      <div className="flex-1 lg:pl-[200px] min-h-screen flex flex-col relative z-10 pb-20 lg:pb-0">
         {/* Web: One compact row — Stories + Sort inline ─── */}
         <div className="hidden lg:block border-b border-white/[0.04] bg-[#0f0d14]/55 backdrop-blur-md">
           <div className="px-4 py-3 flex items-center justify-between gap-4">
@@ -442,7 +610,7 @@ export default function FeedScreen() {
                 <div className="flex gap-2.5 overflow-x-auto scrollbar-hide py-3 px-3">
                   {stories.map((story, index) => {
                     const isNsfw = !!story.nsfw_cid || (story.is_paid && !story.unlocked);
-                    const walletConnected = !!address;
+                    const walletConnected = !!address || solanaWallet.connected;
                     return (
                       <motion.button
                         key={story.id}
@@ -486,19 +654,32 @@ export default function FeedScreen() {
             ) : (
               <div />
             )}
-            <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
-              {SORT_OPTIONS.map(({ key, label, icon }) => (
-                <motion.button
-                  key={key}
-                  onClick={() => setSort(key)}
-                  whileTap={{ scale: 0.98 }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${sort === key ? "text-white bg-white/10" : "text-white/45 hover:text-white/75"}`}
-                >
-                  {icon}
-                  {label}
-                </motion.button>
-              ))}
-              {!loading && artworks.length > 0 && <span className="text-white/35 text-xs tabular-nums ml-1">{artworks.length}</span>}
+            <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+              <div className="flex items-center gap-0.5 rounded-xl p-1 bg-white/[0.04] border border-white/[0.06]">
+                {SORT_OPTIONS.map(({ key, label, icon }) => (
+                  <motion.button
+                    key={key}
+                    onClick={() => setSort(key)}
+                    whileTap={{ scale: 0.97 }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+                      sort === key ? "text-white" : "text-white/50 hover:text-white/80"
+                    }`}
+                    style={
+                      sort === key
+                        ? {
+                            background: "linear-gradient(135deg, rgba(210,122,146,0.3) 0%, rgba(225,161,176,0.2) 100%)",
+                            border: "1px solid rgba(210,122,146,0.4)",
+                            boxShadow: "0 0 0 1px rgba(255,255,255,0.05) inset",
+                          }
+                        : { border: "1px solid transparent", background: "transparent" }
+                    }
+                  >
+                    {icon}
+                    {label}
+                  </motion.button>
+                ))}
+              </div>
+              {!loading && displayCount > 0 && <span className="text-white/30 text-xs tabular-nums ml-1">{displayCount}</span>}
             </div>
           </div>
         </div>
@@ -636,18 +817,47 @@ export default function FeedScreen() {
                         </div>
                         <p className="text-white/90 font-medium">Paid story</p>
                         <p className="text-white/60 text-sm">${story.price_usdc} USDC to view</p>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStoryUnlock(story.id);
-                          }}
-                          disabled={storyUnlockingId === story.id}
-                          className="px-6 py-3 rounded-xl font-medium text-white transition-colors disabled:opacity-50 shadow-anime-soft"
-                          style={{ background: "linear-gradient(135deg, #D27A92, #D27A92)" }}
-                        >
-                          {storyUnlockingId === story.id ? "Unlocking…" : `Pay $${story.price_usdc} USDC`}
-                        </button>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          {baseWalletReady && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStoryUnlock(story.id, "base");
+                              }}
+                              disabled={storyUnlockingId === story.id}
+                              className="px-5 py-2.5 rounded-xl font-medium text-white transition-colors disabled:opacity-50 shadow-anime-soft text-sm"
+                              style={{ background: "linear-gradient(135deg, #D27A92, #D27A92)" }}
+                            >
+                              {storyUnlockingId === story.id ? "Unlocking…" : "Pay with Base"}
+                            </button>
+                          )}
+                          {solanaWallet.connected && fetchWithPaymentSolana && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStoryUnlock(story.id, "solana");
+                              }}
+                              disabled={storyUnlockingId === story.id}
+                              className="px-5 py-2.5 rounded-xl font-medium text-white transition-colors disabled:opacity-50 text-sm border border-[#9945FF]/50 bg-[#9945FF]/20 hover:bg-[#9945FF]/30"
+                            >
+                              {storyUnlockingId === story.id ? "Unlocking…" : "Pay with Solana"}
+                            </button>
+                          )}
+                          {!baseWalletReady && !(solanaWallet.connected && fetchWithPaymentSolana) && (
+                            <button
+                              type="button"
+                              disabled
+                              className="px-5 py-2.5 rounded-xl font-medium text-white/60 text-sm bg-white/10 cursor-not-allowed"
+                            >
+                              Connect Base or Solana to pay
+                            </button>
+                          )}
+                        </div>
+                        {storyUnlockError && (
+                          <p className="text-red-400 text-xs text-center max-w-xs">{storyUnlockError}</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -670,7 +880,7 @@ export default function FeedScreen() {
             <Loader2 className="w-10 h-10 text-anime-pink animate-spin" aria-hidden />
             <p className="text-white/50 text-sm">Loading feed…</p>
           </div>
-        ) : sortedArtworks.length === 0 ? (
+        ) : displayArtworks.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -683,6 +893,7 @@ export default function FeedScreen() {
             <p className="text-white/25 text-xs text-center max-w-xs">Publish from Admin to get started.</p>
           </motion.div>
         ) : (
+          <>
           <div className={isGrid
             ? `grid gap-3 lg:gap-5 ${
                 gridCols === 2 ? "grid-cols-2" :
@@ -691,7 +902,7 @@ export default function FeedScreen() {
               }`
             : "flex flex-col items-center gap-4 max-w-[420px] sm:max-w-[480px] lg:max-w-[520px] mx-auto"
           }>
-            {sortedArtworks.map((artwork, index) => (
+            {displayArtworks.map((artwork, index) => (
               <motion.div
                 key={artwork.id}
                 initial={{ opacity: 0, y: 16 }}
@@ -703,21 +914,32 @@ export default function FeedScreen() {
                   artwork={artwork}
                   comments={getCommentsForCard(artwork.id)}
                   walletDisplay={walletDisplay}
-                  walletAddress={address ?? undefined}
+                  walletAddress={effectiveWallet ?? undefined}
+                  walletAddresses={[
+                    ...(address ? [address] : []),
+                    ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : []),
+                  ]}
+                  baseWalletReady={baseWalletReady}
+                  baseWalletConnected={!!address}
+                  solanaWalletConnected={solanaWallet.connected}
+                  onConnectSolanaClick={() => setSolanaWalletModalVisible(true)}
                   compact={isGrid}
                   onLike={handleLike}
                   onSubmitComment={(text) => handleSubmitComment(artwork.id, text)}
                   onNewComment={(id, c) =>
                     setCommentsByArtwork((prev) => ({ ...prev, [id]: [...(prev[id] ?? []), c] }))
                   }
-                  onUnlockPayment={(id, unlockType) => handleUnlockPayment(id, unlockType)}
+                  onUnlockPayment={(id, unlockType, paymentNetwork) =>
+                    handleUnlockPayment(id, unlockType, paymentNetwork)
+                  }
                 />
               </motion.div>
             ))}
           </div>
+          </>
         )}
 
-        {!loading && sortedArtworks.length > 0 && (
+        {!loading && displayArtworks.length > 0 && (
           <div className="flex items-center gap-3 py-8 justify-center">
             <div className="h-px flex-1 max-w-8 bg-white/[0.06]" />
             <span className="text-white/20 text-[10px] uppercase tracking-widest">End</span>
@@ -726,6 +948,9 @@ export default function FeedScreen() {
         )}
         </main>
       </div>
+
+      {/* Mobile: fixed bottom navigation (Instagram-style) */}
+      <MobileBottomNav />
     </div>
   );
 }

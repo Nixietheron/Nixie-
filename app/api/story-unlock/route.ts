@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decodePaymentSignatureHeader, encodePaymentResponseHeader } from "@x402/core/http";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { BASE_CHAIN_ID } from "@/lib/constants";
 import {
-  getFacilitatorClient,
   buildPaymentRequired,
   encodePaymentRequired,
   verifyAndSettle,
@@ -58,28 +56,26 @@ export async function POST(request: NextRequest) {
   }
 
   const priceUsdc = Number(story.price_usdc);
-  const facilitator = getFacilitatorClient();
   const paymentSignature =
     request.headers.get("payment-signature") ??
     request.headers.get("PAYMENT-SIGNATURE") ??
     request.headers.get("x-payment") ??
     request.headers.get("X-PAYMENT");
 
-  if (facilitator && paymentSignature) {
+  if (RECIPIENT_WALLET && paymentSignature) {
     try {
       const paymentPayload = decodePaymentSignatureHeader(paymentSignature);
       const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/story-unlock`;
-      const paymentRequired = buildPaymentRequired({
+      const paymentRequired = await buildPaymentRequired({
         priceUsdc,
         payTo: RECIPIENT_WALLET!,
         resource,
         contentId: storyId,
       });
-      const requirement = paymentRequired.accepts[0];
-      if (!requirement) {
+      if (!paymentRequired.accepts.length) {
         return NextResponse.json({ error: "Invalid payment requirements" }, { status: 400 });
       }
-      const settleResult = await verifyAndSettle(paymentPayload, requirement);
+      const settleResult = await verifyAndSettle(paymentPayload, paymentRequired);
 
       const admin = createAdminClient();
       const { error: insertError } = await admin.from("story_unlocks").insert({
@@ -115,41 +111,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ unlocked: true });
   }
 
-  if (facilitator) {
-    const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/story-unlock`;
-    const paymentRequired = buildPaymentRequired({
-      priceUsdc,
-      payTo: RECIPIENT_WALLET,
-      resource,
-      contentId: storyId,
-    });
-    return NextResponse.json(paymentRequired, {
-      status: 402,
-      headers: {
-        "PAYMENT-REQUIRED": encodePaymentRequired(paymentRequired),
-        "Content-Type": "application/json",
-      },
-    });
-  }
-
-  return NextResponse.json(
-    {
-      code: 402,
-      message: "Payment Required",
-      payment: {
-        amount: priceUsdc,
-        currency: "USDC",
-        chainId: BASE_CHAIN_ID,
-        recipient: RECIPIENT_WALLET,
-        storyId,
-      },
+  const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/story-unlock`;
+  const paymentRequired = await buildPaymentRequired({
+    priceUsdc,
+    payTo: RECIPIENT_WALLET,
+    resource,
+    contentId: storyId,
+  });
+  return NextResponse.json(paymentRequired, {
+    status: 402,
+    headers: {
+      "PAYMENT-REQUIRED": encodePaymentRequired(paymentRequired),
+      "Content-Type": "application/json",
     },
-    {
-      status: 402,
-      headers: {
-        "X-Payment-Required": "true",
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  });
 }
