@@ -13,7 +13,7 @@ export async function uploadToPinata(
 
   const formData = new FormData();
   if (Buffer.isBuffer(file)) {
-    formData.append("file", new Blob([file]) as Blob, fileName);
+    formData.append("file", new Blob([new Uint8Array(file)]), fileName);
   } else {
     formData.append("file", file as Blob, fileName);
   }

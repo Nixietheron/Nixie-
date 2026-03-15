@@ -221,33 +221,32 @@ export function ArtworkCard({
 
           <div className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none bg-gradient-to-t from-black/40 to-transparent" />
 
-          {/* Animated badge when Animated is selected (unlocked) */}
+          {/* Badges top-left, small, pink glass */}
           {showAnimatedUnlocked && (
-            <div className="absolute top-2.5 right-2.5">
+            <div className="absolute top-2 left-2">
               <div
-                className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold"
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold"
                 style={{
-                  background: "rgba(184,169,201,0.25)",
-                  border: "1px solid rgba(184,169,201,0.4)",
+                  background: "rgba(210,122,146,0.35)",
+                  border: "1px solid rgba(210,122,146,0.45)",
                   backdropFilter: "blur(6px)",
-                  color: "rgb(200,190,220)",
+                  color: "rgba(255,255,255,0.95)",
                 }}
               >
-                <Play className="w-2.5 h-2.5" />
+                <Play className="w-2 h-2" />
                 Animated
               </div>
             </div>
           )}
-          {/* SFW = free badge when SFW is selected */}
           {showSfw && !showAnimated && (
-            <div className="absolute top-2.5 right-2.5">
+            <div className="absolute top-2 left-2">
               <div
-                className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold"
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold"
                 style={{
-                  background: "rgba(59,130,246,0.2)",
-                  border: "1px solid rgba(59,130,246,0.35)",
+                  background: "rgba(210,122,146,0.35)",
+                  border: "1px solid rgba(210,122,146,0.45)",
                   backdropFilter: "blur(6px)",
-                  color: "rgb(96,165,250)",
+                  color: "rgba(255,255,255,0.95)",
                 }}
               >
                 Free
@@ -255,19 +254,18 @@ export function ArtworkCard({
             </div>
           )}
 
-          {/* NSFW unlocked badge */}
           {showNsfwUnlocked && (
-            <div className="absolute top-2.5 right-2.5">
+            <div className="absolute top-2 left-2">
               <div
-                className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold"
+                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-semibold"
                 style={{
-                  background: isFree ? "rgba(59,130,246,0.2)" : "rgba(16,185,129,0.18)",
-                  border: isFree ? "1px solid rgba(59,130,246,0.35)" : "1px solid rgba(16,185,129,0.35)",
+                  background: isFree ? "rgba(210,122,146,0.35)" : "rgba(210,122,146,0.4)",
+                  border: "1px solid rgba(210,122,146,0.5)",
                   backdropFilter: "blur(6px)",
-                  color: isFree ? "rgb(96,165,250)" : "rgb(52,211,153)",
+                  color: "rgba(255,255,255,0.95)",
                 }}
               >
-                <Unlock className="w-2.5 h-2.5" />
+                <Unlock className="w-2 h-2" />
                 {isFree ? "Free" : "Unlocked"}
               </div>
             </div>
