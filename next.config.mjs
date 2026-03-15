@@ -13,11 +13,14 @@ const nextConfig = {
     ],
   },
   webpack: (config) => {
-    // pnpm/npm: @solana/kit resolves @solana/accounts to kit/node_modules/@solana/accounts which may not exist.
-    // Force resolution to project root node_modules so the build finds the file.
+    // Vercel: use npm (vercel.json installCommand). With pnpm, @solana/accounts can be missing in nested resolution.
+    // Only alias if needed; do not alias @solana/errors or codecs-core (CDP SDK needs nested 5.x).
+    const root = path.resolve(__dirname, "node_modules");
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@solana/accounts": path.resolve(__dirname, "node_modules/@solana/accounts"),
+      "@react-native-async-storage/async-storage": path.join(__dirname, "lib/stubs/async-storage.js"),
+      "@solana/accounts": path.join(root, "@solana/accounts"),
+      "@solana/addresses": path.join(root, "@solana/addresses"),
     };
     return config;
   },

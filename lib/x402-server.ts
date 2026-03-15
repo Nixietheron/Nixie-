@@ -188,8 +188,8 @@ export async function verifyAndSettle(
   if (!baseClient) throw new Error("CDP facilitator not configured.");
 
   const payloadNetwork =
-    typeof (paymentPayload as { network?: string }).network === "string"
-      ? (paymentPayload as { network: string }).network
+    typeof (paymentPayload as unknown as { network?: string }).network === "string"
+      ? (paymentPayload as unknown as { network: string }).network
       : null;
   if (!payloadNetwork) {
     throw new Error("Payment payload missing network.");
