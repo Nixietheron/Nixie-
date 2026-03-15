@@ -178,6 +178,7 @@ export function encodePaymentRequired(paymentRequired: PaymentRequiredV1): strin
 
 /**
  * Verify and settle payment via CDP (Base and Solana).
+ * Only verify/settle with the requirement that matches the payload's network to avoid "network mismatch: base != solana".
  */
 export async function verifyAndSettle(
   paymentPayload: PaymentPayload,
@@ -186,16 +187,28 @@ export async function verifyAndSettle(
   const baseClient = getFacilitatorClient();
   if (!baseClient) throw new Error("CDP facilitator not configured.");
 
-  for (const accept of paymentRequired.accepts) {
-    const network = accept.network as string;
-    if (network !== BASE_NETWORK_V1 && network !== SOLANA_NETWORK_V1) continue;
-
-    const requirement = accept as unknown as PaymentRequirements;
-    const verifyResult = await baseClient.verify(paymentPayload, requirement);
-    if (!verifyResult.isValid) continue;
-
-    return baseClient.settle(paymentPayload, requirement);
+  const payloadNetwork =
+    typeof (paymentPayload as { network?: string }).network === "string"
+      ? (paymentPayload as { network: string }).network
+      : null;
+  if (!payloadNetwork) {
+    throw new Error("Payment payload missing network.");
   }
 
-  throw new Error("Payment verification failed for all networks.");
+  const matchingAccept = paymentRequired.accepts.find(
+    (accept) => (accept.network as string) === payloadNetwork
+  );
+  if (!matchingAccept) {
+    throw new Error(
+      `No payment requirement for network "${payloadNetwork}". Expected one of: ${paymentRequired.accepts.map((a) => a.network).join(", ")}`
+    );
+  }
+
+  const requirement = matchingAccept as unknown as PaymentRequirements;
+  const verifyResult = await baseClient.verify(paymentPayload, requirement);
+  if (!verifyResult.isValid) {
+    throw new Error("Payment verification failed.");
+  }
+
+  return baseClient.settle(paymentPayload, requirement);
 }

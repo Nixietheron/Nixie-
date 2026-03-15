@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
   }
   const unlockType: UnlockType = VALID_UNLOCK_TYPES.includes(rawUnlockType) ? rawUnlockType : "nsfw";
 
+  const admin = createAdminClient();
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("unlocks")
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ unlocked: true, already: true });
   }
 
-  const { data: content } = await supabase
+  const { data: content } = await admin
     .from("content")
     .select("price_usdc, price_animated_usdc")
     .eq("id", contentId)
@@ -53,7 +54,6 @@ export async function POST(request: NextRequest) {
       : Number((content as { price_animated_usdc?: number }).price_animated_usdc ?? 0);
 
   if (priceUsdc <= 0) {
-    const admin = createAdminClient();
     const { error: insertError } = await admin.from("unlocks").insert({
       wallet,
       content_id: contentId,
@@ -89,7 +89,6 @@ export async function POST(request: NextRequest) {
       const settleResult = await verifyAndSettle(paymentPayload, paymentRequired);
       const txFromSettle = (settleResult as { transaction?: string }).transaction;
 
-      const admin = createAdminClient();
       const { error: insertError } = await admin.from("unlocks").insert({
         wallet,
         content_id: contentId,
@@ -131,7 +130,6 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-    const admin = createAdminClient();
     const { error: insertError } = await admin.from("unlocks").insert({
       wallet,
       content_id: contentId,
@@ -152,7 +150,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const admin = createAdminClient();
   const { error } = await admin.from("unlocks").insert({
     wallet,
     content_id: contentId,

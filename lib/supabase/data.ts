@@ -5,9 +5,10 @@ import type { ContentRow, StoryRow } from "@/lib/types";
 import type { CommentDisplay } from "@/components/nixie/comments-panel";
 
 export async function getContentWithCounts(wallet: string | string[] | undefined) {
+  const admin = createAdminClient();
   const supabase = await createServerSupabase();
 
-  const { data: contentRows, error: contentError } = await supabase
+  const { data: contentRows, error: contentError } = await admin
     .from("content")
     .select("*")
     .order("created_at", { ascending: false });
@@ -20,7 +21,6 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
 
   // Unlock'ları service role ile oku: RLS yüzünden satın almış kullanıcılar kilitlenmesin (fiyat güncellense bile).
-  const admin = createAdminClient();
   const [unlocksRes, likesRes, commentsRes] = await Promise.all([
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets)
@@ -94,7 +94,7 @@ export async function getTrendingArtworks(
     return { artworks: [] };
   }
 
-  const { data: contentRows, error: contentError } = await supabase
+  const { data: contentRows, error: contentError } = await admin
     .from("content")
     .select("*")
     .in("id", sortedIds);
@@ -154,8 +154,8 @@ export async function getNsfwCidIfAllowed(
   wallet: string | string[] | null,
   contentId: string
 ): Promise<string | null> {
-  const supabase = await createServerSupabase();
-  const { data: row, error } = await supabase
+  const admin = createAdminClient();
+  const { data: row, error } = await admin
     .from("content")
     .select("nsfw_cid, price_usdc")
     .eq("id", contentId)
@@ -164,7 +164,6 @@ export async function getNsfwCidIfAllowed(
   if (row.price_usdc === 0) return row.nsfw_cid;
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
   if (wallets.length === 0) return null;
-  const admin = createAdminClient();
   const { data: unlocks } = await admin
     .from("unlocks")
     .select("content_id")
@@ -180,8 +179,8 @@ export async function getAnimatedCidIfAllowed(
   wallet: string | string[] | null,
   contentId: string
 ): Promise<string | null> {
-  const supabase = await createServerSupabase();
-  const { data: row, error } = await supabase
+  const admin = createAdminClient();
+  const { data: row, error } = await admin
     .from("content")
     .select("animated_cid, price_animated_usdc")
     .eq("id", contentId)
@@ -191,7 +190,6 @@ export async function getAnimatedCidIfAllowed(
   if (priceAnimated === 0) return row.animated_cid;
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
   if (wallets.length === 0) return null;
-  const admin = createAdminClient();
   const { data: unlocks } = await admin
     .from("unlocks")
     .select("content_id")
@@ -339,8 +337,8 @@ export async function deleteContent(id: string) {
 // ─── Stories ────────────────────────────────────────────────────────────────
 
 export async function getActiveStories(): Promise<StoryRow[]> {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("stories")
     .select("*")
     .gt("expires_at", new Date().toISOString())
@@ -399,8 +397,8 @@ export async function createStory(params: {
 }
 
 export async function getStoriesForAdmin() {
-  const supabase = await createServerSupabase();
-  const { data, error } = await supabase
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("stories")
     .select("*")
     .order("created_at", { ascending: false });
@@ -487,7 +485,7 @@ export async function getListWithArtworks(
     .order("created_at", { ascending: false });
   const contentIds = (items ?? []).map((i) => (i as { content_id: string }).content_id);
   if (contentIds.length === 0) return { list: listRow, artworks: [] };
-  const { data: contentRows, error: contentError } = await supabase
+  const { data: contentRows, error: contentError } = await admin
     .from("content")
     .select("*")
     .in("id", contentIds);

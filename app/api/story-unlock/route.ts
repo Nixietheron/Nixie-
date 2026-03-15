@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const admin = createAdminClient();
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("story_unlocks")
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ unlocked: true, already: true });
   }
 
-  const { data: story } = await supabase
+  const { data: story } = await admin
     .from("stories")
     .select("id, price_usdc, is_paid, expires_at")
     .eq("id", storyId)
@@ -44,7 +45,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Story expired" }, { status: 410 });
   }
   if (!story.is_paid || Number(story.price_usdc) <= 0) {
-    const admin = createAdminClient();
     const { error: insertError } = await admin.from("story_unlocks").insert({
       wallet,
       story_id: storyId,
@@ -77,7 +77,6 @@ export async function POST(request: NextRequest) {
       }
       const settleResult = await verifyAndSettle(paymentPayload, paymentRequired);
 
-      const admin = createAdminClient();
       const { error: insertError } = await admin.from("story_unlocks").insert({
         wallet,
         story_id: storyId,
@@ -100,7 +99,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!RECIPIENT_WALLET) {
-    const admin = createAdminClient();
     const { error: insertError } = await admin.from("story_unlocks").insert({
       wallet,
       story_id: storyId,
