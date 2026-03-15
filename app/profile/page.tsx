@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
-import { Sparkles, User, Wallet, LayoutList, Grid3X3, Loader2, FolderPlus, Plus } from "lucide-react";
+import { Sparkles, User, Wallet, LayoutList, Grid3X3, Loader2, FolderPlus, Plus, MessageCircle, X } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { useAccount } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArtworkCard, AddToListPopover } from "@/components/nixie";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import type { Artwork } from "@/lib/types";
@@ -15,6 +16,7 @@ import type { CommentDisplay } from "@/components/nixie/comments-panel";
 type ListRow = { id: string; wallet: string; name: string; created_at: string };
 
 export default function ProfilePage() {
+  const searchParams = useSearchParams();
   const { address } = useAccount();
   const solanaWallet = useWallet();
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -23,6 +25,12 @@ export default function ProfilePage() {
   const [commentsByArtwork, setCommentsByArtwork] = useState<Record<string, CommentDisplay[]>>({});
   const [newListName, setNewListName] = useState("");
   const [creatingList, setCreatingList] = useState(false);
+  const [showDm, setShowDm] = useState(false);
+  type DmMsg = { id: string; sender_type: "user" | "admin"; body: string; created_at: string };
+  const [dmMessages, setDmMessages] = useState<DmMsg[]>([]);
+  const [dmInput, setDmInput] = useState("");
+  const [dmLoading, setDmLoading] = useState(false);
+  const [dmSending, setDmSending] = useState(false);
 
   type LayoutKey = "list" | "2" | "3" | "4";
   const [layout, setLayout] = useState<LayoutKey>("list");
@@ -82,6 +90,19 @@ export default function ProfilePage() {
       .then((d) => setLists(d.lists ?? []))
       .catch(() => setLists([]));
   }, [effectiveWallet]);
+
+  useEffect(() => {
+    if (searchParams.get("openDm") === "1") setShowDm(true);
+  }, [searchParams]);
+  useEffect(() => {
+    if (!showDm || !effectiveWallet) return;
+    setDmLoading(true);
+    fetch(`/api/dms?wallet=${encodeURIComponent(effectiveWallet)}`)
+      .then((r) => r.json())
+      .then((d) => setDmMessages(d.messages ?? []))
+      .catch(() => setDmMessages([]))
+      .finally(() => setDmLoading(false));
+  }, [showDm, effectiveWallet]);
 
   const handleCreateList = async () => {
     if (!effectiveWallet) return;
@@ -146,6 +167,14 @@ export default function ProfilePage() {
             <div className="w-4 h-4 rounded-full bg-anime-lavender/40 flex items-center justify-center text-[10px] font-semibold text-anime-lavender flex-shrink-0">P</div>
             Profile
           </Link>
+          <button
+            type="button"
+            onClick={() => setShowDm(true)}
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors w-full"
+          >
+            <MessageCircle className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
+            Message Nixie
+          </button>
         </nav>
         <div className="p-2.5 border-t border-white/[0.06]">
           <ConnectButton />
@@ -235,6 +264,18 @@ export default function ProfilePage() {
               ) : (
                 <p className="text-white/25 text-xs">No lists yet. Create one above, then add unlocked content from your collection to lists.</p>
               )}
+            </section>
+
+            <section className="mb-8">
+              <button
+                type="button"
+                onClick={() => setShowDm(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-white/80 hover:text-white hover:bg-white/[0.08] border border-white/10 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4 text-anime-pink/80" />
+                Message Nixie
+              </button>
+              <p className="text-white/25 text-xs mt-1.5">Feedback, requests, or anything private. Only Nixie admin sees and can reply.</p>
             </section>
 
             {artworks.length === 0 ? (
@@ -348,13 +389,99 @@ export default function ProfilePage() {
                 </div>
               </>
             )}
+
+            {/* Message Nixie modal */}
+            {showDm && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+                onClick={() => setShowDm(false)}
+              >
+                <div
+                  className="bg-[#16131f] rounded-2xl border border-white/20 w-full max-w-md max-h-[85vh] flex flex-col shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <h3 className="font-semibold text-white/90 flex items-center gap-2">
+                      <MessageCircle className="w-4 h-4 text-anime-pink/80" />
+                      Message Nixie
+                    </h3>
+                    <button type="button" onClick={() => setShowDm(false)} className="text-white/50 hover:text-white p-1">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-white/50 px-4 pb-2">Private. Only Nixie admin sees and can reply.</p>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[300px]">
+                    {dmLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="w-6 h-6 text-anime-pink animate-spin" />
+                      </div>
+                    ) : dmMessages.length === 0 ? (
+                      <p className="text-white/40 text-sm">No messages yet. Say hi or send feedback.</p>
+                    ) : (
+                      dmMessages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={`rounded-xl px-3 py-2 text-sm ${
+                            m.sender_type === "admin"
+                              ? "bg-anime-pink/15 border border-anime-pink/30"
+                              : "bg-white/10 border border-white/15"
+                          }`}
+                        >
+                          <p className="text-[10px] text-white/50 mb-0.5">
+                            {m.sender_type === "admin" ? "Nixie" : "You"} · {new Date(m.created_at).toLocaleString()}
+                          </p>
+                          <p className="text-white/90 whitespace-pre-wrap">{m.body}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <form
+                    className="p-4 border-t border-white/10 flex gap-2"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!dmInput.trim() || !effectiveWallet) return;
+                      setDmSending(true);
+                      try {
+                        const res = await fetch("/api/dms", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ wallet: effectiveWallet, message: dmInput.trim() }),
+                        });
+                        const d = await res.json();
+                        if (res.ok && d.messages) {
+                          setDmMessages(d.messages);
+                          setDmInput("");
+                        }
+                      } finally {
+                        setDmSending(false);
+                      }
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={dmInput}
+                      onChange={(e) => setDmInput(e.target.value)}
+                      placeholder="Type a message…"
+                      className="flex-1 bg-white/[0.06] rounded-xl px-4 py-3 text-white placeholder-white/40 outline-none focus:ring-2 focus:ring-anime-pink/50 text-sm border border-white/10"
+                    />
+                    <button
+                      type="submit"
+                      disabled={dmSending || !dmInput.trim()}
+                      className="px-4 py-3 rounded-xl text-sm font-medium text-white bg-anime-pink/80 hover:bg-anime-pink disabled:opacity-50"
+                    >
+                      {dmSending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
           </>
         )}
         </div>
       </main>
 
       {/* Mobile: fixed bottom navigation */}
-      <MobileBottomNav />
+      <MobileBottomNav onMessageNixieClick={() => setShowDm(true)} />
     </div>
   );
 }

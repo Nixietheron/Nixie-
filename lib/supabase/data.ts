@@ -546,3 +546,109 @@ export async function deleteList(listId: string, wallet: string): Promise<{ erro
   const { error } = await supabase.from("lists").delete().eq("id", listId);
   return { error: error ? { message: error.message } : null };
 }
+
+// ─── DMs (Message Nixie): only admin sees all; user sees only own thread ─────
+
+export type DmThreadRow = { id: string; user_wallet: string; created_at: string; updated_at: string };
+export type DmMessageRow = { id: string; thread_id: string; sender_type: "user" | "admin"; body: string; created_at: string };
+
+/** Get or create the single thread for this wallet. Returns thread + messages. */
+export async function getOrCreateDmThread(wallet: string): Promise<{
+  thread: DmThreadRow | null;
+  messages: DmMessageRow[];
+  error: { message: string } | null;
+}> {
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("dm_threads")
+    .select("id, user_wallet, created_at, updated_at")
+    .eq("user_wallet", wallet)
+    .maybeSingle();
+  if (existing) {
+    const { data: messages, error: msgErr } = await admin
+      .from("dm_messages")
+      .select("id, thread_id, sender_type, body, created_at")
+      .eq("thread_id", existing.id)
+      .order("created_at", { ascending: true });
+    return {
+      thread: existing as DmThreadRow,
+      messages: (messages ?? []) as DmMessageRow[],
+      error: msgErr ? { message: msgErr.message } : null,
+    };
+  }
+  const { data: inserted, error: insertErr } = await admin
+    .from("dm_threads")
+    .insert({ user_wallet: wallet })
+    .select("id, user_wallet, created_at, updated_at")
+    .single();
+  if (insertErr || !inserted) {
+    return { thread: null, messages: [], error: insertErr ? { message: insertErr.message } : { message: "Failed to create thread" } };
+  }
+  return { thread: inserted as DmThreadRow, messages: [], error: null };
+}
+
+/** User sends a message to their thread. Wallet must own the thread. */
+export async function addDmUserMessage(threadId: string, wallet: string, body: string): Promise<{ error: { message: string } | null }> {
+  const admin = createAdminClient();
+  const { data: thread } = await admin.from("dm_threads").select("user_wallet").eq("id", threadId).single();
+  if (!thread || (thread as { user_wallet: string }).user_wallet !== wallet) {
+    return { error: { message: "Thread not found or access denied" } };
+  }
+  const { error } = await admin.from("dm_messages").insert({ thread_id: threadId, sender_type: "user", body: body.trim() });
+  return { error: error ? { message: error.message } : null };
+}
+
+/** Admin: list all threads (by updated_at desc). */
+export async function getDmThreadsForAdmin(): Promise<(DmThreadRow & { last_message?: string; message_count?: number })[]> {
+  const admin = createAdminClient();
+  const { data: threads, error } = await admin
+    .from("dm_threads")
+    .select("id, user_wallet, created_at, updated_at")
+    .order("updated_at", { ascending: false });
+  if (error || !threads?.length) return [];
+  const threadIds = (threads as DmThreadRow[]).map((t) => t.id);
+  const { data: allMessages } = await admin
+    .from("dm_messages")
+    .select("thread_id, body, created_at")
+    .in("thread_id", threadIds)
+    .order("created_at", { ascending: false });
+  const countByThread: Record<string, number> = {};
+  const lastByThread: Record<string, string> = {};
+  (allMessages ?? []).forEach((r) => {
+    const tid = (r as { thread_id: string; body: string }).thread_id;
+    countByThread[tid] = (countByThread[tid] ?? 0) + 1;
+    if (lastByThread[tid] === undefined) lastByThread[tid] = (r as { body: string }).body;
+  });
+  return (threads as DmThreadRow[]).map((t) => ({
+    ...t,
+    last_message: lastByThread[t.id] ?? "",
+    message_count: countByThread[t.id] ?? 0,
+  }));
+}
+
+/** Admin: get messages in a thread. */
+export async function getDmMessagesForAdmin(threadId: string): Promise<DmMessageRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("dm_messages")
+    .select("id, thread_id, sender_type, body, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true });
+  if (error) return [];
+  return (data ?? []) as DmMessageRow[];
+}
+
+/** Admin: get thread by id (for wallet display). */
+export async function getDmThreadForAdmin(threadId: string): Promise<DmThreadRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("dm_threads").select("id, user_wallet, created_at, updated_at").eq("id", threadId).single();
+  if (error || !data) return null;
+  return data as DmThreadRow;
+}
+
+/** Admin: reply to a thread. */
+export async function addDmAdminReply(threadId: string, body: string): Promise<{ error: { message: string } | null }> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("dm_messages").insert({ thread_id: threadId, sender_type: "admin", body: body.trim() });
+  return { error: error ? { message: error.message } : null };
+}

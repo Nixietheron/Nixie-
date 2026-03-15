@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User, Wallet } from "lucide-react";
+import { Home, User, Wallet, MessageCircle } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 
 const navItems = [
@@ -11,7 +11,12 @@ const navItems = [
   { href: "/profile", label: "Profile", icon: User },
 ] as const;
 
-export function MobileBottomNav() {
+type MobileBottomNavProps = {
+  /** When provided, Message Nixie button opens the DM modal. Otherwise links to /profile?openDm=1 */
+  onMessageNixieClick?: () => void;
+};
+
+export function MobileBottomNav({ onMessageNixieClick }: MobileBottomNavProps) {
   const pathname = usePathname();
   const [walletOpen, setWalletOpen] = useState(false);
   const walletRef = useRef<HTMLDivElement>(null);
@@ -47,6 +52,26 @@ export function MobileBottomNav() {
             </Link>
           );
         })}
+        {onMessageNixieClick ? (
+          <button
+            type="button"
+            onClick={onMessageNixieClick}
+            className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors text-white/50 hover:text-white/80"
+            aria-label="Message Nixie"
+          >
+            <MessageCircle className="w-6 h-6" strokeWidth={1.8} />
+            <span className="text-[10px] font-medium">Message</span>
+          </button>
+        ) : (
+          <Link
+            href="/profile?openDm=1"
+            className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors text-white/50 hover:text-white/80"
+            aria-label="Message Nixie"
+          >
+            <MessageCircle className="w-6 h-6" strokeWidth={1.8} />
+            <span className="text-[10px] font-medium">Message</span>
+          </Link>
+        )}
         <div className="relative flex-1 flex flex-col items-center justify-center py-2" ref={walletRef}>
           <button
             type="button"

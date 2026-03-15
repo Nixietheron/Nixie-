@@ -14,11 +14,12 @@ import {
   Image as ImageIcon,
   FileText,
   Clock,
+  MessageCircle,
 } from "lucide-react";
 import type { ContentRow, StoryRow } from "@/lib/types";
 
 type FreeFlags = { sfw: boolean; nsfw: boolean; animated: boolean };
-type Tab = "publish" | "content" | "stories";
+type Tab = "publish" | "content" | "stories" | "dms";
 
 function UploadZone({
   label,
@@ -293,6 +294,17 @@ export default function AdminPage() {
   const [storySubmitting, setStorySubmitting] = useState(false);
   const [storiesList, setStoriesList] = useState<StoryRow[]>([]);
   const [storiesLoading, setStoriesLoading] = useState(false);
+
+  // DMs (Message Nixie): only admin sees
+  type DmThread = { id: string; user_wallet: string; created_at: string; updated_at: string; last_message?: string; message_count?: number };
+  type DmMessage = { id: string; thread_id: string; sender_type: "user" | "admin"; body: string; created_at: string };
+  const [dmThreads, setDmThreads] = useState<DmThread[]>([]);
+  const [dmThreadsLoading, setDmThreadsLoading] = useState(false);
+  const [dmSelectedThreadId, setDmSelectedThreadId] = useState<string | null>(null);
+  const [dmThreadDetail, setDmThreadDetail] = useState<DmThread | null>(null);
+  const [dmMessages, setDmMessages] = useState<DmMessage[]>([]);
+  const [dmReplyBody, setDmReplyBody] = useState("");
+  const [dmSending, setDmSending] = useState(false);
   const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
 
   const isFree = freeFlags.sfw && freeFlags.nsfw && freeFlags.animated;
@@ -326,6 +338,34 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === "stories") fetchStories();
   }, [tab, fetchStories]);
+  const fetchDmThreads = useCallback(async () => {
+    setDmThreadsLoading(true);
+    try {
+      const res = await fetch("/api/admin/dms");
+      const data = await res.json();
+      if (res.ok) setDmThreads(data.threads ?? []);
+    } finally {
+      setDmThreadsLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (tab === "dms") fetchDmThreads();
+  }, [tab, fetchDmThreads]);
+  useEffect(() => {
+    if (!dmSelectedThreadId) {
+      setDmThreadDetail(null);
+      setDmMessages([]);
+      return;
+    }
+    (async () => {
+      const res = await fetch(`/api/admin/dms/${dmSelectedThreadId}`);
+      const data = await res.json();
+      if (res.ok) {
+        setDmThreadDetail(data.thread);
+        setDmMessages(data.messages ?? []);
+      }
+    })();
+  }, [dmSelectedThreadId]);
 
   const uploadFile = async (
     type: "sfw" | "nsfw" | "animated",
@@ -567,6 +607,7 @@ export default function AdminPage() {
     { id: "publish", label: "Publish", icon: <Upload className="w-4 h-4" /> },
     { id: "content", label: "My content", icon: <FileText className="w-4 h-4" /> },
     { id: "stories", label: "Stories", icon: <Clock className="w-4 h-4" /> },
+    { id: "dms", label: "DMs", icon: <MessageCircle className="w-4 h-4" /> },
   ];
 
   return (
@@ -591,7 +632,9 @@ export default function AdminPage() {
                 ? "Publish new content"
                 : tab === "content"
                   ? "Manage content"
-                  : "Stories"}
+                  : tab === "stories"
+                    ? "Stories"
+                    : "Messages (only you see these)"}
             </p>
           </div>
           <button
@@ -1203,6 +1246,121 @@ export default function AdminPage() {
                 </ul>
               )}
             </div>
+          </div>
+        )}
+
+        {/* DMs tab: list threads, open thread, reply */}
+        {tab === "dms" && (
+          <div className="space-y-4">
+            {dmThreadsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 text-[#D27A92] animate-spin" />
+              </div>
+            ) : !dmSelectedThreadId ? (
+              <>
+                <p className="text-xs text-white/60">
+                  Users message Nixie here. Only you see these. Reply and they will see it in their Message Nixie view.
+                </p>
+                {dmThreads.length === 0 ? (
+                  <div className="bg-black/70 rounded-2xl p-8 border border-white/25 text-center text-white/60 text-sm">
+                    <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                    No messages yet.
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {dmThreads.map((t) => (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          onClick={() => setDmSelectedThreadId(t.id)}
+                          className="w-full text-left bg-black/70 rounded-2xl border border-white/25 p-4 hover:bg-white/10 transition-colors"
+                        >
+                          <p className="font-mono text-xs text-white/70 truncate">
+                            {t.user_wallet}
+                          </p>
+                          <p className="text-xs text-white/50 mt-1 truncate">
+                            {(t.last_message ?? "").slice(0, 80)}
+                            {(t.last_message?.length ?? 0) > 80 ? "…" : ""}
+                          </p>
+                          <p className="text-[10px] text-white/40 mt-1">
+                            {(t.message_count ?? 0)} message(s) · {new Date(t.updated_at).toLocaleString()}
+                          </p>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={() => { setDmSelectedThreadId(null); setDmReplyBody(""); }}
+                  className="text-sm text-white/60 hover:text-white"
+                >
+                  ← Back to list
+                </button>
+                {dmThreadDetail && (
+                  <p className="font-mono text-xs text-white/70 break-all">
+                    User: {dmThreadDetail.user_wallet}
+                  </p>
+                )}
+                <div className="bg-black/70 rounded-2xl border border-white/25 p-4 max-h-80 overflow-y-auto space-y-3">
+                  {dmMessages.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`rounded-xl px-3 py-2 text-sm ${
+                        m.sender_type === "admin"
+                          ? "bg-anime-pink/20 border border-anime-pink/40 ml-6"
+                          : "bg-white/10 border border-white/20 mr-6"
+                      }`}
+                    >
+                      <p className="text-[10px] text-white/50 mb-0.5">
+                        {m.sender_type === "admin" ? "You" : "User"} · {new Date(m.created_at).toLocaleString()}
+                      </p>
+                      <p className="text-white/90 whitespace-pre-wrap">{m.body}</p>
+                    </div>
+                  ))}
+                </div>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!dmReplyBody.trim() || !dmSelectedThreadId) return;
+                    setDmSending(true);
+                    try {
+                      const res = await fetch(`/api/admin/dms/${dmSelectedThreadId}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ body: dmReplyBody.trim() }),
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setDmMessages(data.messages ?? []);
+                        setDmReplyBody("");
+                      }
+                    } finally {
+                      setDmSending(false);
+                    }
+                  }}
+                  className="flex gap-2"
+                >
+                  <textarea
+                    value={dmReplyBody}
+                    onChange={(e) => setDmReplyBody(e.target.value)}
+                    placeholder="Reply to user…"
+                    rows={2}
+                    className="flex-1 bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25 resize-none"
+                  />
+                  <NixieButton
+                    type="submit"
+                    variant="primary"
+                    disabled={dmSending || !dmReplyBody.trim()}
+                  >
+                    {dmSending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send"}
+                  </NixieButton>
+                </form>
+              </div>
+            )}
           </div>
         )}
       </div>
