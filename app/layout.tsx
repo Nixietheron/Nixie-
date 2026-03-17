@@ -15,6 +15,9 @@ const mPlusRounded = M_PLUS_Rounded_1c({
 export const metadata: Metadata = {
   title: "Nixie – Exclusive Anime Artwork",
   description: "Unlock exclusive artwork with USDC on Base.",
+  other: {
+    "base:app_id": "69b947e72d5d7c1605e6333a",
+  },
 };
 
 export default function RootLayout({
