@@ -2,7 +2,7 @@
 
 import { Heart, MessageCircle, Lock, Unlock, Eye, Calendar, X, Play } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Artwork } from "@/lib/types";
 import { ipfsProxyUrl } from "@/lib/constants";
 import { ImageWithFallback } from "./image-with-fallback";
@@ -81,6 +81,13 @@ export function ArtworkCard({
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [animatedUseVideo, setAnimatedUseVideo] = useState(true);
+  const [animatedPlaying, setAnimatedPlaying] = useState(false);
+  const animatedVideoRef = useRef<HTMLVideoElement>(null);
+  const fullscreenVideoRef = useRef<HTMLVideoElement>(null);
+  const [fullscreenAnimatedPlaying, setFullscreenAnimatedPlaying] = useState(false);
+  useEffect(() => {
+    if (!showFullscreenImage) setFullscreenAnimatedPlaying(false);
+  }, [showFullscreenImage]);
 
   const handleLike = () => {
     setIsLiked((v) => !v);
@@ -162,22 +169,55 @@ export function ArtworkCard({
           ) : showAnimatedUnlocked && imageSrc ? (
             <>
               {animatedUseVideo && (
-                <video
-                  key={imageSrc}
-                  src={imageSrc}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className={
-                    compact
-                      ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
-                      : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
-                          walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
-                        }`
-                  }
-                  onError={() => setAnimatedUseVideo(false)}
-                />
+                <div
+                  className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                  onClick={() => {
+                    const v = animatedVideoRef.current;
+                    if (!v) return;
+                    if (animatedPlaying) {
+                      v.pause();
+                    } else {
+                      v.play();
+                    }
+                  }}
+                >
+                  <video
+                    ref={animatedVideoRef}
+                    key={imageSrc}
+                    src={imageSrc}
+                    loop
+                    muted
+                    playsInline
+                    className={
+                      compact
+                        ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
+                        : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
+                            walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
+                          }`
+                    }
+                    onPlay={() => setAnimatedPlaying(true)}
+                    onPause={() => setAnimatedPlaying(false)}
+                    onError={() => setAnimatedUseVideo(false)}
+                  />
+                  {/* Play/pause overlay: only when unlocked; hide when playing */}
+                  {!animatedPlaying && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                      aria-hidden
+                    >
+                      <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
+                        style={{
+                          background: "rgba(210,122,146,0.5)",
+                          border: "2px solid rgba(255,255,255,0.4)",
+                          backdropFilter: "blur(8px)",
+                        }}
+                      >
+                        <Play className="w-7 h-7 text-white ml-0.5" fill="currentColor" stroke="none" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               {!animatedUseVideo && (
                 <ImageWithFallback
@@ -492,16 +532,46 @@ export function ArtworkCard({
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="flex justify-center p-4">
               {fullscreenViewMode === "animated" && artwork.animatedVersion ? (
-                <>
+                <div
+                  className="relative flex items-center justify-center cursor-pointer"
+                  onClick={() => {
+                    const v = fullscreenVideoRef.current;
+                    if (!v) return;
+                    if (fullscreenAnimatedPlaying) {
+                      v.pause();
+                    } else {
+                      v.play();
+                    }
+                  }}
+                >
                   <video
+                    ref={fullscreenVideoRef}
                     src={artwork.animatedVersion + (walletQuery ? `&${walletQuery}` : "")}
-                    autoPlay
                     loop
                     muted
                     playsInline
                     className="max-w-full max-h-[88vh] w-auto h-auto object-contain rounded-xl"
+                    onPlay={() => setFullscreenAnimatedPlaying(true)}
+                    onPause={() => setFullscreenAnimatedPlaying(false)}
                   />
-                </>
+                  {!fullscreenAnimatedPlaying && (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none rounded-xl"
+                      aria-hidden
+                    >
+                      <div
+                        className="w-16 h-16 rounded-full flex items-center justify-center shadow-xl"
+                        style={{
+                          background: "rgba(210,122,146,0.5)",
+                          border: "2px solid rgba(255,255,255,0.4)",
+                          backdropFilter: "blur(8px)",
+                        }}
+                      >
+                        <Play className="w-8 h-8 text-white ml-1" fill="currentColor" stroke="none" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : fullscreenViewMode === "nsfw" && artwork.nsfwFull ? (
                 <ImageWithFallback
                   src={artwork.nsfwFull + (walletQuery ? `&${walletQuery}` : "")}

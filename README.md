@@ -41,9 +41,7 @@ cp .env.example .env
 
 ## Base Mini App / Farcaster
 
-- Manifest: `/.well-known/farcaster.json` (Next.js route).
-- `fc:miniapp` metadata root layout’ta tanımlı.
-- Base Build’de hesap doğrulaması için `FARCASTER_ACCOUNT_HEADER`, `FARCASTER_ACCOUNT_PAYLOAD`, `FARCASTER_ACCOUNT_SIGNATURE` ekleyin ve manifest’e yapıştırın.
+Bu proje Base App içinde **standart web app** olarak çalışacak şekilde güncellendi. Farcaster manifest’i ve `fc:miniapp` metadata artık kullanılmıyor.
 
 ## Ödemeler (x402)
 

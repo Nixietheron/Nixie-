@@ -2,17 +2,15 @@ You are helping build a Web3 mini app called **Nixie**.
 
 The UI designs will come from **Figma files** that will be provided later. Your job is to implement the UI and build the application architecture.
 
-This app must run as a **Base ecosystem Mini App** and should follow the official documentation.
+This app must run inside the **Base App** as a **standard web app + wallet**, and should follow the official documentation.
 
 IMPORTANT REFERENCES
 
-Study and follow these documents for correct Mini App integration:
+Study and follow these documents for correct Base App (standard web app) integration:
 
-https://miniapps.farcaster.xyz/
+https://docs.base.org/mini-apps/quickstart/migrate-to-standard-web-app
 
-https://docs.base.org/mini-apps/quickstart/migrate-existing-apps
-
-Understand how Base Mini Apps and Farcaster Mini Apps work and ensure the app is compatible with that environment.
+Understand the Base App migration path and ensure the app is compatible with the Base App in-app browser.
 
 TECH STACK
 

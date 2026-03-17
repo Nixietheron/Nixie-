@@ -1,5 +1,6 @@
-import { createConfig, createStorage, http, injected } from "wagmi";
+import { createConfig, createStorage, http } from "wagmi";
 import { base } from "wagmi/chains";
+import { baseAccount, injected } from "wagmi/connectors";
 
 /**
  * Storage that reads/writes localStorage at call time (not at config creation).
@@ -40,5 +41,16 @@ export const config = createConfig({
   transports: {
     [base.id]: http(),
   },
-  connectors: [injected()],
+  connectors: [
+    injected(),
+    baseAccount({
+      appName: "Nixie",
+    }),
+  ],
 });
+
+declare module "wagmi" {
+  interface Register {
+    config: typeof config;
+  }
+}
