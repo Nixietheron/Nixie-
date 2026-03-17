@@ -8,8 +8,8 @@ function looksLikeBaseInAppBrowser(): boolean {
   const ua = navigator.userAgent || "";
   const ref = document.referrer || "";
 
-  // Base App does not publicly guarantee a stable UA; keep this heuristic conservative.
-  // We gate auto-connect to reduce unexpected connects on normal web.
+  // Base App does not publicly guarantee a stable UA; use a conservative heuristic,
+  // but allow a fallback path when there is clearly no injected EVM provider.
   const uaHint =
     /\bBaseApp\b/i.test(ua) ||
     /\bBase\b/i.test(ua) ||
@@ -20,7 +20,12 @@ function looksLikeBaseInAppBrowser(): boolean {
   // Mobile-only heuristic (Base App runs a mobile in-app browser).
   const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
 
-  return isMobile && (refHint || uaHint);
+  const noInjectedEvm =
+    typeof window !== "undefined" && (window as unknown as { ethereum?: unknown }).ethereum == null;
+
+  // If we have no injected provider on mobile, it's very likely an in-app context.
+  // This keeps web desktop from unexpectedly popping Base Account flows.
+  return isMobile && (refHint || uaHint || noInjectedEvm);
 }
 
 export function AutoConnectBaseApp() {

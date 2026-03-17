@@ -1,21 +1,32 @@
 "use client";
 
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 
 type OpenMenu = "evm" | "solana" | null;
 
 export function ConnectButton() {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
+  const { connectAsync, connectors, status } = useConnect();
   const { disconnect: disconnectEvm } = useDisconnect();
   const solana = useWallet();
   const { setVisible: setSolanaModalVisible } = useWalletModal();
   const [open, setOpen] = useState<OpenMenu>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const baseAccountConnector = useMemo(
+    () => connectors.find((c) => c.id === "baseAccount"),
+    [connectors],
+  );
+
+  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const hasInjected =
+    typeof window !== "undefined" && (window as unknown as { ethereum?: unknown }).ethereum != null;
+  const preferBaseAccount = isMobile && !hasInjected && !!baseAccountConnector;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -86,11 +97,20 @@ export function ConnectButton() {
       ) : (
         <button
           type="button"
-          onClick={() => openConnectModal?.()}
-          disabled={!openConnectModal}
+          onClick={async () => {
+            if (preferBaseAccount && baseAccountConnector && status !== "pending") {
+              try {
+                await connectAsync({ connector: baseAccountConnector });
+              } catch {
+                // fall through to modal if available
+              }
+            }
+            openConnectModal?.();
+          }}
+          disabled={(!openConnectModal && !preferBaseAccount) || status === "pending"}
           className="px-3 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50 bg-anime-pink/20 border border-anime-pink/40 text-anime-pink hover:bg-anime-pink/30 hover:shadow-anime-soft w-full"
         >
-          Connect EVM
+          {preferBaseAccount ? "Connect Base Wallet" : "Connect EVM"}
         </button>
       )}
 

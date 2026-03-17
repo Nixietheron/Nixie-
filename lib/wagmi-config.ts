@@ -2,6 +2,8 @@ import { createConfig, createStorage, http } from "wagmi";
 import { base } from "wagmi/chains";
 import { baseAccount, injected } from "wagmi/connectors";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixiepink.com";
+
 /**
  * Storage that reads/writes localStorage at call time (not at config creation).
  * Config is created on server (window undefined); when client runs reconnect/persist,
@@ -45,6 +47,7 @@ export const config = createConfig({
     injected(),
     baseAccount({
       appName: "Nixie",
+      appLogoUrl: `${APP_URL}/icon.jpg`,
     }),
   ],
 });
