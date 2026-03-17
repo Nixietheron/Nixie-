@@ -115,41 +115,45 @@ export function ConnectButton() {
       )}
 
       {/* ─── Solana ─── */}
-      {solana.connected && solana.publicKey ? (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setOpen((o) => (o === "solana" ? null : "solana"))}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors w-full text-left"
-            style={pillStyle}
-          >
-            <div className="w-5 h-5 rounded-full bg-[#9945FF]/50 flex-shrink-0" />
-            <span className="font-mono truncate">{solanaShort}</span>
-            <span className="text-[10px] text-white/50 ml-auto flex-shrink-0">SOL</span>
-          </button>
-          {open === "solana" && (
-            <div
-              className="absolute left-0 right-0 bottom-full mb-1 py-1 rounded-xl shadow-xl z-50 min-w-[140px]"
-              style={dropdownStyle}
-            >
+      {!preferBaseAccount && (
+        <>
+          {solana.connected && solana.publicKey ? (
+            <div className="relative">
               <button
                 type="button"
-                onMouseDown={(e) => { e.preventDefault(); handleDisconnectSolana(); }}
-                className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
+                onClick={() => setOpen((o) => (o === "solana" ? null : "solana"))}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors w-full text-left"
+                style={pillStyle}
               >
-                Disconnect Solana
+                <div className="w-5 h-5 rounded-full bg-[#9945FF]/50 flex-shrink-0" />
+                <span className="font-mono truncate">{solanaShort}</span>
+                <span className="text-[10px] text-white/50 ml-auto flex-shrink-0">SOL</span>
               </button>
+              {open === "solana" && (
+                <div
+                  className="absolute left-0 right-0 bottom-full mb-1 py-1 rounded-xl shadow-xl z-50 min-w-[140px]"
+                  style={dropdownStyle}
+                >
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); handleDisconnectSolana(); }}
+                    className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
+                  >
+                    Disconnect Solana
+                  </button>
+                </div>
+              )}
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSolanaModalVisible(true)}
+              className="px-3 py-2 rounded-xl text-sm font-medium transition-all bg-[#9945FF]/20 border border-[#9945FF]/40 text-[#9945FF] hover:bg-[#9945FF]/30 hover:shadow-md w-full"
+            >
+              Connect Solana
+            </button>
           )}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setSolanaModalVisible(true)}
-          className="px-3 py-2 rounded-xl text-sm font-medium transition-all bg-[#9945FF]/20 border border-[#9945FF]/40 text-[#9945FF] hover:bg-[#9945FF]/30 hover:shadow-md w-full"
-        >
-          Connect Solana
-        </button>
+        </>
       )}
     </div>
   );
