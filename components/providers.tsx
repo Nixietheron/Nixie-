@@ -13,14 +13,28 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // In Base App we avoid RainbowKit UI and use Base Account connector directly.
+  const isBaseAppLike =
+    typeof window !== "undefined" &&
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "") &&
+    (window as unknown as { ethereum?: unknown }).ethereum == null;
+
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider initialChain={8453}>
-          <SwitchToBaseEffect />
-          <AutoConnectBaseApp />
-          <SolanaWalletProviderWrapper>{children}</SolanaWalletProviderWrapper>
-        </RainbowKitProvider>
+        {isBaseAppLike ? (
+          <>
+            <SwitchToBaseEffect />
+            <AutoConnectBaseApp />
+            <SolanaWalletProviderWrapper>{children}</SolanaWalletProviderWrapper>
+          </>
+        ) : (
+          <RainbowKitProvider initialChain={8453}>
+            <SwitchToBaseEffect />
+            <AutoConnectBaseApp />
+            <SolanaWalletProviderWrapper>{children}</SolanaWalletProviderWrapper>
+          </RainbowKitProvider>
+        )}
       </QueryClientProvider>
     </WagmiProvider>
   );
