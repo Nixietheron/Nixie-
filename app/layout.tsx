@@ -13,7 +13,8 @@ const mPlusRounded = M_PLUS_Rounded_1c({
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixiepink.com";
-const OG_IMAGE_PATH = "/2026-03-15%2001.38.51.jpg";
+const OG_IMAGE_PATH = "/og.jpg";
+const ICON_PATH = "/icon.jpg";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -44,8 +45,8 @@ export const metadata: Metadata = {
     images: [OG_IMAGE_PATH],
   },
   icons: {
-    icon: OG_IMAGE_PATH,
-    apple: OG_IMAGE_PATH,
+    icon: ICON_PATH,
+    apple: ICON_PATH,
   },
 };
 
