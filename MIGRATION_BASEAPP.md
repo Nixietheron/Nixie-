@@ -5,11 +5,13 @@ Bu doküman, mevcut **Nixie** (Next.js) projesini hem **web tarayıcıda** hem d
 ## Kısa özet (Nixie için mevcut durum)
 
 - **Zaten var**: `wagmi`, `viem`, `@tanstack/react-query`, Base chain (`lib/wagmi-config.ts`), provider sarmalayıcı (`components/providers.tsx`)
-- **Farcaster’a bağlı parçalar**:
-  - Paket: `@farcaster/miniapp-sdk` (`package.json`)
-  - Route manifest: `app/.well-known/farcaster.json/route.ts`
-  - “ready” çağrısı: `components/miniapp-ready.tsx` içinde `sdk.actions.ready()`
-- **Not**: Base App, 9 Nisan 2026’dan sonra Farcaster manifest’lerini temel almayıp tüm uygulamaları **standart web app** gibi ele alacak. Bu yüzden hedef: Farcaster SDK/manifest bağımlılığını kaldırmak.
+- **Uygulanan değişiklikler (repo şu an)**:
+  - Farcaster SDK/manifest/meta tag’leri kaldırıldı (Base App “standard web app” modeline uygun)
+  - `@base-org/account` + wagmi `baseAccount(...)` connector eklendi
+  - Base.dev doğrulaması için `base:app_id` meta eklendi (`app/layout.tsx`)
+  - Paylaşım önizlemesi için OG/Twitter metadata eklendi (`app/layout.tsx`)
+  - Base Account popup uyumluluğu için COOP/COEP header’ları eklendi (`next.config.mjs`)
+- **Not**: Base App, 9 Nisan 2026’dan sonra Farcaster manifest’lerini temel almayıp tüm uygulamaları **standart web app** gibi ele alacak. Bu yüzden Farcaster SDK/manifest’e bağlı kalmayın.
 
 ## Hedef mimari
 
@@ -20,9 +22,9 @@ Bu doküman, mevcut **Nixie** (Next.js) projesini hem **web tarayıcıda** hem d
 
 ## Pre-flight checklist (bitince “migrated” sayın)
 
-- [ ] `@farcaster/miniapp-sdk` kaldırıldı ve Farcaster SDK import’ları projeden temizlendi
-- [ ] Farcaster “FID / user context” gibi bağımlılıklar yok (kimlik = wallet address)
-- [ ] Wallet etkileşimleri `wagmi/viem` ile çalışıyor (Base App in-app browser’da)
+- [x] Farcaster SDK/manifest/import’ları temizlendi
+- [x] Kimlik: wallet address (FID yok)
+- [x] Wallet etkileşimleri `wagmi/viem` ile çalışıyor
 - [ ] (Opsiyonel) Auth gerekiyorsa SIWE akışı var ve replay koruması server-side yapılıyor
 - [ ] Base.dev üzerinde proje kaydı yapıldı ve metadata tamamlandı (primary URL, icon, screenshots, builder code, vb.)
 
@@ -103,6 +105,15 @@ export const config = createConfig({
 
 > Not: Sizde halihazırda SSR-safe bir storage yaklaşımı var (`lazyLocalStorage`). İsterseniz onu koruyabilirsiniz; ancak Base dokümanındaki cookieStorage yaklaşımı SSR senaryoları için daha deterministik olabilir.
 
+### 3.1.1. Popup best practice (COOP header)
+
+Base Account bazı akışlarda popup açar. Bazı güvenlik header’ları popup’ı kırabilir. Bu yüzden Next.js’te aşağıdaki header’lar önerilir:
+
+- `Cross-Origin-Opener-Policy: same-origin-allow-popups`
+- `Cross-Origin-Embedder-Policy: unsafe-none`
+
+Repo’da bu ayar `next.config.mjs` içinde uygulanmıştır.
+
 ### 3.2. Zincir zorlaması (switch chain)
 
 Sizde Base chain’e geçiş için bir effect var:
@@ -157,19 +168,31 @@ Base App’te discovery, manifest yerine Base.dev proje metadata’sı ile gelir
 
 ---
 
+## 6.1) Paylaşım/preview (logo + kart görseli)
+
+Base App içi discovery/arama kartı çoğunlukla **Base.dev metadata’sından** (icon/screenshot) gelir.
+
+Sosyal paylaşım ve link preview için ise sitenizde **Open Graph** metadata olmalıdır:
+
+- `metadata.openGraph`
+- `metadata.twitter`
+- `metadata.icons`
+
+Repo’da bu metadata `app/layout.tsx` içinde eklenmiştir. En iyi sonuç için `public/icon.png` ve `public/og.png` gibi kalıcı asset’ler kullanın.
+
 ## 7) Nixie için “yapılacaklar” (repo-bağımlı net liste)
 
 ### Kaldırılacak / temizlenecek
 
-- [ ] `@farcaster/miniapp-sdk` dependency
-- [ ] `components/miniapp-ready.tsx` ve tüm kullanım noktaları
-- [ ] (İhtiyaca göre) `app/.well-known/farcaster.json/route.ts`
+- [x] `@farcaster/miniapp-sdk` dependency
+- [x] `components/miniapp-ready.tsx` ve tüm kullanım noktaları
+- [x] `app/.well-known/farcaster.json/route.ts`
 
 ### Eklenecek / güncellenecek
 
-- [ ] (Önerilir) `@base-org/account` + wagmi `baseAccount` connector
+- [x] (Önerilir) `@base-org/account` + wagmi `baseAccount` connector
 - [ ] (Gerekiyorsa) SIWE auth (backend nonce + verify)
-- [ ] Base.dev proje kaydı + metadata
+- [ ] Base.dev proje kaydı + metadata (icon/screenshot/builder code dahil)
 
 ---
 

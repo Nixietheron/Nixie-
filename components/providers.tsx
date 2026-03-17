@@ -7,6 +7,7 @@ import "@rainbow-me/rainbowkit/styles.css";
 import { config } from "@/lib/wagmi-config";
 import { SolanaWalletProviderWrapper } from "@/components/solana-wallet-provider";
 import { SwitchToBaseEffect } from "@/components/switch-to-base-effect";
+import { AutoConnectBaseApp } from "@/components/auto-connect-baseapp";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 const queryClient = new QueryClient();
@@ -17,6 +18,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider initialChain={8453}>
           <SwitchToBaseEffect />
+          <AutoConnectBaseApp />
           <SolanaWalletProviderWrapper>{children}</SolanaWalletProviderWrapper>
         </RainbowKitProvider>
       </QueryClientProvider>

@@ -15,6 +15,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Local agent skills (do not commit)
+.agent/
+.agents/
+skills/
+skills-lock.json
+
 # OS
 Thumbs.db
 
