@@ -18,10 +18,12 @@ export function ConnectButton() {
   const [open, setOpen] = useState<OpenMenu>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const baseAccountConnector = useMemo(
-    () => connectors.find((c) => c.id === "baseAccount"),
-    [connectors],
-  );
+  const baseAccountConnector = useMemo(() => {
+    const byId = connectors.find((c) => c.id === "baseAccount");
+    if (byId) return byId;
+    // Fallback: connector IDs/names can vary across versions/builds.
+    return connectors.find((c) => /base/i.test(c.name) || /coinbase/i.test(c.name));
+  }, [connectors]);
 
   const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const hasInjected =
@@ -101,8 +103,11 @@ export function ConnectButton() {
             if (preferBaseAccount && baseAccountConnector && status !== "pending") {
               try {
                 await connectAsync({ connector: baseAccountConnector });
-              } catch {
-                // fall through to modal if available
+              } catch (e) {
+                // Keep this visible in the console for debugging inside Base App.
+                console.error("Base Account connect failed", e, {
+                  connectors: connectors.map((c) => ({ id: c.id, name: c.name })),
+                });
               }
             }
             openConnectModal?.();

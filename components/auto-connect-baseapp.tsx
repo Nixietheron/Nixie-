@@ -33,10 +33,11 @@ export function AutoConnectBaseApp() {
   const { connectAsync, connectors, status } = useConnect();
   const attemptedRef = useRef(false);
 
-  const baseAccountConnector = useMemo(
-    () => connectors.find((c) => c.id === "baseAccount"),
-    [connectors],
-  );
+  const baseAccountConnector = useMemo(() => {
+    const byId = connectors.find((c) => c.id === "baseAccount");
+    if (byId) return byId;
+    return connectors.find((c) => /base/i.test(c.name) || /coinbase/i.test(c.name));
+  }, [connectors]);
 
   useEffect(() => {
     if (attemptedRef.current) return;
@@ -49,7 +50,12 @@ export function AutoConnectBaseApp() {
 
     // Best-effort: Base App may allow this without a user gesture, but web browsers often won't.
     // If it fails, user can still connect via the normal UI.
-    connectAsync({ connector: baseAccountConnector }).catch(() => {});
+    connectAsync({ connector: baseAccountConnector }).catch((e) => {
+      // Debug only; helps confirm whether connector is present and why it fails in Base App.
+      console.error("AutoConnectBaseApp failed", e, {
+        connectors: connectors.map((c) => ({ id: c.id, name: c.name })),
+      });
+    });
   }, [isConnected, status, baseAccountConnector, connectAsync]);
 
   return null;
