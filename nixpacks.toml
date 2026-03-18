@@ -1,0 +1,11 @@
+# Override Nixpacks provider defaults.
+# In Coolify, Nixpacks was generating a Dockerfile that runs `npm ci`,
+# and that fails due to lock/package.json sync issues.
+
+[phases.install]
+cmds = ["npm install --legacy-peer-deps --no-audit"]
+
+# Keep build explicit as well (provider fallback is usually correct).
+[phases.build]
+cmds = ["npm run build"]
+
