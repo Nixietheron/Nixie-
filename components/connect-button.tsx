@@ -5,6 +5,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMemo, useState, useRef, useEffect } from "react";
+import { BASE_CHAIN_ID } from "@/lib/constants";
 
 type OpenMenu = "evm" | "solana" | null;
 
@@ -29,6 +30,9 @@ export function ConnectButton() {
     typeof navigator !== "undefined" &&
     /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
   const inBaseApp = isBaseAppLike();
+  const hasInjectedEvm =
+    typeof window !== "undefined" &&
+    (window as unknown as { ethereum?: unknown }).ethereum != null;
 
   const baseAccountConnector = useMemo(() => {
     const byId = connectors.find((c) => c.id === "baseAccount");
@@ -37,9 +41,17 @@ export function ConnectButton() {
     return connectors.find((c) => /base/i.test(c.name) || /coinbase/i.test(c.name));
   }, [connectors]);
 
-  // Mobile (Base App / in-app): always prefer Base Account if available.
-  // Web/desktop: keep RainbowKit modal flow.
-  const preferBaseAccount = isMobile && inBaseApp && !!baseAccountConnector;
+  const injectedConnector = useMemo(() => {
+    const byId = connectors.find((c) => c.id === "injected");
+    if (byId) return byId;
+    return connectors.find((c) => c.name === "Injected");
+  }, [connectors]);
+
+  // If injected is present, connect via injected and avoid RainbowKit modal.
+  // This covers Base App host wallets and normal web injected wallets.
+  const preferInjectedEvm = hasInjectedEvm && !!injectedConnector;
+  const preferBaseAccount =
+    isMobile && inBaseApp && !hasInjectedEvm && !!baseAccountConnector;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -111,7 +123,22 @@ export function ConnectButton() {
         <button
           type="button"
           onClick={async () => {
-            if (preferBaseAccount && baseAccountConnector && status !== "pending") {
+            if (status === "pending") return;
+
+            if (preferInjectedEvm && injectedConnector) {
+              try {
+                await connectAsync({
+                  connector: injectedConnector,
+                  chainId: BASE_CHAIN_ID,
+                });
+                return;
+              } catch (e) {
+                console.error("Injected EVM connect failed", e);
+                return; // do not fall back to Rainbow in Base App
+              }
+            }
+
+            if (preferBaseAccount && baseAccountConnector) {
               try {
                 await connectAsync({ connector: baseAccountConnector });
                 return;
@@ -122,9 +149,10 @@ export function ConnectButton() {
                 });
               }
             }
-            openConnectModal?.();
+            // Fallback: only open RainbowKit modal when injected isn't available.
+            if (!hasInjectedEvm) openConnectModal?.();
           }}
-          disabled={(!openConnectModal && !preferBaseAccount) || status === "pending"}
+          disabled={((!openConnectModal && !preferBaseAccount) || status === "pending") && !preferInjectedEvm}
           className="px-3 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50 bg-anime-pink/20 border border-anime-pink/40 text-anime-pink hover:bg-anime-pink/30 hover:shadow-anime-soft w-full"
         >
           {preferBaseAccount ? "Connect Base Wallet" : "Connect EVM"}
