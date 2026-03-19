@@ -1,8 +1,15 @@
 import { createConfig, createStorage, http } from "wagmi";
 import { base } from "wagmi/chains";
-import { baseAccount, injected } from "wagmi/connectors";
+import {
+  baseAccount,
+  coinbaseWallet,
+  injected,
+  walletConnect,
+} from "wagmi/connectors";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixiepink.com";
+const WALLETCONNECT_PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "";
 
 /**
  * Storage that reads/writes localStorage at call time (not at config creation).
@@ -32,10 +39,35 @@ const lazyLocalStorage = {
 const clientStorage = createStorage({ storage: lazyLocalStorage });
 
 /**
- * Browser extension wallets only (MetaMask, Brave, etc.).
- * No WalletConnect, no MetaMask SDK — avoids relay/async-storage errors.
- * clientStorage persists connection across page refreshes.
+ * Web: injected + Coinbase + WalletConnect (RainbowKit modal lists these).
+ * Base App: baseAccount (+ injected when host injects).
+ * WalletConnect needs NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID (cloud.walletconnect.com).
  */
+const connectors = [
+  injected(),
+  coinbaseWallet({
+    appName: "Nixie",
+    appLogoUrl: `${APP_URL}/icon.jpg`,
+  }),
+  ...(WALLETCONNECT_PROJECT_ID
+    ? [
+        walletConnect({
+          projectId: WALLETCONNECT_PROJECT_ID,
+          metadata: {
+            name: "Nixie",
+            description: "Nixie",
+            url: APP_URL,
+            icons: [`${APP_URL}/icon.jpg`],
+          },
+        }),
+      ]
+    : []),
+  baseAccount({
+    appName: "Nixie",
+    appLogoUrl: `${APP_URL}/icon.jpg`,
+  }),
+];
+
 export const config = createConfig({
   chains: [base],
   ssr: true,
@@ -43,13 +75,7 @@ export const config = createConfig({
   transports: {
     [base.id]: http(),
   },
-  connectors: [
-    injected(),
-    baseAccount({
-      appName: "Nixie",
-      appLogoUrl: `${APP_URL}/icon.jpg`,
-    }),
-  ],
+  connectors,
 });
 
 declare module "wagmi" {

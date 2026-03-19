@@ -47,9 +47,10 @@ export function ConnectButton() {
     return connectors.find((c) => c.name === "Injected");
   }, [connectors]);
 
-  // If injected is present, connect via injected and avoid RainbowKit modal.
-  // This covers Base App host wallets and normal web injected wallets.
-  const preferInjectedEvm = hasInjectedEvm && !!injectedConnector;
+  // Base App: prefer injected / Base Account (no empty Rainbow modal).
+  // Normal web: always open RainbowKit so user sees MetaMask, WalletConnect, Coinbase, etc.
+  const preferInjectedEvm =
+    inBaseApp && hasInjectedEvm && !!injectedConnector;
   const preferBaseAccount =
     isMobile && inBaseApp && !hasInjectedEvm && !!baseAccountConnector;
 
@@ -134,7 +135,7 @@ export function ConnectButton() {
                 return;
               } catch (e) {
                 console.error("Injected EVM connect failed", e);
-                return; // do not fall back to Rainbow in Base App
+                return;
               }
             }
 
@@ -143,13 +144,17 @@ export function ConnectButton() {
                 await connectAsync({ connector: baseAccountConnector });
                 return;
               } catch (e) {
-                // Keep this visible in the console for debugging inside Base App.
                 console.error("Base Account connect failed", e, {
                   connectors: connectors.map((c) => ({ id: c.id, name: c.name })),
                 });
               }
             }
-            // Fallback: only open RainbowKit modal when injected isn't available.
+
+            // Web: RainbowKit wallet picker (requires connectors in wagmi-config).
+            if (!inBaseApp && openConnectModal) {
+              openConnectModal();
+              return;
+            }
             if (!hasInjectedEvm) openConnectModal?.();
           }}
           disabled={((!openConnectModal && !preferBaseAccount) || status === "pending") && !preferInjectedEvm}
