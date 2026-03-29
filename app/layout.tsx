@@ -13,8 +13,8 @@ const mPlusRounded = M_PLUS_Rounded_1c({
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixiepink.com";
-const OG_IMAGE_PATH = "/og.jpg";
-const ICON_PATH = "/icon.jpg";
+/** Favicon, Apple touch icon, Open Graph & Twitter/X link previews (`public/icon.jpg`, 1024×1024). */
+const BRAND_IMAGE_PATH = "/icon.jpg";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -30,9 +30,9 @@ export const metadata: Metadata = {
     siteName: "Nixie",
     images: [
       {
-        url: OG_IMAGE_PATH,
-        width: 1200,
-        height: 630,
+        url: BRAND_IMAGE_PATH,
+        width: 1024,
+        height: 1024,
         alt: "Nixie",
       },
     ],
@@ -42,11 +42,13 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Nixie – Exclusive Anime Artwork",
     description: "Unlock exclusive artwork with USDC on Base.",
-    images: [OG_IMAGE_PATH],
+    images: [BRAND_IMAGE_PATH],
   },
   icons: {
-    icon: ICON_PATH,
-    apple: ICON_PATH,
+    icon: [
+      { url: BRAND_IMAGE_PATH, sizes: "1024x1024", type: "image/jpeg" },
+    ],
+    apple: [{ url: BRAND_IMAGE_PATH, sizes: "1024x1024", type: "image/jpeg" }],
   },
 };
 

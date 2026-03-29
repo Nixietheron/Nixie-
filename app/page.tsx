@@ -155,7 +155,7 @@ export default function SplashScreen() {
                 transition={{ delay: 0.58, duration: 0.75 }}
                 className="text-white/60 text-base sm:text-[17px] leading-[1.65] mb-6 max-w-md"
               >
-                I&apos;m Nixie — a digital anime artist. Browse previews for free,
+                I&apos;m Nixie — an anime-inspired digital character. Browse previews for free,
                 then unlock the full artwork with USDC. Every drop is exclusive.
               </motion.p>
             )}
@@ -256,15 +256,24 @@ export default function SplashScreen() {
             </p>
             <ul className="space-y-3 text-sm">
               <li>
-                <a
-                  href={SITE.farcasterUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
-                >
-                  Farcaster
-                  <ExternalLink className="w-3.5 h-3.5 opacity-50" />
-                </a>
+                {SITE.baseAppUrl ? (
+                  <a
+                    href={SITE.baseAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
+                  >
+                    Base App
+                    <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+                  </a>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1.5 text-white/35"
+                    title="Link will be added when the Base App integration is live"
+                  >
+                    Base App
+                  </span>
+                )}
               </li>
               <li>
                 <a
@@ -273,7 +282,7 @@ export default function SplashScreen() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
                 >
-                  X (Twitter)
+                  X
                   <ExternalLink className="w-3.5 h-3.5 opacity-50" />
                 </a>
               </li>
