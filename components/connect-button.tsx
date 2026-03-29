@@ -12,11 +12,20 @@ type OpenMenu = "evm" | "solana" | null;
 function isBaseAppLike(): boolean {
   if (typeof window === "undefined") return false;
   const ua = navigator.userAgent || "";
-  // Heuristic: Base App / Coinbase mobile host.
   return /\bBaseApp\b/i.test(ua) || /\bCoinbase\b/i.test(ua) || /\bCBW\b/i.test(ua);
 }
 
-export function ConnectButton() {
+export type ConnectButtonProps = {
+  /** `sheet`: used inside mobile bottom sheet — no extra top margin, menus open downward */
+  layout?: "default" | "sheet";
+  /** Run before opening RainbowKit / Solana modals (e.g. close the host sheet) */
+  onBeforeOpenWalletModal?: () => void;
+};
+
+export function ConnectButton({
+  layout = "default",
+  onBeforeOpenWalletModal,
+}: ConnectButtonProps = {}) {
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const { connectAsync, connectors, status } = useConnect();
@@ -26,20 +35,10 @@ export function ConnectButton() {
   const [open, setOpen] = useState<OpenMenu>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const isMobile =
-    typeof navigator !== "undefined" &&
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
   const inBaseApp = isBaseAppLike();
   const hasInjectedEvm =
     typeof window !== "undefined" &&
     (window as unknown as { ethereum?: unknown }).ethereum != null;
-
-  const baseAccountConnector = useMemo(() => {
-    const byId = connectors.find((c) => c.id === "baseAccount");
-    if (byId) return byId;
-    // Fallback: connector IDs/names can vary across versions/builds.
-    return connectors.find((c) => /base/i.test(c.name) || /coinbase/i.test(c.name));
-  }, [connectors]);
 
   const injectedConnector = useMemo(() => {
     const byId = connectors.find((c) => c.id === "injected");
@@ -47,12 +46,13 @@ export function ConnectButton() {
     return connectors.find((c) => c.name === "Injected");
   }, [connectors]);
 
-  // Base App: prefer injected / Base Account (no empty Rainbow modal).
-  // Normal web: always open RainbowKit so user sees MetaMask, WalletConnect, Coinbase, etc.
+  // Base App: use injected provider when the host injects one. Otherwise RainbowKit (user picks wallet).
+  // Never auto-use Base Account connector — user chooses in the modal.
   const preferInjectedEvm =
     inBaseApp && hasInjectedEvm && !!injectedConnector;
-  const preferBaseAccount =
-    isMobile && inBaseApp && !hasInjectedEvm && !!baseAccountConnector;
+
+  const sheet = layout === "sheet";
+  const menuUp = !sheet;
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -90,9 +90,15 @@ export function ConnectButton() {
     border: "1px solid rgba(255,255,255,0.1)",
   };
 
+  const dropPosition = menuUp
+    ? "absolute left-0 right-0 bottom-full mb-1"
+    : "absolute left-0 right-0 top-full mt-1";
+
   return (
-    <div className="flex flex-col gap-3 w-full min-w-0 mt-4" ref={menuRef}>
-      {/* ─── EVM (Base/Avalanche) ─── */}
+    <div
+      className={`flex flex-col gap-3 w-full min-w-0 ${sheet ? "" : "mt-4"}`}
+      ref={menuRef}
+    >
       {isConnected && address ? (
         <div className="relative">
           <button
@@ -107,12 +113,15 @@ export function ConnectButton() {
           </button>
           {open === "evm" && (
             <div
-              className="absolute left-0 right-0 bottom-full mb-1 py-1 rounded-xl shadow-xl z-50 min-w-[140px]"
+              className={`${dropPosition} py-1 rounded-xl shadow-xl z-50 min-w-[140px]`}
               style={dropdownStyle}
             >
               <button
                 type="button"
-                onMouseDown={(e) => { e.preventDefault(); handleDisconnectEvm(); }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleDisconnectEvm();
+                }}
                 className="w-full text-left px-4 py-2 text-sm text-white/80 hover:bg-white/5 transition-colors"
               >
                 Disconnect EVM
@@ -139,32 +148,16 @@ export function ConnectButton() {
               }
             }
 
-            if (preferBaseAccount && baseAccountConnector) {
-              try {
-                await connectAsync({ connector: baseAccountConnector });
-                return;
-              } catch (e) {
-                console.error("Base Account connect failed", e, {
-                  connectors: connectors.map((c) => ({ id: c.id, name: c.name })),
-                });
-              }
-            }
-
-            // Web: RainbowKit wallet picker (requires connectors in wagmi-config).
-            if (!inBaseApp && openConnectModal) {
-              openConnectModal();
-              return;
-            }
-            if (!hasInjectedEvm) openConnectModal?.();
+            onBeforeOpenWalletModal?.();
+            openConnectModal?.();
           }}
-          disabled={((!openConnectModal && !preferBaseAccount) || status === "pending") && !preferInjectedEvm}
-          className="px-3 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-50 bg-anime-pink/20 border border-anime-pink/40 text-anime-pink hover:bg-anime-pink/30 hover:shadow-anime-soft w-full"
+          disabled={(!openConnectModal || status === "pending") && !preferInjectedEvm}
+          className="px-3 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50 bg-anime-pink/20 border border-anime-pink/40 text-anime-pink hover:bg-anime-pink/30 hover:shadow-anime-soft w-full"
         >
-          {preferBaseAccount ? "Connect Base Wallet" : "Connect EVM"}
+          Connect EVM
         </button>
       )}
 
-      {/* ─── Solana ─── */}
       {!inBaseApp &&
         (solana.connected && solana.publicKey ? (
           <div className="relative">
@@ -180,7 +173,7 @@ export function ConnectButton() {
             </button>
             {open === "solana" && (
               <div
-                className="absolute left-0 right-0 bottom-full mb-1 py-1 rounded-xl shadow-xl z-50 min-w-[140px]"
+                className={`${dropPosition} py-1 rounded-xl shadow-xl z-50 min-w-[140px]`}
                 style={dropdownStyle}
               >
                 <button
@@ -199,8 +192,11 @@ export function ConnectButton() {
         ) : (
           <button
             type="button"
-            onClick={() => setSolanaModalVisible(true)}
-            className="px-3 py-2 rounded-xl text-sm font-medium transition-all bg-[#9945FF]/20 border border-[#9945FF]/40 text-[#9945FF] hover:bg-[#9945FF]/30 hover:shadow-md w-full"
+            onClick={() => {
+              onBeforeOpenWalletModal?.();
+              setSolanaModalVisible(true);
+            }}
+            className="px-3 py-2.5 rounded-xl text-sm font-medium transition-all bg-[#9945FF]/20 border border-[#9945FF]/40 text-[#9945FF] hover:bg-[#9945FF]/30 hover:shadow-md w-full"
           >
             Connect Solana
           </button>
