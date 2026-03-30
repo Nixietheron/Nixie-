@@ -56,13 +56,13 @@ export function UnlockModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 max-sm:pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0"
+          className="absolute inset-0 z-0"
           style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
         />
 
@@ -71,7 +71,7 @@ export function UnlockModal({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24 }}
           transition={{ type: "spring", damping: 28, stiffness: 300 }}
-          className="relative w-full sm:max-w-[360px] rounded-2xl sm:rounded-3xl overflow-hidden z-10"
+          className="relative z-10 w-full sm:max-w-[360px] max-h-[min(92vh,calc(100dvh-4rem))] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-3xl overflow-x-hidden"
           style={{
             background: "#131115",
             border: "1px solid rgba(255,255,255,0.08)",

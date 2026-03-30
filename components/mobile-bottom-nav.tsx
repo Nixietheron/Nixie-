@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -26,6 +26,8 @@ export function MobileBottomNav({ onMessageNixieClick }: MobileBottomNavProps) {
   const { isConnected, address } = useAccount();
   const [walletOpen, setWalletOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  /** Only close sheet when connection goes false → true (not when already connected and user opens sheet). */
+  const wasConnectedRef = useRef(Boolean(isConnected && address));
 
   useEffect(() => setMounted(true), []);
 
@@ -40,7 +42,11 @@ export function MobileBottomNav({ onMessageNixieClick }: MobileBottomNavProps) {
   }, [walletOpen]);
 
   useEffect(() => {
-    if (isConnected && address && walletOpen) setWalletOpen(false);
+    const connected = Boolean(isConnected && address);
+    if (connected && !wasConnectedRef.current && walletOpen) {
+      setWalletOpen(false);
+    }
+    wasConnectedRef.current = connected;
   }, [isConnected, address, walletOpen]);
 
   useEffect(() => {
