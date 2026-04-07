@@ -30,6 +30,7 @@ export interface Artwork {
   likes: number;
   views: number;
   comments: number;
+  likedByViewer?: boolean;
   creator: string;
   /** NSFW unlocked for this wallet (or free) */
   nsfwUnlocked?: boolean;
@@ -76,6 +77,7 @@ export function contentToArtwork(
     likes: number;
     views?: number;
     comments: number;
+    likedByViewer?: boolean;
     nsfwUnlocked?: boolean;
     animatedUnlocked?: boolean;
   }
@@ -104,6 +106,7 @@ export function contentToArtwork(
     likes: opts.likes,
     views: opts.views ?? 0,
     comments: opts.comments,
+    likedByViewer: opts.likedByViewer ?? false,
     creator: "Nixie",
     nsfwUnlocked,
     animatedUnlocked,

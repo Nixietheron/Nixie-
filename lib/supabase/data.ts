@@ -25,7 +25,7 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets)
       : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
-    supabase.from("likes").select("content_id").in("content_id", contentIds),
+    supabase.from("likes").select("content_id, wallet").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
     supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
@@ -41,6 +41,11 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
   (likesRes.data ?? []).forEach((l) => {
     likeCountByContent[l.content_id] = (likeCountByContent[l.content_id] ?? 0) + 1;
   });
+  const viewerLikedIds = new Set(
+    (likesRes.data ?? [])
+      .filter((l) => wallets.length > 0 && wallets.includes(l.wallet))
+      .map((l) => l.content_id)
+  );
   const commentCountByContent: Record<string, number> = {};
   (commentsRes.data ?? []).forEach((c) => {
     commentCountByContent[c.content_id] =
@@ -60,6 +65,7 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,
       comments: commentCountByContent[c.id] ?? 0,
+      likedByViewer: viewerLikedIds.has(c.id),
       nsfwUnlocked,
       animatedUnlocked,
     });
@@ -120,7 +126,7 @@ export async function getTrendingArtworks(
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets).in("content_id", contentIds)
       : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
-    supabase.from("likes").select("content_id").in("content_id", contentIds),
+    supabase.from("likes").select("content_id, wallet").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
     supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
@@ -135,6 +141,11 @@ export async function getTrendingArtworks(
   (likesRes.data ?? []).forEach((l) => {
     likeCountByContent[l.content_id] = (likeCountByContent[l.content_id] ?? 0) + 1;
   });
+  const viewerLikedIds = new Set(
+    (likesRes.data ?? [])
+      .filter((l) => wallets.length > 0 && wallets.includes(l.wallet))
+      .map((l) => l.content_id)
+  );
   const commentCountByContent: Record<string, number> = {};
   (commentsRes.data ?? []).forEach((c) => {
     commentCountByContent[c.content_id] = (commentCountByContent[c.content_id] ?? 0) + 1;
@@ -153,6 +164,7 @@ export async function getTrendingArtworks(
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,
       comments: commentCountByContent[c.id] ?? 0,
+      likedByViewer: viewerLikedIds.has(c.id),
       nsfwUnlocked,
       animatedUnlocked,
     });
@@ -530,7 +542,7 @@ export async function getListWithArtworks(
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets).in("content_id", contentIds)
       : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
-    supabase.from("likes").select("content_id").in("content_id", contentIds),
+    supabase.from("likes").select("content_id, wallet").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
     supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
@@ -544,6 +556,11 @@ export async function getListWithArtworks(
   (likesRes.data ?? []).forEach((l) => {
     likeCountByContent[l.content_id] = (likeCountByContent[l.content_id] ?? 0) + 1;
   });
+  const viewerLikedIds = new Set(
+    (likesRes.data ?? [])
+      .filter((l) => wallets.length > 0 && wallets.includes(l.wallet))
+      .map((l) => l.content_id)
+  );
   const commentCountByContent: Record<string, number> = {};
   (commentsRes.data ?? []).forEach((c) => {
     commentCountByContent[c.content_id] = (commentCountByContent[c.content_id] ?? 0) + 1;
@@ -561,6 +578,7 @@ export async function getListWithArtworks(
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,
       comments: commentCountByContent[c.id] ?? 0,
+      likedByViewer: viewerLikedIds.has(c.id),
       nsfwUnlocked,
       animatedUnlocked,
     });

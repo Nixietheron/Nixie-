@@ -247,14 +247,20 @@ export default function FeedScreen() {
 
   const handleLike = async (contentId: string, currentlyLiked: boolean) => {
     if (!effectiveWallet) return;
+    if (currentlyLiked) return;
     await fetch("/api/like", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet: effectiveWallet, contentId, action: currentlyLiked ? "unlike" : "like" }),
+      body: JSON.stringify({ wallet: effectiveWallet, contentId, action: "like" }),
     });
     setArtworks((prev) =>
       prev.map((a) =>
-        a.id === contentId ? { ...a, likes: a.likes + (currentlyLiked ? -1 : 1) } : a
+        a.id === contentId ? { ...a, likes: a.likes + 1, likedByViewer: true } : a
+      )
+    );
+    setTrendingArtworks((prev) =>
+      prev.map((a) =>
+        a.id === contentId ? { ...a, likes: a.likes + 1, likedByViewer: true } : a
       )
     );
   };

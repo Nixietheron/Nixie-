@@ -100,7 +100,7 @@ export function ArtworkCard({
   const [showComments, setShowComments] = useState(false);
   const [showFullscreenImage, setShowFullscreenImage] = useState(false);
   const [fullscreenViewMode, setFullscreenViewMode] = useState<ViewMode>("sfw");
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(Boolean(artwork.likedByViewer));
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [animatedUseVideo, setAnimatedUseVideo] = useState(true);
@@ -113,6 +113,9 @@ export function ArtworkCard({
   useEffect(() => {
     if (!showFullscreenImage) setFullscreenAnimatedPlaying(false);
   }, [showFullscreenImage]);
+  useEffect(() => {
+    setIsLiked(Boolean(artwork.likedByViewer));
+  }, [artwork.likedByViewer, artwork.id]);
 
   useEffect(() => {
     if (!cardRef.current || impressionTrackedRef.current || !onTrackImpression) return;
@@ -132,8 +135,9 @@ export function ArtworkCard({
   }, [artwork.id, onTrackImpression]);
 
   const handleLike = () => {
-    setIsLiked((v) => !v);
-    onLike?.(artwork.id, isLiked);
+    if (isLiked) return;
+    setIsLiked(true);
+    onLike?.(artwork.id, false);
   };
 
   const handleUnlock = async (paymentNetwork: PaymentNetwork) => {
