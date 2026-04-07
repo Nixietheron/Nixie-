@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { CheckCircle2, Crown, Shield, Sparkles, Clock3, ArrowLeft } from "lucide-react";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, useChainId, usePublicClient } from "wagmi";
+import { useWalletClientWithErc8021 } from "@/lib/wallet-client-erc8021";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { wrapFetchWithPayment } from "@x402/fetch";
 import { x402Client } from "@x402/core/client";
@@ -41,7 +42,7 @@ type MembershipStatus = {
 export default function MembershipPage() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const { data: walletClient } = useWalletClient();
+  const { data: walletClient } = useWalletClientWithErc8021();
   const publicClient = usePublicClient();
   const solanaWallet = useWallet();
 
