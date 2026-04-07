@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getListWithArtworks, deleteList } from "@/lib/supabase/data";
+import { assertWalletMatchesSession, getWalletsForRequest, parseWalletSession } from "@/lib/wallet-session";
 
 export const dynamic = "force-dynamic";
 
@@ -8,9 +9,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const walletParam = request.nextUrl.searchParams.get("wallet");
-  const walletMultiple = request.nextUrl.searchParams.getAll("wallet").filter(Boolean);
-  const wallet = walletMultiple.length > 0 ? walletMultiple : walletParam ?? undefined;
+  const sessionWallets = getWalletsForRequest(request);
+  const wallet = sessionWallets?.length ? sessionWallets : undefined;
   const { list, artworks } = await getListWithArtworks(id, wallet);
   if (!list) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
@@ -23,10 +23,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const session = parseWalletSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Wallet session required" }, { status: 401 });
+  }
   const body = await request.json().catch(() => ({}));
   const wallet = body.wallet as string | undefined;
   if (!wallet) {
     return NextResponse.json({ error: "wallet required" }, { status: 400 });
+  }
+  if (!assertWalletMatchesSession(session, wallet)) {
+    return NextResponse.json({ error: "Wallet does not match signed-in session" }, { status: 403 });
   }
   const { error } = await deleteList(id, wallet);
   if (error) {

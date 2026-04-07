@@ -3,6 +3,7 @@
 import { Heart, MessageCircle, Lock, Unlock, Eye, Calendar, X, Play } from "lucide-react";
 import { motion } from "motion/react";
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Artwork } from "@/lib/types";
 import { ipfsProxyUrl } from "@/lib/constants";
 import { ImageWithFallback } from "./image-with-fallback";
@@ -44,10 +45,8 @@ interface ArtworkCardProps {
   onSubmitComment?: (text: string) => Promise<void>;
   onNewComment?: (contentId: string, comment: CommentDisplay) => void;
   walletDisplay?: string;
-  /** Full wallet address for protected NSFW image URL (required for paid unlock). Used for display/comment. */
+  /** Full wallet address for display / comments / unlock modal. */
   walletAddress?: string | null;
-  /** All connected wallets (Base + Solana) for image unlock check; if set, used in ipfs-image URL so either wallet can load. */
-  walletAddresses?: string[];
   compact?: boolean;
   /** Called once when card becomes visible in viewport. */
   onTrackImpression?: (contentId: string) => void;
@@ -85,7 +84,6 @@ export function ArtworkCard({
   onNewComment,
   walletDisplay,
   walletAddress,
-  walletAddresses,
   solanaWalletConnected = false,
   onConnectSolanaClick,
   baseWalletReady = false,
@@ -110,9 +108,13 @@ export function ArtworkCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const impressionTrackedRef = useRef(false);
   const [fullscreenAnimatedPlaying, setFullscreenAnimatedPlaying] = useState(false);
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
     if (!showFullscreenImage) setFullscreenAnimatedPlaying(false);
   }, [showFullscreenImage]);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   useEffect(() => {
     setIsLiked(Boolean(artwork.likedByViewer));
   }, [artwork.likedByViewer, artwork.id]);
@@ -174,14 +176,10 @@ export function ArtworkCard({
   const showAnimatedUnlocked = showAnimated && !!artwork.animatedVersion;
   const showPaidLockedCollage = showNsfwLocked || showAnimatedLocked;
   const rawImageSrc = showSfw ? artwork.sfwPreview : showAnimatedUnlocked ? artwork.animatedVersion : artwork.nsfwFull;
-  const walletQuery =
-    (walletAddresses?.length ? walletAddresses.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null) ??
-    (walletAddress ? `wallet=${encodeURIComponent(walletAddress)}` : null);
+  /** Protected /api/ipfs-image URLs rely on signed session cookie (same-origin); do not append wallet query. */
   const imageSrc = showSfw
     ? (rawImageSrc?.includes("/ipfs/") ? ipfsProxyUrl(rawImageSrc) || rawImageSrc : rawImageSrc || "")
-    : showAnimatedUnlocked
-      ? (rawImageSrc || "") + (walletQuery ? `&${walletQuery}` : "")
-      : (rawImageSrc ? rawImageSrc + (walletQuery ? `&${walletQuery}` : "") : "");
+    : rawImageSrc || "";
 
   return (
     <>
@@ -579,12 +577,13 @@ export function ArtworkCard({
       )}
 
       {/* View full: enlarged image/video + comments; close button top-right */}
-      {showFullscreenImage && (
+      {showFullscreenImage && mounted
+        ? createPortal(
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex flex-col bg-[#0a080c]"
+          className="fixed inset-0 z-[120] flex flex-col bg-[#0a080c]"
         >
           <div className="relative flex items-center justify-center p-3 border-b border-white/10 shrink-0 min-h-[52px]">
             <span className="text-white/70 text-sm truncate max-w-[70%]">{artwork.title || "Untitled"}</span>
@@ -614,7 +613,7 @@ export function ArtworkCard({
                 >
                   <video
                     ref={fullscreenVideoRef}
-                    src={artwork.animatedVersion + (walletQuery ? `&${walletQuery}` : "")}
+                    src={artwork.animatedVersion ?? ""}
                     loop
                     muted
                     playsInline
@@ -642,7 +641,7 @@ export function ArtworkCard({
                 </div>
               ) : fullscreenViewMode === "nsfw" && artwork.nsfwFull ? (
                 <ImageWithFallback
-                  src={artwork.nsfwFull + (walletQuery ? `&${walletQuery}` : "")}
+                  src={artwork.nsfwFull}
                   alt={artwork.title || "Full artwork"}
                   className="max-w-full max-h-[88vh] w-auto h-auto object-contain rounded-xl"
                 />
@@ -682,8 +681,9 @@ export function ArtworkCard({
               />
             </div>
           </div>
-        </motion.div>
-      )}
+        </motion.div>,
+        document.body
+      ) : null}
     </>
   );
 }

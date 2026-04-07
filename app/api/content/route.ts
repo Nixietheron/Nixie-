@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContentWithCounts } from "@/lib/supabase/data";
+import { getWalletsForRequest } from "@/lib/wallet-session";
 
 export const dynamic = "force-dynamic";
 
@@ -7,10 +8,8 @@ export async function GET(request: NextRequest) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return NextResponse.json({ artworks: [] });
   }
-  const walletParam = request.nextUrl.searchParams.get("wallet");
-  const walletMultiple = request.nextUrl.searchParams.getAll("wallet").filter(Boolean);
-  const wallet =
-    walletMultiple.length > 0 ? walletMultiple : walletParam ? walletParam : undefined;
+  const sessionWallets = getWalletsForRequest(request);
+  const wallet = sessionWallets?.length ? sessionWallets : undefined;
   try {
     const { artworks, error } = await getContentWithCounts(wallet);
     if (error) {

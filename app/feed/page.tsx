@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, Flame, X, Lock, Loader2, CheckCircle, MessageCircle } from "lucide-react";
+import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, Flame, X, Lock, Loader2, CheckCircle, MessageCircle, Crown } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -17,7 +17,7 @@ import { ArtworkCard } from "@/components/nixie";
 import type { PaymentNetwork } from "@/components/nixie/unlock-modal";
 import type { Artwork } from "@/lib/types";
 import type { CommentDisplay } from "@/components/nixie/comments-panel";
-import { ipfsUrl, X402_CHAIN_IDS, SOLANA_RPC, SOLANA_MAINNET_CAIP2, BASE_CHAIN_ID } from "@/lib/constants";
+import { MEMBERSHIP_PRICE_USDC, ipfsUrl, X402_CHAIN_IDS, SOLANA_RPC, SOLANA_MAINNET_CAIP2, BASE_CHAIN_ID } from "@/lib/constants";
 import { createWalletAdapterSolanaSigner } from "@/lib/solana-x402-signer";
 import Link from "next/link";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
@@ -71,7 +71,13 @@ export default function FeedScreen() {
   const [dmInput, setDmInput] = useState("");
   const [dmLoading, setDmLoading] = useState(false);
   const [dmSending, setDmSending] = useState(false);
-  const { address, isConnected } = useAccount();
+  const [membershipActive, setMembershipActive] = useState(false);
+  const [membershipDaysLeft, setMembershipDaysLeft] = useState(0);
+  const [membershipEndsAt, setMembershipEndsAt] = useState<string | null>(null);
+  const [membershipLoading, setMembershipLoading] = useState(false);
+  const [membershipError, setMembershipError] = useState<string | null>(null);
+  const [sessionNonce, setSessionNonce] = useState(0);
+  const { address } = useAccount();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -114,9 +120,15 @@ export default function FeedScreen() {
   const effectiveWallet = address ?? solanaWallet.publicKey?.toBase58() ?? null;
 
   useEffect(() => {
+    const bump = () => setSessionNonce((n) => n + 1);
+    window.addEventListener("nixie-wallet-session", bump);
+    return () => window.removeEventListener("nixie-wallet-session", bump);
+  }, []);
+
+  useEffect(() => {
     if (!showDm || !effectiveWallet) return;
     setDmLoading(true);
-    fetch(`/api/dms?wallet=${encodeURIComponent(effectiveWallet)}`)
+    fetch(`/api/dms?wallet=${encodeURIComponent(effectiveWallet)}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setDmMessages(d.messages ?? []))
       .catch(() => setDmMessages([]))
@@ -128,14 +140,11 @@ export default function FeedScreen() {
       ? `${solanaWallet.publicKey.toBase58().slice(0, 4)}…${solanaWallet.publicKey.toBase58().slice(-4)}`
       : undefined;
 
-  const contentWalletParam = useMemo(() => {
-    const list = [...(address ? [address] : []), ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : [])];
-    return list.length ? list.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null;
-  }, [address, solanaWallet.publicKey]);
+  const walletConnectKey = `${address ?? ""}|${solanaWallet.publicKey?.toBase58() ?? ""}`;
 
   useEffect(() => {
-    const url = contentWalletParam ? `/api/content?${contentWalletParam}` : "/api/content";
-    fetch(url, { cache: "no-store" })
+    setLoading(true);
+    fetch("/api/content", { cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
         setArtworks(Array.isArray(d.artworks) ? d.artworks : []);
@@ -146,30 +155,36 @@ export default function FeedScreen() {
         setArtworks([]);
       })
       .finally(() => setLoading(false));
-  }, [contentWalletParam]);
-
-  const storiesWalletParam = useMemo(() => {
-    const list = [...(address ? [address] : []), ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : [])];
-    return list.length ? list.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null;
-  }, [address, solanaWallet.publicKey]);
+  }, [walletConnectKey, sessionNonce]);
 
   useEffect(() => {
-    const url = storiesWalletParam ? `/api/stories?${storiesWalletParam}` : "/api/stories";
-    fetch(url, { cache: "no-store" })
+    fetch("/api/stories", { cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((d) => setStories(Array.isArray(d.stories) ? d.stories : []))
       .catch(() => setStories([]));
-  }, [storiesWalletParam]);
+  }, [walletConnectKey, sessionNonce]);
 
   useEffect(() => {
-    const url = contentWalletParam
-      ? `/api/feed/trending?${contentWalletParam}&limit=20`
-      : "/api/feed/trending?limit=20";
-    fetch(url, { cache: "no-store" })
+    fetch("/api/feed/trending?limit=20", { cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((d) => setTrendingArtworks(Array.isArray(d.artworks) ? d.artworks : []))
       .catch(() => setTrendingArtworks([]));
-  }, [contentWalletParam]);
+  }, [walletConnectKey, sessionNonce]);
+
+  useEffect(() => {
+    fetch("/api/membership/status", { cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        setMembershipActive(Boolean(d.active));
+        setMembershipDaysLeft(Number(d.daysLeft ?? 0));
+        setMembershipEndsAt(typeof d.endsAt === "string" ? d.endsAt : null);
+      })
+      .catch(() => {
+        setMembershipActive(false);
+        setMembershipDaysLeft(0);
+        setMembershipEndsAt(null);
+      });
+  }, [walletConnectKey, sessionNonce]);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -222,7 +237,7 @@ export default function FeedScreen() {
 
   const loadComments = (artworkId: string) => {
     if (commentsByArtwork[artworkId]) return;
-    fetch(`/api/comments?contentId=${encodeURIComponent(artworkId)}`)
+    fetch(`/api/comments?contentId=${encodeURIComponent(artworkId)}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setCommentsByArtwork((prev) => ({ ...prev, [artworkId]: d.comments ?? [] })));
   };
@@ -236,6 +251,7 @@ export default function FeedScreen() {
     if (!effectiveWallet) return;
     const res = await fetch("/api/comments", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ wallet: effectiveWallet, contentId: artworkId, text }),
     });
@@ -250,6 +266,7 @@ export default function FeedScreen() {
     if (currentlyLiked) return;
     await fetch("/api/like", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ wallet: effectiveWallet, contentId, action: "like" }),
     });
@@ -285,6 +302,7 @@ export default function FeedScreen() {
     if (!viewerKey) return;
     fetch("/api/view", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contentId, viewerKey, eventType }),
       keepalive: true,
@@ -304,9 +322,7 @@ export default function FeedScreen() {
     unlockType: "nsfw" | "animated",
     _wallet: string | null
   ) => {
-    const param = contentWalletParam ?? (_wallet ? `wallet=${encodeURIComponent(_wallet)}` : null);
-    if (!param) return;
-    const r2 = await fetch(`/api/content?${param}`, { cache: "no-store" });
+    const r2 = await fetch("/api/content", { cache: "no-store", credentials: "include" });
     const data = await r2.json().catch(() => ({}));
     const markUnlocked = (a: Artwork) =>
       a.id === artworkId
@@ -370,7 +386,12 @@ export default function FeedScreen() {
         contentId: artworkId,
         unlockType,
       });
-      const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
+      const opts = {
+        method: "POST" as const,
+        credentials: "include" as const,
+        headers: { "Content-Type": "application/json" },
+        body,
+      };
       const res = await fetchWithPaymentSolana("/api/unlock", opts);
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? "Unlock failed");
@@ -390,7 +411,12 @@ export default function FeedScreen() {
       throw new Error("Base wallet not ready. Connect your wallet and refresh the page if needed.");
     }
     const body = JSON.stringify({ wallet: address, contentId: artworkId, unlockType });
-    const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
+    const opts = {
+      method: "POST" as const,
+      credentials: "include" as const,
+      headers: { "Content-Type": "application/json" },
+      body,
+    };
     const res = await fetchWithPayment("/api/unlock", opts);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d.error ?? "Unlock failed");
@@ -400,13 +426,63 @@ export default function FeedScreen() {
     }
   };
 
+  const handleSubscribeMembership = async () => {
+    setMembershipError(null);
+    setMembershipLoading(true);
+    try {
+      if (address && fetchWithPayment) {
+        const body = JSON.stringify({ wallet: address });
+        const res = await fetchWithPayment("/api/membership/subscribe", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error ?? "Subscription payment failed");
+        setMembershipActive(true);
+        setMembershipDaysLeft(Number(d.daysLeft ?? 30));
+        setMembershipEndsAt(typeof d.endsAt === "string" ? d.endsAt : null);
+      } else if (solanaWallet.connected && solanaWallet.publicKey && fetchWithPaymentSolana) {
+        const body = JSON.stringify({ wallet: solanaWallet.publicKey.toBase58() });
+        const res = await fetchWithPaymentSolana("/api/membership/subscribe", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error ?? "Subscription payment failed");
+        setMembershipActive(true);
+        setMembershipDaysLeft(Number(d.daysLeft ?? 30));
+        setMembershipEndsAt(typeof d.endsAt === "string" ? d.endsAt : null);
+      } else {
+        throw new Error("Connect Base or Solana wallet to purchase membership.");
+      }
+
+      {
+        const [contentRes, storiesRes] = await Promise.all([
+          fetch("/api/content", { cache: "no-store", credentials: "include" }),
+          fetch("/api/stories", { cache: "no-store", credentials: "include" }),
+        ]);
+        const contentData = await contentRes.json().catch(() => ({}));
+        const storiesData = await storiesRes.json().catch(() => ({}));
+        if (Array.isArray(contentData.artworks)) setArtworks(contentData.artworks);
+        if (Array.isArray(storiesData.stories)) setStories(storiesData.stories);
+      }
+    } catch (e) {
+      setMembershipError(e instanceof Error ? e.message : "Membership purchase failed");
+    } finally {
+      setMembershipLoading(false);
+    }
+  };
+
   const refetchStories = useCallback(() => {
-    const url = storiesWalletParam ? `/api/stories?${storiesWalletParam}` : "/api/stories";
-    return fetch(url, { cache: "no-store" })
+    return fetch("/api/stories", { cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((d) => setStories(Array.isArray(d.stories) ? d.stories : []))
       .catch(() => {});
-  }, [storiesWalletParam]);
+  }, []);
 
   type StoryPaymentNetwork = "base" | "solana";
 
@@ -423,7 +499,12 @@ export default function FeedScreen() {
           wallet: solanaWallet.publicKey.toBase58(),
           storyId,
         });
-        const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
+        const opts = {
+          method: "POST" as const,
+          credentials: "include" as const,
+          headers: { "Content-Type": "application/json" },
+          body,
+        };
         const res = await fetchWithPaymentSolana("/api/story-unlock", opts);
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error ?? "Unlock failed");
@@ -453,7 +534,12 @@ export default function FeedScreen() {
         return;
       }
       const body = JSON.stringify({ wallet: address, storyId });
-      const opts = { method: "POST" as const, headers: { "Content-Type": "application/json" }, body };
+      const opts = {
+        method: "POST" as const,
+        credentials: "include" as const,
+        headers: { "Content-Type": "application/json" },
+        body,
+      };
       const res = await fetchWithPayment("/api/story-unlock", opts);
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? "Unlock failed");
@@ -533,6 +619,10 @@ export default function FeedScreen() {
             <MessageCircle className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
             Message Nixie
           </button>
+          <Link href="/membership" className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors">
+            <Crown className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
+            Membership
+          </Link>
           <div className="px-2.5 py-2 space-y-1.5 rounded-lg">
             <span className="text-white/50 text-[12px]">View</span>
             <div className="flex flex-wrap gap-1">
@@ -939,6 +1029,41 @@ export default function FeedScreen() {
 
         {/* ─── FEED ─── */}
         <main className="flex-1 w-full max-w-[960px] lg:max-w-[880px] mx-auto px-3 sm:px-4 lg:px-6 py-4 lg:py-5">
+        <div className="mb-4 rounded-2xl border border-[#D27A92]/30 bg-[#17121c]/90 px-4 py-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-white font-semibold text-sm">Nixie Membership</p>
+              {membershipActive ? (
+                <p className="text-emerald-300/90 text-xs mt-0.5">
+                  Active · {membershipDaysLeft} day{membershipDaysLeft === 1 ? "" : "s"} left
+                  {membershipEndsAt ? ` (until ${new Date(membershipEndsAt).toLocaleDateString()})` : ""}
+                </p>
+              ) : (
+                <p className="text-white/55 text-xs mt-0.5">
+                  ${MEMBERSHIP_PRICE_USDC} USDC / 30 days — unlock all content while active.
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/membership"
+                className="px-3 py-2 rounded-xl text-xs font-medium border border-white/20 text-white/80 hover:text-white hover:border-white/35"
+              >
+                Details
+              </Link>
+              <button
+                type="button"
+                onClick={handleSubscribeMembership}
+                disabled={membershipActive || membershipLoading}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #D27A92 0%, #c96b84 100%)" }}
+              >
+                {membershipActive ? "Membership Active" : membershipLoading ? "Processing..." : "Subscribe $25/mo"}
+              </button>
+            </div>
+          </div>
+          {membershipError && <p className="text-red-400 text-xs mt-2">{membershipError}</p>}
+        </div>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <Loader2 className="w-10 h-10 text-anime-pink animate-spin" aria-hidden />
@@ -979,10 +1104,6 @@ export default function FeedScreen() {
                   comments={getCommentsForCard(artwork.id)}
                   walletDisplay={walletDisplay}
                   walletAddress={effectiveWallet ?? undefined}
-                  walletAddresses={[
-                    ...(address ? [address] : []),
-                    ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : []),
-                  ]}
                   baseWalletReady={baseWalletReady}
                   baseWalletConnected={!!address}
                   solanaWalletConnected={solanaWallet.connected}
@@ -1072,6 +1193,7 @@ export default function FeedScreen() {
                   try {
                     const res = await fetch("/api/dms", {
                       method: "POST",
+                      credentials: "include",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ wallet: effectiveWallet, message: dmInput.trim() }),
                     });

@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrCreateDmThread, addDmUserMessage } from "@/lib/supabase/data";
+import { assertWalletMatchesSession, parseWalletSession } from "@/lib/wallet-session";
 
 export const dynamic = "force-dynamic";
 
-/** GET: user's thread + messages. Query: wallet= (required). */
 export async function GET(request: NextRequest) {
+  const session = parseWalletSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Wallet session required" }, { status: 401 });
+  }
   const wallet = request.nextUrl.searchParams.get("wallet") ?? undefined;
   if (!wallet) {
     return NextResponse.json({ error: "wallet required" }, { status: 400 });
+  }
+  if (!assertWalletMatchesSession(session, wallet)) {
+    return NextResponse.json({ error: "Wallet does not match signed-in session" }, { status: 403 });
   }
   const { thread, messages, error } = await getOrCreateDmThread(wallet);
   if (error) {
@@ -16,14 +23,20 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ thread, messages });
 }
 
-/** POST: user sends a message. Body: { wallet, message } or { wallet, threadId, message }. */
 export async function POST(request: NextRequest) {
+  const session = parseWalletSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Wallet session required" }, { status: 401 });
+  }
   const body = await request.json().catch(() => ({}));
   const wallet = body.wallet as string | undefined;
   const message = (body.message as string)?.trim();
   const threadId = body.threadId as string | undefined;
   if (!wallet || !message) {
     return NextResponse.json({ error: "wallet and message required" }, { status: 400 });
+  }
+  if (!assertWalletMatchesSession(session, wallet)) {
+    return NextResponse.json({ error: "Wallet does not match signed-in session" }, { status: 403 });
   }
   if (threadId) {
     const { error } = await addDmUserMessage(threadId, wallet, message);
@@ -42,6 +55,6 @@ export async function POST(request: NextRequest) {
   if (addErr) {
     return NextResponse.json({ error: addErr.message }, { status: 500 });
   }
-  const { thread: t2, messages: m2, error: e2 } = await getOrCreateDmThread(wallet);
+  const { thread: t2, messages: m2 } = await getOrCreateDmThread(wallet);
   return NextResponse.json({ thread: t2, messages: m2 });
 }

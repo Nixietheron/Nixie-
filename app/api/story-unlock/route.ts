@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decodePaymentSignatureHeader, encodePaymentResponseHeader } from "@x402/core/http";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { getActiveMembershipForWallets } from "@/lib/supabase/data";
 import {
   buildPaymentRequired,
   encodePaymentRequired,
   verifyAndSettle,
 } from "@/lib/x402-server";
+import { assertWalletMatchesSession, parseWalletSession } from "@/lib/wallet-session";
 
 const RECIPIENT_WALLET = process.env.X402_RECIPIENT_WALLET;
 
 export async function POST(request: NextRequest) {
+  const session = parseWalletSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Wallet session required — sign in first" }, { status: 401 });
+  }
+
   const body = await request.json();
   const { wallet, storyId } = body;
   if (!wallet || !storyId) {
@@ -17,6 +24,9 @@ export async function POST(request: NextRequest) {
       { error: "wallet and storyId required" },
       { status: 400 }
     );
+  }
+  if (!assertWalletMatchesSession(session, wallet)) {
+    return NextResponse.json({ error: "Wallet does not match signed-in session" }, { status: 403 });
   }
 
   const admin = createAdminClient();
@@ -30,6 +40,18 @@ export async function POST(request: NextRequest) {
 
   if (existing) {
     return NextResponse.json({ unlocked: true, already: true });
+  }
+
+  const membership = await getActiveMembershipForWallets([wallet]);
+  if (membership.active) {
+    const { error: insertError } = await admin.from("story_unlocks").insert({
+      wallet,
+      story_id: storyId,
+    });
+    if (insertError && !insertError.message.toLowerCase().includes("duplicate")) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+    return NextResponse.json({ unlocked: true, membership: true });
   }
 
   const { data: story } = await admin
@@ -56,19 +78,27 @@ export async function POST(request: NextRequest) {
   }
 
   const priceUsdc = Number(story.price_usdc);
+
+  if (!RECIPIENT_WALLET) {
+    return NextResponse.json(
+      { error: "Paid story unlocks require payment configuration (X402_RECIPIENT_WALLET)" },
+      { status: 503 }
+    );
+  }
+
   const paymentSignature =
     request.headers.get("payment-signature") ??
     request.headers.get("PAYMENT-SIGNATURE") ??
     request.headers.get("x-payment") ??
     request.headers.get("X-PAYMENT");
 
-  if (RECIPIENT_WALLET && paymentSignature) {
+  if (paymentSignature) {
     try {
       const paymentPayload = decodePaymentSignatureHeader(paymentSignature);
       const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/story-unlock`;
       const paymentRequired = await buildPaymentRequired({
         priceUsdc,
-        payTo: RECIPIENT_WALLET!,
+        payTo: RECIPIENT_WALLET,
         resource,
         contentId: storyId,
       });
@@ -96,17 +126,6 @@ export async function POST(request: NextRequest) {
       const message = err instanceof Error ? err.message : "Payment verification failed";
       return NextResponse.json({ error: message }, { status: 402 });
     }
-  }
-
-  if (!RECIPIENT_WALLET) {
-    const { error: insertError } = await admin.from("story_unlocks").insert({
-      wallet,
-      story_id: storyId,
-    });
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
-    }
-    return NextResponse.json({ unlocked: true });
   }
 
   const resource = request.url ?? `${request.nextUrl?.origin ?? ""}/api/story-unlock`;

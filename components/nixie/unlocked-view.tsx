@@ -17,8 +17,6 @@ interface UnlockedViewProps {
   isLiked: boolean;
   onLike: () => void;
   walletDisplay?: string;
-  /** Required for proxy URLs (NSFW / animated) to work */
-  walletAddress?: string | null;
 }
 
 export function UnlockedView({
@@ -30,7 +28,6 @@ export function UnlockedView({
   isLiked,
   onLike,
   walletDisplay,
-  walletAddress,
 }: UnlockedViewProps) {
   const [showComments, setShowComments] = useState(false);
   const [showAnimated, setShowAnimated] = useState(false);
@@ -40,10 +37,7 @@ export function UnlockedView({
     showAnimated && artwork.animatedVersion
       ? artwork.animatedVersion
       : artwork.nsfwFull;
-  const imageSrc =
-    baseSrc && baseSrc.includes("/api/ipfs-image") && walletAddress
-      ? baseSrc + `&wallet=${encodeURIComponent(walletAddress)}`
-      : baseSrc ?? "";
+  const imageSrc = baseSrc ?? "";
 
   return (
     <>

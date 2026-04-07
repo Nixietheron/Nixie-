@@ -50,6 +50,7 @@ export function AddToListPopover({
     try {
       const res = await fetch(`/api/lists/${listId}/items`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet, contentId }),
       });
@@ -68,6 +69,7 @@ export function AddToListPopover({
     try {
       const res = await fetch("/api/lists", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet, name: newListName || "New list" }),
       });

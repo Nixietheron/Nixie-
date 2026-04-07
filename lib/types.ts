@@ -99,7 +99,7 @@ export function contentToArtwork(
     nsfwFull: nsfwCid ? nsfwImageUrl(c.id, nsfwUnlocked, c.price_usdc) : "",
     hasNsfw: !!nsfwCid,
     hasAnimated: !!c.animated_cid,
-    /** Proxy URL; client must append &wallet= when loading. Never expose raw CID. */
+    /** Proxy URL; session cookie authorizes load. Never expose raw CID. */
     animatedVersion: animatedAllowed ? `/api/ipfs-image?contentId=${c.id}&type=animated` : undefined,
     price: c.price_usdc,
     animatedPrice: priceAnimated,

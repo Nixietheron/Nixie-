@@ -3,6 +3,7 @@ import {
   getCommentsByContentId,
   addComment,
 } from "@/lib/supabase/data";
+import { assertWalletMatchesSession, parseWalletSession } from "@/lib/wallet-session";
 
 export async function GET(request: NextRequest) {
   const contentId = request.nextUrl.searchParams.get("contentId");
@@ -17,6 +18,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = parseWalletSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Wallet session required" }, { status: 401 });
+  }
   const body = await request.json();
   const { wallet, contentId, text } = body;
   if (!wallet || !contentId || !text?.trim()) {
@@ -24,6 +29,9 @@ export async function POST(request: NextRequest) {
       { error: "wallet, contentId, and text required" },
       { status: 400 }
     );
+  }
+  if (!assertWalletMatchesSession(session, wallet)) {
+    return NextResponse.json({ error: "Wallet does not match signed-in session" }, { status: 403 });
   }
   const { comment, error } = await addComment(wallet, contentId, text.trim());
   if (error) {

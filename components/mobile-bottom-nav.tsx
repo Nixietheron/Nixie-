@@ -5,12 +5,13 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccount } from "wagmi";
-import { Home, User, Wallet, MessageCircle, X } from "lucide-react";
+import { Home, User, Wallet, MessageCircle, Crown, X } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 
 const navItems = [
   { href: "/feed", label: "Feed", icon: Home },
   { href: "/profile", label: "Profile", icon: User },
+  { href: "/membership", label: "Membership", icon: Crown },
 ] as const;
 
 /** Height of bottom tab bar (h-14 = 3.5rem) — keep sheet above it */

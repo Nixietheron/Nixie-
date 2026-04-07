@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Sparkles, User, Wallet, LayoutList, Grid3X3, Loader2, FolderPlus, Plus, MessageCircle, X } from "lucide-react";
+import { Sparkles, User, Wallet, LayoutList, Grid3X3, Loader2, FolderPlus, Plus, MessageCircle, Crown, X } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { useAccount } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -31,6 +31,7 @@ export default function ProfilePage() {
   const [dmInput, setDmInput] = useState("");
   const [dmLoading, setDmLoading] = useState(false);
   const [dmSending, setDmSending] = useState(false);
+  const [sessionNonce, setSessionNonce] = useState(0);
 
   type LayoutKey = "list" | "2" | "3" | "4";
   const [layout, setLayout] = useState<LayoutKey>("list");
@@ -44,19 +45,22 @@ export default function ProfilePage() {
       ? `${solanaWallet.publicKey.toBase58().slice(0, 4)}…${solanaWallet.publicKey.toBase58().slice(-4)}`
       : undefined;
 
-  const profileWalletParam = useMemo(() => {
-    const list = [...(address ? [address] : []), ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : [])];
-    return list.length ? list.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null;
-  }, [address, solanaWallet.publicKey]);
+  const walletConnectKey = `${address ?? ""}|${solanaWallet.publicKey?.toBase58() ?? ""}`;
 
   useEffect(() => {
-    if (!profileWalletParam) {
+    const bump = () => setSessionNonce((n) => n + 1);
+    window.addEventListener("nixie-wallet-session", bump);
+    return () => window.removeEventListener("nixie-wallet-session", bump);
+  }, []);
+
+  useEffect(() => {
+    if (!isConnected) {
       setArtworks([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    fetch(`/api/content?${profileWalletParam}`, { cache: "no-store" })
+    fetch("/api/content", { cache: "no-store", credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
         const list = (d.artworks ?? []).filter((a: Artwork) => a.hasPaidUnlock);
@@ -64,11 +68,11 @@ export default function ProfilePage() {
       })
       .catch(() => setArtworks([]))
       .finally(() => setLoading(false));
-  }, [profileWalletParam]);
+  }, [isConnected, walletConnectKey, sessionNonce]);
 
   const loadComments = (artworkId: string) => {
     if (commentsByArtwork[artworkId]) return;
-    fetch(`/api/comments?contentId=${encodeURIComponent(artworkId)}`)
+    fetch(`/api/comments?contentId=${encodeURIComponent(artworkId)}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setCommentsByArtwork((prev) => ({ ...prev, [artworkId]: d.comments ?? [] })));
   };
@@ -85,11 +89,11 @@ export default function ProfilePage() {
       setLists([]);
       return;
     }
-    fetch(`/api/lists?wallet=${encodeURIComponent(effectiveWallet)}`)
+    fetch(`/api/lists?wallet=${encodeURIComponent(effectiveWallet)}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setLists(d.lists ?? []))
       .catch(() => setLists([]));
-  }, [effectiveWallet]);
+  }, [effectiveWallet, sessionNonce]);
 
   useEffect(() => {
     if (searchParams.get("openDm") === "1") setShowDm(true);
@@ -97,7 +101,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!showDm || !effectiveWallet) return;
     setDmLoading(true);
-    fetch(`/api/dms?wallet=${encodeURIComponent(effectiveWallet)}`)
+    fetch(`/api/dms?wallet=${encodeURIComponent(effectiveWallet)}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setDmMessages(d.messages ?? []))
       .catch(() => setDmMessages([]))
@@ -110,6 +114,7 @@ export default function ProfilePage() {
     try {
       const res = await fetch("/api/lists", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet: effectiveWallet, name: newListName || "New list" }),
       });
@@ -127,6 +132,7 @@ export default function ProfilePage() {
     if (!effectiveWallet) return;
     const res = await fetch("/api/comments", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ wallet: effectiveWallet, contentId: artworkId, text }),
     });
@@ -140,6 +146,7 @@ export default function ProfilePage() {
     if (!effectiveWallet) return;
     await fetch("/api/like", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ wallet: effectiveWallet, contentId, action: currentlyLiked ? "unlike" : "like" }),
     });
@@ -175,6 +182,10 @@ export default function ProfilePage() {
             <MessageCircle className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
             Message Nixie
           </button>
+          <Link href="/membership" className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors">
+            <Crown className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
+            Membership
+          </Link>
         </nav>
         <div className="p-2.5 border-t border-white/[0.06]">
           <ConnectButton />
@@ -358,10 +369,6 @@ export default function ProfilePage() {
                     comments={getCommentsForCard(artwork.id)}
                     walletDisplay={walletDisplay}
                     walletAddress={effectiveWallet ?? undefined}
-                    walletAddresses={[
-                      ...(address ? [address] : []),
-                      ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : []),
-                    ]}
                     compact
                     onLike={handleLike}
                     onSubmitComment={(text) => handleSubmitComment(artwork.id, text)}
@@ -378,7 +385,9 @@ export default function ProfilePage() {
                       compact
                       onListCreated={() => {
                         if (!effectiveWallet) return;
-                        fetch(`/api/lists?wallet=${encodeURIComponent(effectiveWallet)}`)
+                        fetch(`/api/lists?wallet=${encodeURIComponent(effectiveWallet)}`, {
+                          credentials: "include",
+                        })
                           .then((r) => r.json())
                           .then((d) => setLists(d.lists ?? []));
                       }}
@@ -444,6 +453,7 @@ export default function ProfilePage() {
                       try {
                         const res = await fetch("/api/dms", {
                           method: "POST",
+                          credentials: "include",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ wallet: effectiveWallet, message: dmInput.trim() }),
                         });

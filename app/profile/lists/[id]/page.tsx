@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { Sparkles, LayoutList, Loader2, ArrowLeft, Trash2 } from "lucide-react";
+import { Sparkles, LayoutList, Loader2, ArrowLeft, Crown, Trash2 } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { useAccount } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -27,29 +27,33 @@ export default function ListDetailPage() {
   const [loading, setLoading] = useState(true);
   const [commentsByArtwork, setCommentsByArtwork] = useState<Record<string, CommentDisplay[]>>({});
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [sessionNonce, setSessionNonce] = useState(0);
 
   const walletAddresses = [
     ...(address ? [address] : []),
     ...(solanaWallet.publicKey ? [solanaWallet.publicKey.toBase58()] : []),
   ];
-  const walletParam =
-    walletAddresses.length > 0
-      ? walletAddresses.map((w) => `wallet=${encodeURIComponent(w)}`).join("&")
-      : "";
+  const walletConnectKey = `${address ?? ""}|${solanaWallet.publicKey?.toBase58() ?? ""}`;
+
+  useEffect(() => {
+    const bump = () => setSessionNonce((n) => n + 1);
+    window.addEventListener("nixie-wallet-session", bump);
+    return () => window.removeEventListener("nixie-wallet-session", bump);
+  }, []);
 
   useEffect(() => {
     if (!listId) {
       setLoading(false);
       return;
     }
-    if (!walletParam) {
+    if (!effectiveWallet) {
       setList(null);
       setArtworks([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    fetch(`/api/lists/${listId}?${walletParam}`, { cache: "no-store" })
+    fetch(`/api/lists/${listId}`, { cache: "no-store", credentials: "include" })
       .then((r) => {
         if (r.status === 404) return null;
         return r.json();
@@ -68,11 +72,11 @@ export default function ListDetailPage() {
         setArtworks([]);
       })
       .finally(() => setLoading(false));
-  }, [listId, walletParam]);
+  }, [listId, effectiveWallet, walletConnectKey, sessionNonce]);
 
   const loadComments = (artworkId: string) => {
     if (commentsByArtwork[artworkId]) return;
-    fetch(`/api/comments?contentId=${encodeURIComponent(artworkId)}`)
+    fetch(`/api/comments?contentId=${encodeURIComponent(artworkId)}`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => setCommentsByArtwork((prev) => ({ ...prev, [artworkId]: d.comments ?? [] })));
   };
@@ -92,7 +96,7 @@ export default function ListDetailPage() {
     try {
       const res = await fetch(
         `/api/lists/${listId}/items?contentId=${encodeURIComponent(contentId)}&wallet=${encodeURIComponent(ownerWallet)}`,
-        { method: "DELETE" }
+        { method: "DELETE", credentials: "include" }
       );
       if (res.ok) {
         setArtworks((prev) => prev.filter((a) => a.id !== contentId));
@@ -130,6 +134,13 @@ export default function ListDetailPage() {
               P
             </div>
             Profile
+          </Link>
+          <Link
+            href="/membership"
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors"
+          >
+            <Crown className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
+            Membership
           </Link>
         </nav>
         <div className="p-2.5 border-t border-white/[0.06]">
@@ -202,7 +213,6 @@ export default function ListDetailPage() {
                         comments={getCommentsForCard(artwork.id)}
                         walletDisplay={effectiveWallet ?? undefined}
                         walletAddress={effectiveWallet ?? undefined}
-                        walletAddresses={walletAddresses}
                         compact
                       />
                       {isOwner && (

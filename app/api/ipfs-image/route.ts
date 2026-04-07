@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNsfwCidIfAllowed, getAnimatedCidIfAllowed } from "@/lib/supabase/data";
+import { getWalletsForRequest } from "@/lib/wallet-session";
 
 const GATEWAY = "https://gateway.pinata.cloud/ipfs";
 
@@ -11,26 +12,18 @@ function isValidCid(cid: string): boolean {
 export async function GET(request: NextRequest) {
   const contentId = request.nextUrl.searchParams.get("contentId");
   const cidParam = request.nextUrl.searchParams.get("cid");
-  const walletMultiple = request.nextUrl.searchParams.getAll("wallet").filter(Boolean);
-  const walletParam = request.nextUrl.searchParams.get("wallet") ?? null;
-  const wallets =
-    walletMultiple.length > 0
-      ? walletMultiple
-      : walletParam
-        ? walletParam.split(",").map((w) => w.trim()).filter(Boolean)
-        : null;
+  const sessionWallets = getWalletsForRequest(request);
+  const wallets = sessionWallets?.length ? sessionWallets : null;
   const type = request.nextUrl.searchParams.get("type"); // "animated" | undefined (nsfw)
 
   let cid: string | null = null;
 
   if (cidParam) {
-    // Public proxy: ?cid=... (stories, SFW previews, etc.)
     if (!isValidCid(cidParam)) {
       return NextResponse.json({ error: "Invalid cid" }, { status: 400 });
     }
     cid = cidParam;
   } else if (contentId) {
-    // Protected: ?contentId=...&wallet=... [&type=animated]. wallet can be comma-separated (Base + Solana).
     if (type === "animated") {
       cid = await getAnimatedCidIfAllowed(wallets, contentId);
     } else {

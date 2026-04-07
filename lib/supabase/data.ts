@@ -3,6 +3,63 @@ import { createClient as createServerSupabase, createAdminClient } from "./serve
 import { contentToArtwork } from "@/lib/types";
 import type { ContentRow, StoryRow } from "@/lib/types";
 import type { CommentDisplay } from "@/components/nixie/comments-panel";
+import { MEMBERSHIP_DURATION_DAYS } from "@/lib/constants";
+
+export type MembershipStatus = {
+  active: boolean;
+  wallet: string | null;
+  endsAt: string | null;
+  daysLeft: number;
+};
+
+function computeDaysLeft(endsAt: string | null): number {
+  if (!endsAt) return 0;
+  const ms = new Date(endsAt).getTime() - Date.now();
+  if (ms <= 0) return 0;
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+export async function getActiveMembershipForWallets(wallets: string[]): Promise<MembershipStatus> {
+  if (!wallets.length) return { active: false, wallet: null, endsAt: null, daysLeft: 0 };
+  const admin = createAdminClient();
+  const nowIso = new Date().toISOString();
+  const { data } = await admin
+    .from("subscriptions")
+    .select("wallet, ends_at, status")
+    .in("wallet", wallets)
+    .eq("status", "active")
+    .gt("ends_at", nowIso)
+    .order("ends_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return { active: false, wallet: null, endsAt: null, daysLeft: 0 };
+  const endsAt = (data as { ends_at: string }).ends_at;
+  return {
+    active: true,
+    wallet: (data as { wallet: string }).wallet,
+    endsAt,
+    daysLeft: computeDaysLeft(endsAt),
+  };
+}
+
+export async function upsertMembership(wallet: string, txHash?: string | null) {
+  const admin = createAdminClient();
+  const now = new Date();
+  const current = await getActiveMembershipForWallets([wallet]);
+  const baseDate = current.active && current.endsAt ? new Date(current.endsAt) : now;
+  const endsAt = new Date(baseDate);
+  endsAt.setDate(endsAt.getDate() + MEMBERSHIP_DURATION_DAYS);
+  const payload = {
+    wallet,
+    status: "active",
+    started_at: now.toISOString(),
+    ends_at: endsAt.toISOString(),
+    tx_hash: txHash ?? null,
+    updated_at: now.toISOString(),
+  };
+  const { error } = await admin.from("subscriptions").upsert(payload, { onConflict: "wallet" });
+  return { error, endsAt: payload.ends_at, daysLeft: computeDaysLeft(payload.ends_at) };
+}
 
 export async function getContentWithCounts(wallet: string | string[] | undefined) {
   const admin = createAdminClient();
@@ -19,6 +76,7 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
 
   const contentIds = (contentRows as ContentRow[]).map((c) => c.id);
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  const membership = await getActiveMembershipForWallets(wallets);
 
   // Unlock'ları service role ile oku: RLS yüzünden satın almış kullanıcılar kilitlenmesin (fiyat güncellense bile).
   const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
@@ -59,8 +117,8 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
   const artworks = (contentRows as ContentRow[]).map((c) => {
     const priceUsdc = c.price_usdc ?? 0;
     const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
-    const nsfwUnlocked = priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
-    const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
+    const nsfwUnlocked = membership.active || priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
+    const animatedUnlocked = membership.active || priceAnimated === 0 || animatedUnlockedIds.has(c.id);
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,
@@ -121,6 +179,7 @@ export async function getTrendingArtworks(
   );
   const contentIds = rows.map((c) => c.id);
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  const membership = await getActiveMembershipForWallets(wallets);
 
   const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
     wallets.length > 0
@@ -158,8 +217,8 @@ export async function getTrendingArtworks(
   const artworks = rows.map((c) => {
     const priceUsdc = c.price_usdc ?? 0;
     const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
-    const nsfwUnlocked = priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
-    const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
+    const nsfwUnlocked = membership.active || priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
+    const animatedUnlocked = membership.active || priceAnimated === 0 || animatedUnlockedIds.has(c.id);
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,
@@ -188,6 +247,8 @@ export async function getNsfwCidIfAllowed(
   if (row.price_usdc === 0) return row.nsfw_cid;
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
   if (wallets.length === 0) return null;
+  const membership = await getActiveMembershipForWallets(wallets);
+  if (membership.active) return row.nsfw_cid;
   const { data: unlocks } = await admin
     .from("unlocks")
     .select("content_id")
@@ -214,6 +275,8 @@ export async function getAnimatedCidIfAllowed(
   if (priceAnimated === 0) return row.animated_cid;
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
   if (wallets.length === 0) return null;
+  const membership = await getActiveMembershipForWallets(wallets);
+  if (membership.active) return row.animated_cid;
   const { data: unlocks } = await admin
     .from("unlocks")
     .select("content_id")
@@ -400,6 +463,10 @@ export async function getActiveStoriesWithUnlock(
   if (wallets.length === 0 || stories.length === 0) {
     return stories.map((s) => ({ ...s, unlocked: !s.is_paid }));
   }
+  const membership = await getActiveMembershipForWallets(wallets);
+  if (membership.active) {
+    return stories.map((s) => ({ ...s, unlocked: true }));
+  }
   const admin = createAdminClient();
   const { data: unlocks } = await admin
     .from("story_unlocks")
@@ -538,6 +605,7 @@ export async function getListWithArtworks(
     (a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999)
   );
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  const membership = await getActiveMembershipForWallets(wallets);
   const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets).in("content_id", contentIds)
@@ -572,8 +640,8 @@ export async function getListWithArtworks(
   const artworks = rows.map((c) => {
     const priceUsdc = c.price_usdc ?? 0;
     const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
-    const nsfwUnlocked = priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
-    const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
+    const nsfwUnlocked = membership.active || priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
+    const animatedUnlocked = membership.active || priceAnimated === 0 || animatedUnlockedIds.has(c.id);
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,

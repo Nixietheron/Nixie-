@@ -20,6 +20,8 @@ export const USDC_ON_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as cons
 /** USDC SPL on Solana mainnet (Circle). Used for x402 unlock payments. */
 export const USDC_SPL_SOLANA = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as const;
 export const USDC_DECIMALS = 6;
+export const MEMBERSHIP_PRICE_USDC = 25;
+export const MEMBERSHIP_DURATION_DAYS = 30;
 
 export function ipfsUrl(cid: string | null | undefined): string {
   if (!cid) return "";

@@ -3,6 +3,7 @@
 import { X, Send, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 
 export interface CommentDisplay {
@@ -52,6 +53,7 @@ export function CommentsPanel({
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [mounted, setMounted] = useState(false);
 
   // Count how many comments current wallet has already made
   const myCommentCount = walletDisplay
@@ -76,6 +78,10 @@ export function CommentsPanel({
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [contentId, onNewComment]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,10 +230,10 @@ export function CommentsPanel({
   );
 
   if (embedded) {
-    return sheet;
+    return <div className="w-full max-w-3xl mx-auto">{sheet}</div>;
   }
 
-  return (
+  const overlay = (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center">
         <motion.div
@@ -242,4 +248,6 @@ export function CommentsPanel({
       </div>
     </AnimatePresence>
   );
+
+  return mounted ? createPortal(overlay, document.body) : null;
 }
