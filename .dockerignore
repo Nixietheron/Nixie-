@@ -1,0 +1,31 @@
+# Dependencies & caches (Nixpacks/Docker COPY . — keep context small for layer export)
+node_modules
+.next
+.turbo
+dist
+coverage
+*.tsbuildinfo
+
+# Git & IDE
+.git
+.gitignore
+.cursor
+.vscode
+.idea
+
+# Env (never bake secrets into image; keep .env.example for reference)
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Docs & local-only
+*.md
+Nixie desing
+.agent
+.agents
+
+# Logs & OS
+npm-debug.log*
+.DS_Store
+Thumbs.db
