@@ -14,15 +14,14 @@ export function dispatchWalletSessionEvent() {
 /**
  * How this works:
  *
- * wagmi exposes two distinct status transitions:
- *   "connecting"    → "connected"  = user just freshly connected a wallet
- *   "reconnecting"  → "connected"  = page refresh, previous wallet restored automatically
+ * EVM (wagmi) exposes two distinct status transitions:
+ *   "connecting"   → "connected"  = user freshly connected  → sign
+ *   "reconnecting" → "connected"  = page refresh restore    → verify only, no sign
  *
- * We ONLY prompt for SIWE signature on a FRESH connect or wallet switch.
- * On page refresh (reconnect), we just verify the existing session cookie.
- * If the cookie is still valid for the current wallet → done, no popup.
- * If the cookie is missing/expired on reconnect → we silently skip (no popup).
- *   The user will be re-prompted next time they explicitly reconnect.
+ * Solana wallet adapter has no "reconnecting" state, so we use a different
+ * heuristic: if the session already contains this SVM key, it was a page
+ * refresh restore → no sign. If the session does NOT contain it → fresh
+ * connect → sign.
  */
 export function WalletSessionSync() {
   const { address, isConnected, status } = useAccount();
@@ -30,17 +29,31 @@ export function WalletSessionSync() {
   const { signMessageAsync } = useSignMessage();
   const solanaWallet = useWallet();
 
-  const prevStatusRef = useRef<string>(status);
-  const prevAddressRef = useRef<string | undefined>(address);
+  // EVM transition tracking
+  const prevEvmStatusRef = useRef<string>(status);
+  const prevEvmAddressRef = useRef<string | undefined>(address);
+
+  // Solana transition tracking
+  const prevSvmKeyRef = useRef<string | null>(
+    solanaWallet.publicKey?.toBase58() ?? null
+  );
+  const prevSvmConnectedRef = useRef<boolean>(solanaWallet.connected);
+
   const busy = useRef(false);
 
   useEffect(() => {
-    const prevStatus = prevStatusRef.current;
-    const prevAddress = prevAddressRef.current;
-    prevStatusRef.current = status;
-    prevAddressRef.current = address;
+    const prevEvmStatus = prevEvmStatusRef.current;
+    const prevEvmAddress = prevEvmAddressRef.current;
+    prevEvmStatusRef.current = status;
+    prevEvmAddressRef.current = address;
 
-    // Still in transitional states, wait.
+    const prevSvmKey = prevSvmKeyRef.current;
+    const prevSvmConnected = prevSvmConnectedRef.current;
+    const currentSvmKey = solanaWallet.publicKey?.toBase58() ?? null;
+    prevSvmKeyRef.current = currentSvmKey;
+    prevSvmConnectedRef.current = solanaWallet.connected;
+
+    // Wait for transitions to settle
     if (status === "connecting" || status === "reconnecting") return;
     if (solanaWallet.connecting) return;
 
@@ -49,25 +62,34 @@ export function WalletSessionSync() {
 
     if (!evmConnected && !svmConnected) return;
 
-    // Determine intent:
-    // - "reconnect"  = page refresh, wallet auto-restored (reconnecting → connected)
-    // - "fresh"      = user explicitly connected for the first time (connecting → connected)
-    // - "switch"     = wallet address changed while connected
-    const wasReconnecting = prevStatus === "reconnecting";
-    const wasFreshConnecting = prevStatus === "connecting";
-    const addressSwitched =
+    // ── EVM transition detection ──────────────────────────────────────────
+    // "connecting → connected"       = fresh connect  → should sign
+    // "reconnecting → connected"     = page refresh   → should NOT sign
+    // address changed while connected = wallet switch  → should sign
+    const evmWasFreshConnecting = prevEvmStatus === "connecting";
+    const evmWasReconnecting = prevEvmStatus === "reconnecting";
+    const evmAddressSwitched =
       evmConnected &&
-      prevAddress !== undefined &&
-      prevAddress !== address &&
-      prevStatus === "connected";
-    const isReconnect = wasReconnecting && !addressSwitched;
-    const needsSign = wasFreshConnecting || addressSwitched;
+      prevEvmAddress !== undefined &&
+      prevEvmAddress !== address &&
+      prevEvmStatus === "connected";
+
+    const evmIsReconnect = evmWasReconnecting && !evmAddressSwitched;
+    const evmNeedsSign = evmWasFreshConnecting || evmAddressSwitched;
+
+    // ── Solana transition detection ───────────────────────────────────────
+    // Solana has no "reconnecting" state. We use session presence instead:
+    // if session already has this SVM key → it's a restore, no sign needed.
+    // If not → fresh connect, sign.
+    // We only re-check when the key or connected state actually changed.
+    const svmKeyChanged = currentSvmKey !== prevSvmKey;
+    const svmJustConnected = !prevSvmConnected && solanaWallet.connected && currentSvmKey !== null;
+    const svmStateChanged = svmKeyChanged || svmJustConnected;
 
     const run = async () => {
       if (busy.current) return;
       busy.current = true;
       try {
-        // Always read the current session first.
         const session = await fetch("/api/auth/session", { credentials: "include" })
           .then((r) => r.json())
           .catch(() => ({ authenticated: false, evm: null, svm: null }));
@@ -75,88 +97,81 @@ export function WalletSessionSync() {
         const evmSessionOk =
           evmConnected &&
           session.authenticated &&
-          session.evm &&
-          session.evm.toLowerCase() === address!.toLowerCase();
+          session.evm?.toLowerCase() === address!.toLowerCase();
 
         const svmSessionOk =
           svmConnected &&
           session.authenticated &&
-          session.svm === solanaWallet.publicKey!.toBase58();
+          session.svm === currentSvmKey;
 
-        const allOk =
-          (!evmConnected || evmSessionOk) && (!svmConnected || svmSessionOk);
-
-        if (allOk) {
-          // Session valid — no signature needed, just notify the app.
-          dispatchWalletSessionEvent();
-          return;
-        }
-
-        // Session invalid/missing.
-        if (isReconnect) {
-          // Page refresh: do NOT bother the user with a popup.
-          // They'll need to explicitly reconnect to get a fresh session.
-          return;
-        }
-
-        if (!needsSign) {
-          // Unknown transition, don't prompt.
-          return;
-        }
-
-        // === Fresh connect or wallet switch: request SIWE signature ===
-        if (evmConnected && address && !evmSessionOk) {
-          const nonceRes = await fetch("/api/auth/nonce", { credentials: "include" });
-          if (!nonceRes.ok) return;
-          const { nonce } = await nonceRes.json();
-          const { SiweMessage } = await import("siwe");
-          const message = new SiweMessage({
-            domain: window.location.host,
-            address,
-            statement: "Sign in to Nixie to verify wallet ownership.",
-            uri: window.location.origin,
-            version: "1",
-            chainId,
-            nonce,
-          });
-          const messageToSign = message.prepareMessage();
-          const signature = await signMessageAsync({ message: messageToSign });
-          const authRes = await fetch("/api/auth/evm", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: messageToSign, signature }),
-          });
-          if (!authRes.ok) {
-            console.warn("[wallet-session] evm auth failed", await authRes.text().catch(() => ""));
-            return;
+        // ── EVM ──
+        if (evmConnected) {
+          if (evmSessionOk) {
+            // valid, nothing to do for EVM
+          } else if (evmIsReconnect) {
+            // page refresh + no valid session → silently skip, no popup
+          } else if (evmNeedsSign) {
+            const nonceRes = await fetch("/api/auth/nonce", { credentials: "include" });
+            if (!nonceRes.ok) return;
+            const { nonce } = await nonceRes.json();
+            const { SiweMessage } = await import("siwe");
+            const msg = new SiweMessage({
+              domain: window.location.host,
+              address,
+              statement: "Sign in to Nixie to verify wallet ownership.",
+              uri: window.location.origin,
+              version: "1",
+              chainId,
+              nonce,
+            });
+            const messageToSign = msg.prepareMessage();
+            const signature = await signMessageAsync({ message: messageToSign });
+            const authRes = await fetch("/api/auth/evm", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: messageToSign, signature }),
+            });
+            if (!authRes.ok) {
+              console.warn("[wallet-session] evm auth failed", await authRes.text().catch(() => ""));
+              return;
+            }
           }
-          dispatchWalletSessionEvent();
         }
 
-        if (svmConnected && solanaWallet.publicKey && solanaWallet.signMessage && !svmSessionOk) {
-          const nonceRes = await fetch("/api/auth/nonce", { credentials: "include" });
-          if (!nonceRes.ok) return;
-          const { nonce } = await nonceRes.json();
-          const message = `Nixie\nSign in to verify wallet ownership.\nNonce: ${nonce}`;
-          const encoded = new TextEncoder().encode(message);
-          const sig = await solanaWallet.signMessage(encoded);
-          const authRes = await fetch("/api/auth/svm", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              publicKey: solanaWallet.publicKey.toBase58(),
-              message,
-              signature: bs58.encode(sig),
-            }),
-          });
-          if (!authRes.ok) {
-            console.warn("[wallet-session] svm auth failed", await authRes.text().catch(() => ""));
-            return;
+        // ── Solana ──
+        if (svmConnected && svmStateChanged) {
+          if (svmSessionOk) {
+            // valid, nothing to do for SVM
+          } else {
+            // Session missing for this SVM key.
+            // Since we have no "reconnecting" state for Solana, sign once.
+            // The session cookie (7 days TTL) will prevent re-signing on next refresh.
+            const nonceRes = await fetch("/api/auth/nonce", { credentials: "include" });
+            if (!nonceRes.ok) return;
+            const { nonce } = await nonceRes.json();
+            const message = `Nixie\nSign in to verify wallet ownership.\nNonce: ${nonce}`;
+            const encoded = new TextEncoder().encode(message);
+            const sig = await solanaWallet.signMessage!(encoded);
+            const authRes = await fetch("/api/auth/svm", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                publicKey: currentSvmKey,
+                message,
+                signature: bs58.encode(sig),
+              }),
+            });
+            if (!authRes.ok) {
+              console.warn("[wallet-session] svm auth failed", await authRes.text().catch(() => ""));
+              return;
+            }
           }
-          dispatchWalletSessionEvent();
         }
+
+        // Dispatch session update so feed/profile refetch content.
+        dispatchWalletSessionEvent();
       } catch (e) {
         console.warn("[wallet-session]", e);
       } finally {
