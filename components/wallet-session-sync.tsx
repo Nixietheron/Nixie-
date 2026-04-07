@@ -20,7 +20,6 @@ export function WalletSessionSync() {
 
   useEffect(() => {
     let cancelled = false;
-    let logoutTimer: ReturnType<typeof setTimeout> | null = null;
 
     const run = async () => {
       if (busy.current) return;
@@ -39,22 +38,9 @@ export function WalletSessionSync() {
           return;
         }
 
+        // Never auto-logout on passive refresh/disconnect transitions.
+        // Logout should happen only on explicit user action.
         if (!evmConnected && !svmConnected) {
-          // Wallet adapters can briefly report disconnected during page refresh.
-          // Delay logout and re-check before clearing session.
-          logoutTimer = setTimeout(async () => {
-            try {
-              if (cancelled) return;
-              const s = await fetch("/api/auth/session", { credentials: "include" }).then((r) => r.json());
-              // Only clear if there is actually an authenticated session to clear.
-              if (s?.authenticated) {
-                await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-                dispatchWalletSessionEvent();
-              }
-            } catch {
-              // ignore transient network errors
-            }
-          }, 8000);
           return;
         }
 
@@ -134,7 +120,6 @@ export function WalletSessionSync() {
     void run();
     return () => {
       cancelled = true;
-      if (logoutTimer) clearTimeout(logoutTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solanaWallet identity churns; we use publicKey + signMessage
   }, [address, isConnected, status, chainId, signMessageAsync, solanaWallet.publicKey, solanaWallet.signMessage, solanaWallet.connecting]);
