@@ -4,7 +4,38 @@ import { createServerClient } from "@supabase/ssr";
 
 const hasSupabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+function canonicalHostnameFromEnv(): string | null {
+  const u = process.env.NEXT_PUBLIC_APP_URL;
+  if (!u) return null;
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return null;
+  }
+}
+
+function bareHostname(host: string): string {
+  return host.startsWith("www.") ? host.slice(4) : host;
+}
+
+/** One hostname per cookie jar: redirect www ↔ apex to match NEXT_PUBLIC_APP_URL. */
+function redirectToCanonicalHost(request: NextRequest): NextResponse | null {
+  const canonical = canonicalHostnameFromEnv();
+  const host = request.headers.get("host")?.split(":")[0] ?? "";
+  if (!canonical || !host || host === canonical) return null;
+  const local = host.includes("localhost") || host.endsWith(".local");
+  if (local) return null;
+  if (bareHostname(host) !== bareHostname(canonical)) return null;
+  const url = request.nextUrl.clone();
+  url.hostname = canonical;
+  url.protocol = "https:";
+  return NextResponse.redirect(url, 308);
+}
+
 export async function middleware(request: NextRequest) {
+  const canonicalRedirect = redirectToCanonicalHost(request);
+  if (canonicalRedirect) return canonicalRedirect;
+
   const path = request.nextUrl.pathname;
   if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
     if (!hasSupabase) {

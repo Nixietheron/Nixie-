@@ -10,23 +10,9 @@ import {
   WALLET_SESSION_COOKIE,
   sessionCookieOptions,
 } from "@/lib/wallet-session";
+import { getTrustedSiweHosts } from "@/lib/auth-hosts";
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function requestHost(request: NextRequest): string {
-  const xf = request.headers.get("x-forwarded-host");
-  const raw = xf ?? request.headers.get("host") ?? "";
-  return raw.split(",")[0]?.trim() ?? "";
-}
-
-function hostFromUrl(value: string | undefined): string | null {
-  if (!value) return null;
-  try {
-    return new URL(value).host;
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(request: NextRequest) {
   let body: { message?: string; signature?: string };
@@ -47,20 +33,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing nonce — call GET /api/auth/nonce first" }, { status: 400 });
   }
 
-  const requestDomain = requestHost(request);
-  if (!requestDomain) {
+  const trustedHosts = getTrustedSiweHosts(request);
+  if (trustedHosts.size === 0) {
     return NextResponse.json({ error: "Could not determine host" }, { status: 400 });
   }
 
   try {
     const siweMessage = new SiweMessage(messageStr);
-    const allowedDomains = new Set<string>([
-      requestDomain,
-      request.nextUrl.host,
-      hostFromUrl(process.env.NEXT_PUBLIC_APP_URL) ?? "",
-      hostFromUrl(process.env.APP_URL) ?? "",
-    ].filter(Boolean));
-    if (!allowedDomains.has(siweMessage.domain)) {
+    if (!trustedHosts.has(siweMessage.domain)) {
       return NextResponse.json({ error: `SIWE domain mismatch: ${siweMessage.domain}` }, { status: 401 });
     }
     const result = await siweMessage.verify({
