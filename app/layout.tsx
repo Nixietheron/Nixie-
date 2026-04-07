@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: "Nixie – Exclusive Anime Artwork",
   description: "Unlock exclusive artwork with USDC on Base.",
+  /** Base Mini App / Base.dev — discovery & “Import Mini App” (metatag under `metadata.other`) */
   other: {
     "base:app_id": "69b947e72d5d7c1605e6333a",
   },

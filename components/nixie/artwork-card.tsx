@@ -9,6 +9,23 @@ import { ImageWithFallback } from "./image-with-fallback";
 import { UnlockModal, type PaymentNetwork } from "./unlock-modal";
 import { CommentsPanel, CommentDisplay } from "./comments-panel";
 
+const LOCKED_BLUR_IMAGES = [
+  "/Nixie1.png",
+  "/Nixie2.png",
+  "/Nixie3.png",
+  "/Nixie4.png",
+  "/Nixie5.png",
+] as const;
+
+function pickLockedBlurImage(contentId: string, tileIndex: number): string {
+  let hash = 0;
+  const seed = `${contentId}:${tileIndex}`;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return LOCKED_BLUR_IMAGES[hash % LOCKED_BLUR_IMAGES.length];
+}
+
 interface ArtworkCardProps {
   artwork: Artwork;
   comments: CommentDisplay[];
@@ -151,6 +168,7 @@ export function ArtworkCard({
   const showAnimated = viewMode === "animated" && artwork.hasAnimated;
   const showAnimatedLocked = showAnimated && !artwork.animatedVersion;
   const showAnimatedUnlocked = showAnimated && !!artwork.animatedVersion;
+  const showPaidLockedCollage = showNsfwLocked || showAnimatedLocked;
   const rawImageSrc = showSfw ? artwork.sfwPreview : showAnimatedUnlocked ? artwork.animatedVersion : artwork.nsfwFull;
   const walletQuery =
     (walletAddresses?.length ? walletAddresses.map((w) => `wallet=${encodeURIComponent(w)}`).join("&") : null) ??
@@ -217,9 +235,9 @@ export function ArtworkCard({
                     playsInline
                     className={
                       compact
-                        ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
+                        ? "w-full h-full object-contain"
                         : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
-                            walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
+                            "hover:scale-[1.01]"
                           }`
                     }
                     onPlay={() => setAnimatedPlaying(true)}
@@ -252,10 +270,8 @@ export function ArtworkCard({
                   alt="Animated"
                   className={
                     compact
-                      ? `w-full h-full object-contain ${walletConnected ? "" : "blur-xl scale-105"}`
-                      : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
-                          walletConnected ? "hover:scale-[1.01]" : "blur-xl scale-105"
-                        }`
+                      ? "w-full h-full object-contain"
+                      : "absolute inset-0 w-full h-full object-contain transition-all duration-500 hover:scale-[1.01]"
                   }
                 />
               )}
@@ -268,13 +284,30 @@ export function ArtworkCard({
               className={
                 compact
                   ? `w-full h-full object-contain ${
-                      showNsfwLocked || !walletConnected ? "blur-xl scale-105" : ""
+                      showNsfwLocked ? "blur-xl scale-105" : ""
                     }`
                   : `absolute inset-0 w-full h-full object-contain transition-all duration-500 ${
-                      showNsfwLocked || !walletConnected ? "blur-xl scale-105" : "hover:scale-[1.01]"
+                      showNsfwLocked ? "blur-xl scale-105" : "hover:scale-[1.01]"
                     }`
               }
             />
+          )}
+
+          {showPaidLockedCollage && (
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 opacity-90">
+              {[0, 1, 2, 3].map((tile) => (
+                <div
+                  key={tile}
+                  className="bg-center bg-cover"
+                  style={{
+                    backgroundImage: `url(${pickLockedBlurImage(artwork.id, tile)})`,
+                    filter: "blur(9px) saturate(1.05) brightness(0.62)",
+                    transform: "scale(1.08)",
+                  }}
+                />
+              ))}
+              <div className="absolute inset-0 bg-black/30" />
+            </div>
           )}
 
           {/* Wallet not connected hint over blurred media */}

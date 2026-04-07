@@ -259,11 +259,28 @@ export default function FeedScreen() {
     );
   };
 
+  const getViewerKey = useCallback((): string => {
+    if (address) return `evm:${address.toLowerCase()}`;
+    if (solanaWallet.publicKey) return `sol:${solanaWallet.publicKey.toBase58()}`;
+    if (typeof window === "undefined") return "";
+    const key = "nixie_viewer_id";
+    const existing = window.localStorage.getItem(key);
+    if (existing) return `anon:${existing}`;
+    const generated =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2);
+    window.localStorage.setItem(key, generated);
+    return `anon:${generated}`;
+  }, [address, solanaWallet.publicKey]);
+
   const trackContentView = useCallback((contentId: string, eventType: "impression" | "click") => {
+    const viewerKey = getViewerKey();
+    if (!viewerKey) return;
     fetch("/api/view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contentId, eventType }),
+      body: JSON.stringify({ contentId, viewerKey, eventType }),
       keepalive: true,
     }).catch(() => {});
     if (eventType === "impression") {
@@ -274,7 +291,7 @@ export default function FeedScreen() {
         prev.map((a) => (a.id === contentId ? { ...a, views: (a.views ?? 0) + 1 } : a))
       );
     }
-  }, []);
+  }, [getViewerKey]);
 
   const refetchAfterUnlock = async (
     artworkId: string,

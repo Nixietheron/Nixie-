@@ -270,13 +270,20 @@ export async function unlikeContent(wallet: string, contentId: string) {
 
 export async function addContentView(
   contentId: string,
+  viewerKey: string,
   eventType: "impression" | "click" = "impression"
 ) {
   const supabase = createAdminClient();
-  const { error } = await supabase.from("content_views").insert({
-    content_id: contentId,
-    event_type: eventType,
-  });
+  const { error } = await supabase
+    .from("content_views")
+    .upsert(
+      {
+        content_id: contentId,
+        viewer_key: viewerKey,
+        event_type: eventType,
+      },
+      { onConflict: "content_id,viewer_key", ignoreDuplicates: true }
+    );
   return { error };
 }
 
