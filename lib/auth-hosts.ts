@@ -48,3 +48,14 @@ export function getTrustedSiweHosts(request: NextRequest): Set<string> {
   set.delete("");
   return set;
 }
+
+/** Match SIWE `domain` (may include :port) against trusted host set. */
+export function isTrustedSiweDomain(domain: string, trusted: Set<string>): boolean {
+  if (trusted.has(domain)) return true;
+  const bare = hostOnly(domain);
+  if (bare && trusted.has(bare)) return true;
+  for (const t of Array.from(trusted)) {
+    if (hostOnly(t) === bare) return true;
+  }
+  return false;
+}

@@ -64,17 +64,16 @@ export function WalletSessionSync() {
           const nonceRes = await fetch("/api/auth/nonce", { credentials: "include" });
           if (!nonceRes.ok) return;
           const { nonce } = await nonceRes.json();
-          const { SiweMessage } = await import("siwe");
-          const msg = new SiweMessage({
-            domain: window.location.host,
-            address,
-            statement: "Sign in to Nixie to verify wallet ownership.",
+          const { createSiweMessage } = await import("viem/siwe");
+          const messageToSign = createSiweMessage({
+            address: address!,
+            chainId,
+            domain: window.location.hostname,
+            nonce,
             uri: window.location.origin,
             version: "1",
-            chainId,
-            nonce,
+            statement: "Sign in to Nixie to verify wallet ownership.",
           });
-          const messageToSign = msg.prepareMessage();
           const signature = await signMessageAsync({ message: messageToSign });
           const authRes = await fetch("/api/auth/evm", {
             method: "POST",
@@ -121,7 +120,15 @@ export function WalletSessionSync() {
 
     void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, isConnected, status, solanaWallet.publicKey, solanaWallet.connected, solanaWallet.connecting]);
+  }, [
+    address,
+    chainId,
+    isConnected,
+    status,
+    solanaWallet.publicKey,
+    solanaWallet.connected,
+    solanaWallet.connecting,
+  ]);
 
   return null;
 }
