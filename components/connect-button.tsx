@@ -6,14 +6,9 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMemo, useState, useRef, useEffect } from "react";
 import { BASE_CHAIN_ID } from "@/lib/constants";
+import { isBaseAppLike } from "@/lib/base-app-detect";
 
 type OpenMenu = "evm" | "solana" | null;
-
-function isBaseAppLike(): boolean {
-  if (typeof window === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  return /\bBaseApp\b/i.test(ua) || /\bCoinbase\b/i.test(ua) || /\bCBW\b/i.test(ua);
-}
 
 export type ConnectButtonProps = {
   /** `sheet`: used inside mobile bottom sheet — no extra top margin, menus open downward */
