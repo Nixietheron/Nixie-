@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { M_PLUS_Rounded_1c } from "next/font/google";
+import { headers } from "next/headers";
+import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { config } from "@/lib/wagmi-config";
 
 const mPlusRounded = M_PLUS_Rounded_1c({
   weight: ["400", "500", "700", "800"],
@@ -53,15 +56,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the wagmi cookie from the incoming request so the client can start
+  // in "reconnecting" state instead of "connecting", preventing SIWE popups
+  // on every page refresh (both in regular browsers and Base App WebView).
+  const initialState = cookieToInitialState(config, (await headers()).get("cookie"));
+
   return (
     <html lang="en" className={mPlusRounded.variable}>
       <body className="font-anime antialiased safe-top safe-bottom">
-        <Providers>
+        <Providers initialState={initialState}>
           <div className="relative z-10 min-h-screen">
             {children}
           </div>

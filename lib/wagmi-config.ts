@@ -1,4 +1,4 @@
-import { createConfig, createStorage, http } from "wagmi";
+import { createConfig, createStorage, cookieStorage, http } from "wagmi";
 import { base } from "wagmi/chains";
 import {
   baseAccount,
@@ -12,31 +12,13 @@ const WALLETCONNECT_PROJECT_ID =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "";
 
 /**
- * Storage that reads/writes localStorage at call time (not at config creation).
- * Config is created on server (window undefined); when client runs reconnect/persist,
- * getItem/setItem are called in the browser so connection is persisted.
+ * cookieStorage persists wagmi connection state in HTTP cookies.
+ * This is the recommended approach for Next.js SSR apps and works
+ * correctly in Base App's in-app browser (unlike localStorage which
+ * may not survive WebView restarts, causing "connecting" instead of
+ * "reconnecting" on every page load and triggering repeated SIWE prompts).
  */
-const lazyLocalStorage = {
-  getItem(key: string): string | null {
-    if (typeof window !== "undefined" && window.localStorage)
-      return window.localStorage.getItem(key);
-    return null;
-  },
-  setItem(key: string, value: string): void {
-    if (typeof window !== "undefined" && window.localStorage) {
-      try {
-        window.localStorage.setItem(key, value);
-      } catch {
-        // QuotaExceededError, etc.
-      }
-    }
-  },
-  removeItem(key: string): void {
-    if (typeof window !== "undefined" && window.localStorage)
-      window.localStorage.removeItem(key);
-  },
-};
-const clientStorage = createStorage({ storage: lazyLocalStorage });
+const clientStorage = createStorage({ storage: cookieStorage });
 
 /**
  * Web: injected + Coinbase + WalletConnect (RainbowKit modal lists these).
