@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, Flame, X, Lock, Loader2, CheckCircle, MessageCircle, Crown } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
-import { useAccount, useChainId, usePublicClient } from "wagmi";
-import { useWalletClientWithErc8021 } from "@/lib/wallet-client-erc8021";
+import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { wrapFetchWithPayment } from "@x402/fetch";
@@ -80,7 +79,7 @@ export default function FeedScreen() {
   const [sessionNonce, setSessionNonce] = useState(0);
   const { address } = useAccount();
   const chainId = useChainId();
-  const { data: walletClient } = useWalletClientWithErc8021();
+  const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
   const solanaWallet = useWallet();
   const { setVisible: setSolanaWalletModalVisible } = useWalletModal();

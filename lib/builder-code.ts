@@ -1,7 +1,11 @@
+/**
+ * ERC-8021 suffix helper for [Base Builder Codes](https://docs.base.org/base-chain/builder-codes/builder-codes).
+ * Not wired into `useWalletClient` yet: wrapping wagmi’s client with `createWalletClient({ dataSuffix })`
+ * broke at runtime (`transport is not a function`). Re-integrate when using wagmi/viem’s supported API.
+ */
 import { Attribution } from "ox/erc8021";
 import type { Hex } from "viem";
 
-/** Base Builder Code — [Base Builder Codes](https://docs.base.org/base-chain/builder-codes/builder-codes) */
 const BUILDER_CODES = ["bc_dln6i1f5"] as const;
 
 let cachedSuffix: Hex | undefined;
