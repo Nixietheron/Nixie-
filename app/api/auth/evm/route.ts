@@ -19,6 +19,15 @@ function requestHost(request: NextRequest): string {
   return raw.split(",")[0]?.trim() ?? "";
 }
 
+function hostFromUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new URL(value).host;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   let body: { message?: string; signature?: string };
   try {
@@ -38,17 +47,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing nonce — call GET /api/auth/nonce first" }, { status: 400 });
   }
 
-  const domain = requestHost(request);
-  if (!domain) {
+  const requestDomain = requestHost(request);
+  if (!requestDomain) {
     return NextResponse.json({ error: "Could not determine host" }, { status: 400 });
   }
 
   try {
     const siweMessage = new SiweMessage(messageStr);
+    const allowedDomains = new Set<string>([
+      requestDomain,
+      request.nextUrl.host,
+      hostFromUrl(process.env.NEXT_PUBLIC_APP_URL) ?? "",
+      hostFromUrl(process.env.APP_URL) ?? "",
+    ].filter(Boolean));
+    if (!allowedDomains.has(siweMessage.domain)) {
+      return NextResponse.json({ error: `SIWE domain mismatch: ${siweMessage.domain}` }, { status: 401 });
+    }
     const result = await siweMessage.verify({
       signature,
       nonce: nonceCookie,
-      domain,
     });
     if (!result.success) {
       return NextResponse.json(

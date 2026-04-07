@@ -17,6 +17,7 @@ export function WalletSessionSync() {
   const { signMessageAsync } = useSignMessage();
   const solanaWallet = useWallet();
   const busy = useRef(false);
+  const lastAttemptByKeyRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +55,10 @@ export function WalletSessionSync() {
         if (evmConnected && address) {
           const ok = session.evm && String(session.evm).toLowerCase() === address.toLowerCase();
           if (!ok) {
+            const attemptKey = `evm:${address.toLowerCase()}`;
+            const last = lastAttemptByKeyRef.current[attemptKey] ?? 0;
+            if (Date.now() - last < 15000) return;
+            lastAttemptByKeyRef.current[attemptKey] = Date.now();
             const nonceRes = await fetch("/api/auth/nonce", { credentials: "include" });
             const { nonce } = await nonceRes.json();
             const { SiweMessage } = await import("siwe");
@@ -87,6 +92,10 @@ export function WalletSessionSync() {
         if (svmConnected && solanaWallet.publicKey && solanaWallet.signMessage) {
           const pk = solanaWallet.publicKey.toBase58();
           if (session.svm !== pk) {
+            const attemptKey = `svm:${pk}`;
+            const last = lastAttemptByKeyRef.current[attemptKey] ?? 0;
+            if (Date.now() - last < 15000) return;
+            lastAttemptByKeyRef.current[attemptKey] = Date.now();
             const nonceRes = await fetch("/api/auth/nonce", { credentials: "include" });
             const { nonce } = await nonceRes.json();
             const message = `Nixie\nSign in to verify wallet ownership.\nNonce: ${nonce}`;
