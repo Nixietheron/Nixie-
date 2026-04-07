@@ -28,6 +28,7 @@ export interface Artwork {
   /** Animated unlock price (USDC) */
   animatedPrice: number;
   likes: number;
+  views: number;
   comments: number;
   creator: string;
   /** NSFW unlocked for this wallet (or free) */
@@ -73,6 +74,7 @@ export function contentToArtwork(
   c: ContentRow,
   opts: {
     likes: number;
+    views?: number;
     comments: number;
     nsfwUnlocked?: boolean;
     animatedUnlocked?: boolean;
@@ -100,6 +102,7 @@ export function contentToArtwork(
     price: c.price_usdc,
     animatedPrice: priceAnimated,
     likes: opts.likes,
+    views: opts.views ?? 0,
     comments: opts.comments,
     creator: "Nixie",
     nsfwUnlocked,

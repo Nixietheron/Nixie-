@@ -259,6 +259,23 @@ export default function FeedScreen() {
     );
   };
 
+  const trackContentView = useCallback((contentId: string, eventType: "impression" | "click") => {
+    fetch("/api/view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentId, eventType }),
+      keepalive: true,
+    }).catch(() => {});
+    if (eventType === "impression") {
+      setArtworks((prev) =>
+        prev.map((a) => (a.id === contentId ? { ...a, views: (a.views ?? 0) + 1 } : a))
+      );
+      setTrendingArtworks((prev) =>
+        prev.map((a) => (a.id === contentId ? { ...a, views: (a.views ?? 0) + 1 } : a))
+      );
+    }
+  }, []);
+
   const refetchAfterUnlock = async (
     artworkId: string,
     unlockType: "nsfw" | "animated",
@@ -956,6 +973,8 @@ export default function FeedScreen() {
                   onUnlockPayment={(id, unlockType, paymentNetwork) =>
                     handleUnlockPayment(id, unlockType, paymentNetwork)
                   }
+                  onTrackImpression={(id) => trackContentView(id, "impression")}
+                  onTrackClick={(id) => trackContentView(id, "click")}
                 />
               </motion.div>
             ))}

@@ -32,6 +32,10 @@ interface ArtworkCardProps {
   /** All connected wallets (Base + Solana) for image unlock check; if set, used in ipfs-image URL so either wallet can load. */
   walletAddresses?: string[];
   compact?: boolean;
+  /** Called once when card becomes visible in viewport. */
+  onTrackImpression?: (contentId: string) => void;
+  /** Called on card interactions (click/tap) to count an additional view. */
+  onTrackClick?: (contentId: string) => void;
 }
 
 function formatDate(iso: string): string {
@@ -70,6 +74,8 @@ export function ArtworkCard({
   baseWalletReady = false,
   baseWalletConnected = false,
   compact = false,
+  onTrackImpression,
+  onTrackClick,
 }: ArtworkCardProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(() => getInitialViewMode(artwork));
   const [showUnlockModal, setShowUnlockModal] = useState(false);
@@ -84,10 +90,29 @@ export function ArtworkCard({
   const [animatedPlaying, setAnimatedPlaying] = useState(false);
   const animatedVideoRef = useRef<HTMLVideoElement>(null);
   const fullscreenVideoRef = useRef<HTMLVideoElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const impressionTrackedRef = useRef(false);
   const [fullscreenAnimatedPlaying, setFullscreenAnimatedPlaying] = useState(false);
   useEffect(() => {
     if (!showFullscreenImage) setFullscreenAnimatedPlaying(false);
   }, [showFullscreenImage]);
+
+  useEffect(() => {
+    if (!cardRef.current || impressionTrackedRef.current || !onTrackImpression) return;
+    const el = cardRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+        impressionTrackedRef.current = true;
+        onTrackImpression(artwork.id);
+        observer.disconnect();
+      },
+      { threshold: 0.55 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [artwork.id, onTrackImpression]);
 
   const handleLike = () => {
     setIsLiked((v) => !v);
@@ -139,11 +164,13 @@ export function ArtworkCard({
   return (
     <>
       <motion.div
+        ref={cardRef}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         whileHover={compact ? undefined : { y: -4, boxShadow: "0 14px 40px rgba(210,122,146,0.35)" }}
         transition={{ duration: 0.25 }}
         className="rounded-2xl overflow-hidden w-full bg-[#16131f] border border-white/[0.12] hover:border-[#D27A92]/50 transition-colors shadow-xl shadow-black/30"
+        onClickCapture={() => onTrackClick?.(artwork.id)}
       >
         <div
           className={`relative overflow-hidden bg-[#0f0d14] ${
@@ -458,6 +485,10 @@ export function ArtworkCard({
                 <MessageCircle className={compact ? "w-3.5 h-3.5" : "w-4 h-4"} />
                 <span className="text-xs tabular-nums">{artwork.comments}</span>
               </motion.button>
+              <div className="flex items-center gap-1.5 text-white/35">
+                <Eye className={compact ? "w-3.5 h-3.5" : "w-4 h-4"} />
+                <span className="text-xs tabular-nums">{artwork.views ?? 0}</span>
+              </div>
             </div>
             {((viewMode === "sfw" && artwork.sfwPreview) || (viewMode === "nsfw" && nsfwUnlocked) || (viewMode === "animated" && !!artwork.animatedVersion)) && (
               <motion.button

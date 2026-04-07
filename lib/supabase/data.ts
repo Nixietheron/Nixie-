@@ -21,12 +21,13 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
 
   // Unlock'ları service role ile oku: RLS yüzünden satın almış kullanıcılar kilitlenmesin (fiyat güncellense bile).
-  const [unlocksRes, likesRes, commentsRes] = await Promise.all([
+  const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets)
       : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
     supabase.from("likes").select("content_id").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
+    supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
 
   const nsfwUnlockedIds = new Set(
@@ -45,6 +46,10 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
     commentCountByContent[c.content_id] =
       (commentCountByContent[c.content_id] ?? 0) + 1;
   });
+  const viewCountByContent: Record<string, number> = {};
+  (viewsRes.data ?? []).forEach((v) => {
+    viewCountByContent[v.content_id] = (viewCountByContent[v.content_id] ?? 0) + 1;
+  });
 
   const artworks = (contentRows as ContentRow[]).map((c) => {
     const priceUsdc = c.price_usdc ?? 0;
@@ -53,6 +58,7 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
     const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
+      views: viewCountByContent[c.id] ?? 0,
       comments: commentCountByContent[c.id] ?? 0,
       nsfwUnlocked,
       animatedUnlocked,
@@ -110,12 +116,13 @@ export async function getTrendingArtworks(
   const contentIds = rows.map((c) => c.id);
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
 
-  const [unlocksRes, likesRes, commentsRes] = await Promise.all([
+  const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets).in("content_id", contentIds)
       : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
     supabase.from("likes").select("content_id").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
+    supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
 
   const nsfwUnlockedIds = new Set(
@@ -132,6 +139,10 @@ export async function getTrendingArtworks(
   (commentsRes.data ?? []).forEach((c) => {
     commentCountByContent[c.content_id] = (commentCountByContent[c.content_id] ?? 0) + 1;
   });
+  const viewCountByContent: Record<string, number> = {};
+  (viewsRes.data ?? []).forEach((v) => {
+    viewCountByContent[v.content_id] = (viewCountByContent[v.content_id] ?? 0) + 1;
+  });
 
   const artworks = rows.map((c) => {
     const priceUsdc = c.price_usdc ?? 0;
@@ -140,6 +151,7 @@ export async function getTrendingArtworks(
     const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
+      views: viewCountByContent[c.id] ?? 0,
       comments: commentCountByContent[c.id] ?? 0,
       nsfwUnlocked,
       animatedUnlocked,
@@ -253,6 +265,18 @@ export async function unlikeContent(wallet: string, contentId: string) {
     .delete()
     .eq("wallet", wallet)
     .eq("content_id", contentId);
+  return { error };
+}
+
+export async function addContentView(
+  contentId: string,
+  eventType: "impression" | "click" = "impression"
+) {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("content_views").insert({
+    content_id: contentId,
+    event_type: eventType,
+  });
   return { error };
 }
 
@@ -495,12 +519,13 @@ export async function getListWithArtworks(
     (a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999)
   );
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
-  const [unlocksRes, likesRes, commentsRes] = await Promise.all([
+  const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
     wallets.length > 0
       ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets).in("content_id", contentIds)
       : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
     supabase.from("likes").select("content_id").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
+    supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
   const nsfwUnlockedIds = new Set(
     (unlocksRes.data ?? []).filter((u) => u.unlock_type === "nsfw").map((u) => u.content_id)
@@ -516,6 +541,10 @@ export async function getListWithArtworks(
   (commentsRes.data ?? []).forEach((c) => {
     commentCountByContent[c.content_id] = (commentCountByContent[c.content_id] ?? 0) + 1;
   });
+  const viewCountByContent: Record<string, number> = {};
+  (viewsRes.data ?? []).forEach((v) => {
+    viewCountByContent[v.content_id] = (viewCountByContent[v.content_id] ?? 0) + 1;
+  });
   const artworks = rows.map((c) => {
     const priceUsdc = c.price_usdc ?? 0;
     const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
@@ -523,6 +552,7 @@ export async function getListWithArtworks(
     const animatedUnlocked = priceAnimated === 0 || animatedUnlockedIds.has(c.id);
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
+      views: viewCountByContent[c.id] ?? 0,
       comments: commentCountByContent[c.id] ?? 0,
       nsfwUnlocked,
       animatedUnlocked,
