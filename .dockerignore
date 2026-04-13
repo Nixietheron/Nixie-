@@ -29,3 +29,6 @@ Nixie desing
 npm-debug.log*
 .DS_Store
 Thumbs.db
+
+# Large local avatar sources (served via CDN URL in production)
+Mixam444444e.glb

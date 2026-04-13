@@ -18,6 +18,8 @@ const SCROLL_ZOOM_SPEED = 0.8;
 const MIN_DISTANCE = 2.5;
 const MAX_DISTANCE = 12;
 const DESIRED_HEIGHT = 1.7;
+const AVATAR_MODEL_URL =
+  "https://raw.githubusercontent.com/Nixietheron/Nixie-/main/Mixam444444e.glb";
 
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
@@ -33,7 +35,7 @@ function CharacterModel({
   movingRef: React.MutableRefObject<boolean>;
 }) {
   const containerRef = useRef<THREE.Group>(null!);
-  const { scene, animations } = useGLTF("/api/museum-avatar?v=2");
+  const { scene, animations } = useGLTF(AVATAR_MODEL_URL);
   const clonedScene = useMemo(() => clone(scene), [scene]);
   const wasMoving = useRef(false);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -307,4 +309,4 @@ export function MuseumCharacterController() {
   return <CharacterModel groupRef={characterRef} movingRef={movingRef} />;
 }
 
-useGLTF.preload("/api/museum-avatar?v=2");
+useGLTF.preload(AVATAR_MODEL_URL);
