@@ -47,7 +47,7 @@ export function MuseumOverlay({
         <div className="flex items-center gap-3 pointer-events-auto">
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs text-white/50 bg-[#0f0d14]/80 backdrop-blur-md border border-white/10">
             <Keyboard className="w-3.5 h-3.5 shrink-0" />
-            <span>WASD to move · Drag mouse to look · Scroll to zoom</span>
+            <span>WASD to move · Drag mouse to look · Scroll to zoom · ESC closes artwork</span>
           </div>
 
           {!walletConnected ? (
