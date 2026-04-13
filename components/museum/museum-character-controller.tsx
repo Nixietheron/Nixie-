@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, useAnimations } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 
@@ -30,7 +30,7 @@ function CharacterModel({
   movingRef,
 }: {
   groupRef: React.RefObject<THREE.Group>;
-  movingRef: React.RefObject<boolean>;
+  movingRef: React.MutableRefObject<boolean>;
 }) {
   const containerRef = useRef<THREE.Group>(null!);
   const { scene, animations } = useGLTF("/api/museum-avatar?v=2");
@@ -130,7 +130,7 @@ function CharacterModel({
     const action = walkActionRef.current;
     if (!mixer || !action) return;
 
-    const moving = movingRef.current;
+    const moving = movingRef.current ?? false;
 
     if (moving && !wasMoving.current) {
       action.reset().fadeIn(0.2).play();
