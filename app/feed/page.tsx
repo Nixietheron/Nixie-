@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, Flame, X, Lock, Loader2, CheckCircle, MessageCircle, Crown } from "lucide-react";
+import { Sparkles, Grid3X3, LayoutList, Clock, TrendingUp, Flame, X, Lock, Loader2, CheckCircle, MessageCircle, Crown, Building2 } from "lucide-react";
 import { ConnectButton } from "@/components/connect-button";
 import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -622,6 +622,10 @@ export default function FeedScreen() {
           <Link href="/membership" className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors">
             <Crown className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
             Membership
+          </Link>
+          <Link href="/museum" className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-white/70 hover:text-white hover:bg-white/[0.05] transition-colors">
+            <Building2 className="w-4 h-4 text-anime-pink/80 flex-shrink-0" />
+            Museum
           </Link>
           <div className="px-2.5 py-2 space-y-1.5 rounded-lg">
             <span className="text-white/50 text-[12px]">View</span>

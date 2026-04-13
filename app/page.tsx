@@ -179,6 +179,17 @@ export default function SplashScreen() {
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </Link>
+                <Link href="/museum" className="hidden lg:block">
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    className="group flex items-center gap-2.5 font-bold text-[15px] px-7 py-3.5 rounded-2xl transition-all duration-200 shadow-lg shadow-black/30 border border-[#D27A92]/50 text-white"
+                    style={{ background: "linear-gradient(135deg, rgba(210,122,146,0.2) 0%, rgba(123,104,192,0.15) 100%)" }}
+                  >
+                    3D Museum
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </motion.button>
+                </Link>
               </motion.div>
             )}
           </AnimatePresence>
