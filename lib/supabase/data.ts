@@ -1,7 +1,7 @@
 import { createClient } from "./client";
 import { createClient as createServerSupabase, createAdminClient } from "./server";
 import { contentToArtwork } from "@/lib/types";
-import type { ContentRow, StoryRow } from "@/lib/types";
+import type { Artwork, ContentRow, StoryRow } from "@/lib/types";
 import type { CommentDisplay } from "@/components/nixie/comments-panel";
 import { MEMBERSHIP_DURATION_DAYS } from "@/lib/constants";
 
@@ -130,6 +130,106 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
   });
 
   return { artworks, error: null };
+}
+
+export const MUSEUM_PAGE_DEFAULT = 80;
+export const MUSEUM_PAGE_MAX = 200;
+
+/**
+ * Paginated content for /museum: same artwork mapping as getContentWithCounts, but only for one slice of rows.
+ * Uses offset/limit on ordered content (newest first). Prefer smaller limits for large catalogs.
+ */
+export async function getMuseumArtworksPage(
+  wallet: string | string[] | undefined,
+  offset: number,
+  limit: number
+): Promise<{ artworks: Artwork[]; total: number; error: Error | null }> {
+  const admin = createAdminClient();
+  const supabase = await createServerSupabase();
+
+  const safeLimit = Math.min(Math.max(limit, 1), MUSEUM_PAGE_MAX);
+  const safeOffset = Math.max(offset, 0);
+
+  const { count, error: countError } = await admin
+    .from("content")
+    .select("*", { count: "exact", head: true });
+
+  if (countError) {
+    return { artworks: [], total: 0, error: countError };
+  }
+
+  const total = count ?? 0;
+
+  const { data: contentRows, error: contentError } = await admin
+    .from("content")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(safeOffset, safeOffset + safeLimit - 1);
+
+  if (contentError) {
+    return { artworks: [], total, error: contentError };
+  }
+
+  if (!contentRows?.length) {
+    return { artworks: [], total, error: null };
+  }
+
+  const contentIds = (contentRows as ContentRow[]).map((c) => c.id);
+  const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
+  const membership = await getActiveMembershipForWallets(wallets);
+
+  const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
+    wallets.length > 0
+      ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets)
+      : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
+    supabase.from("likes").select("content_id, wallet").in("content_id", contentIds),
+    supabase.from("comments").select("content_id").in("content_id", contentIds),
+    supabase.from("content_views").select("content_id").in("content_id", contentIds),
+  ]);
+
+  const nsfwUnlockedIds = new Set(
+    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "nsfw").map((u) => u.content_id)
+  );
+  const animatedUnlockedIds = new Set(
+    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "animated").map((u) => u.content_id)
+  );
+
+  const likeCountByContent: Record<string, number> = {};
+  (likesRes.data ?? []).forEach((l) => {
+    likeCountByContent[l.content_id] = (likeCountByContent[l.content_id] ?? 0) + 1;
+  });
+  const viewerLikedIds = new Set(
+    (likesRes.data ?? [])
+      .filter((l) => wallets.length > 0 && wallets.includes(l.wallet))
+      .map((l) => l.content_id)
+  );
+  const commentCountByContent: Record<string, number> = {};
+  (commentsRes.data ?? []).forEach((c) => {
+    commentCountByContent[c.content_id] =
+      (commentCountByContent[c.content_id] ?? 0) + 1;
+  });
+  const viewCountByContent: Record<string, number> = {};
+  (viewsRes.data ?? []).forEach((v) => {
+    viewCountByContent[v.content_id] = (viewCountByContent[v.content_id] ?? 0) + 1;
+  });
+
+  const artworks = (contentRows as ContentRow[]).map((c) => {
+    const priceUsdc = c.price_usdc ?? 0;
+    const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
+    const nsfwUnlocked = membership.active || priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
+    const animatedUnlocked = membership.active || priceAnimated === 0 || animatedUnlockedIds.has(c.id);
+    return contentToArtwork(c, {
+      likes: likeCountByContent[c.id] ?? 0,
+      views: viewCountByContent[c.id] ?? 0,
+      comments: commentCountByContent[c.id] ?? 0,
+      likedByViewer: viewerLikedIds.has(c.id),
+      nsfwUnlocked,
+      animatedUnlocked,
+    });
+  });
+
+  return { artworks, total, error: null };
 }
 
 const TRENDING_DAYS = 7;

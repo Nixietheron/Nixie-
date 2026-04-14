@@ -34,9 +34,14 @@ export default function MuseumPage() {
   const isMobile = useIsMobile();
   const [artworks, setArtworks] = useState<Artwork[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState(0);
+  const [totalCatalog, setTotalCatalog] = useState<number | null>(null);
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlockAnimationArtworkId, setUnlockAnimationArtworkId] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -62,12 +67,52 @@ export default function MuseumPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/content", { cache: "no-store", credentials: "include" })
+    setNextOffset(0);
+    fetch("/api/museum/content?limit=80&offset=0", { cache: "no-store", credentials: "include" })
       .then((r) => r.json())
-      .then((d) => setArtworks(Array.isArray(d.artworks) ? d.artworks : []))
-      .catch(() => setArtworks([]))
+      .then((d) => {
+        const list = Array.isArray(d.artworks) ? d.artworks : [];
+        setArtworks(list);
+        setHasMore(Boolean(d.hasMore));
+        setNextOffset(typeof d.nextOffset === "number" ? d.nextOffset : list.length);
+        setTotalCatalog(typeof d.total === "number" ? d.total : null);
+      })
+      .catch(() => {
+        setArtworks([]);
+        setHasMore(false);
+        setTotalCatalog(null);
+      })
       .finally(() => setLoading(false));
   }, [address]);
+
+  const loadMoreArtworks = useCallback(() => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    fetch(`/api/museum/content?limit=80&offset=${nextOffset}`, {
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        const batch = Array.isArray(d.artworks) ? d.artworks : [];
+        setArtworks((prev) => {
+          const seen = new Set(prev.map((a) => a.id));
+          const merged = [...prev];
+          for (const a of batch) {
+            if (!seen.has(a.id)) {
+              seen.add(a.id);
+              merged.push(a);
+            }
+          }
+          return merged;
+        });
+        setHasMore(Boolean(d.hasMore));
+        setNextOffset(typeof d.nextOffset === "number" ? d.nextOffset : nextOffset + batch.length);
+        if (typeof d.total === "number") setTotalCatalog(d.total);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  }, [hasMore, loadingMore, nextOffset]);
 
   const handleArtworkSelect = useCallback((artwork: Artwork | null) => {
     setSelectedArtwork(artwork);
@@ -105,20 +150,31 @@ export default function MuseumPage() {
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.error ?? "Unlock failed");
 
-        // Update artwork state locally so frames + overlay refresh
+        // Apply unlock immediately so the purchased piece opens without waiting animation.
         setArtworks((prev) =>
           prev.map((a) =>
             a.id === artwork.id
-              ? { ...a, nsfwUnlocked: true, isUnlocked: true }
+              ? {
+                  ...a,
+                  nsfwUnlocked: true,
+                  isUnlocked: true,
+                  // contentToArtwork returns empty nsfwFull while locked; fill it immediately after purchase.
+                  nsfwFull: a.nsfwFull || `/api/ipfs-image?contentId=${a.id}`,
+                }
               : a
           )
         );
-        // Update selected artwork too
         setSelectedArtwork((prev) =>
           prev && prev.id === artwork.id
-            ? { ...prev, nsfwUnlocked: true, isUnlocked: true }
+            ? {
+                ...prev,
+                nsfwUnlocked: true,
+                isUnlocked: true,
+                nsfwFull: prev.nsfwFull || `/api/ipfs-image?contentId=${prev.id}`,
+              }
             : prev
         );
+        setUnlockAnimationArtworkId(artwork.id);
       } catch (e) {
         setUnlockError(e instanceof Error ? e.message : "Unlock failed");
       } finally {
@@ -127,6 +183,10 @@ export default function MuseumPage() {
     },
     [address, fetchWithPayment, chainId, openConnectModal]
   );
+
+  const handleUnlockAnimationDone = useCallback((artworkId: string) => {
+    setUnlockAnimationArtworkId((current) => (current === artworkId ? null : current));
+  }, []);
 
   if (isMobile) {
     return (
@@ -163,6 +223,8 @@ export default function MuseumPage() {
       <MuseumScene
         artworks={artworks}
         onArtworkSelect={handleArtworkSelect}
+        unlockAnimationArtworkId={unlockAnimationArtworkId}
+        onUnlockAnimationDone={handleUnlockAnimationDone}
       />
 
       <MuseumOverlay
@@ -175,6 +237,11 @@ export default function MuseumPage() {
         walletConnected={isConnected && !!address}
         walletReady={baseWalletReady}
         isBaseNetwork={chainId === BASE_CHAIN_ID}
+        hasMoreArtworks={hasMore}
+        loadingMoreArtworks={loadingMore}
+        onLoadMoreArtworks={loadMoreArtworks}
+        loadedArtworkCount={artworks.length}
+        totalArtworkCount={totalCatalog}
       />
     </div>
   );

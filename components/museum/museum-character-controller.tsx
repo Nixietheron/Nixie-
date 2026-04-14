@@ -12,7 +12,7 @@ const CAMERA_LOOK_HEIGHT = 1.6;
 const LERP_CAM = 0.1;
 const LERP_ROTATION = 0.12;
 const MOUSE_SENSITIVITY = 0.003;
-const PITCH_MIN = 0.05;
+const PITCH_MIN = -0.45;
 const PITCH_MAX = 1.0;
 const SCROLL_ZOOM_SPEED = 0.8;
 const MIN_DISTANCE = 2.5;
@@ -26,6 +26,14 @@ const _right = new THREE.Vector3();
 const _move = new THREE.Vector3();
 const _idealCam = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
+const _targetMove = new THREE.Vector3();
+const _hammerOffset = new THREE.Vector3(0.34, 1.08, 0.16);
+
+type UnlockAnimationTarget = {
+  artworkId: string;
+  frameX: number;
+  frameZ: number;
+};
 
 function CharacterModel({
   groupRef,
@@ -171,14 +179,37 @@ function CharacterModel({
   );
 }
 
-export function MuseumCharacterController() {
+const DEFAULT_MIN_WALK_Z = -105;
+
+export function MuseumCharacterController({
+  minWalkZ = DEFAULT_MIN_WALK_Z,
+  maxWalkX = 7.5,
+  unlockAnimationTarget,
+  onUnlockAnimationDone,
+}: {
+  minWalkZ?: number;
+  maxWalkX?: number;
+  unlockAnimationTarget?: UnlockAnimationTarget | null;
+  onUnlockAnimationDone?: (artworkId: string) => void;
+}) {
   const characterRef = useRef<THREE.Group>(null!);
   const movingRef = useRef(false);
   const { camera, gl } = useThree();
   const keysRef = useRef({ w: false, s: false, a: false, d: false });
+  const hammerGroupRef = useRef<THREE.Group>(null);
+  const unlockScriptRef = useRef<{
+    artworkId: string;
+    phase: "move" | "swing";
+    timer: number;
+    destinationX: number;
+    destinationZ: number;
+    faceX: number;
+    faceZ: number;
+  } | null>(null);
+  const lastScriptedArtworkIdRef = useRef<string | null>(null);
 
   const orbitRef = useRef({
-    yaw: Math.PI,
+    yaw: 0,
     pitch: 0.3,
     distance: CAMERA_DISTANCE,
     dragging: false,
@@ -220,10 +251,14 @@ export function MuseumCharacterController() {
     };
     const onMouseMove = (e: MouseEvent) => {
       if (!orbitRef.current.dragging) return;
-      orbitRef.current.yaw += e.movementX * MOUSE_SENSITIVITY;
+      const dynamicPitchMin =
+        orbitRef.current.distance <= 4.2
+          ? PITCH_MIN
+          : -0.2;
+      orbitRef.current.yaw -= e.movementX * MOUSE_SENSITIVITY;
       orbitRef.current.pitch = THREE.MathUtils.clamp(
         orbitRef.current.pitch + e.movementY * MOUSE_SENSITIVITY,
-        PITCH_MIN,
+        dynamicPitchMin,
         PITCH_MAX,
       );
     };
@@ -252,24 +287,50 @@ export function MuseumCharacterController() {
     };
   }, [gl]);
 
+  useEffect(() => {
+    if (!unlockAnimationTarget) return;
+    if (lastScriptedArtworkIdRef.current === unlockAnimationTarget.artworkId) return;
+    lastScriptedArtworkIdRef.current = unlockAnimationTarget.artworkId;
+    const side = Math.sign(unlockAnimationTarget.frameX) || 1;
+    const destinationX =
+      Math.abs(unlockAnimationTarget.frameX) > 10
+        ? THREE.MathUtils.clamp(unlockAnimationTarget.frameX - side * 2.3, -maxWalkX, maxWalkX)
+        : side > 0
+          ? 5.2
+          : -5.2;
+    unlockScriptRef.current = {
+      artworkId: unlockAnimationTarget.artworkId,
+      phase: "move",
+      timer: 0,
+      destinationX,
+      destinationZ: unlockAnimationTarget.frameZ,
+      faceX: unlockAnimationTarget.frameX,
+      faceZ: unlockAnimationTarget.frameZ,
+    };
+  }, [unlockAnimationTarget, maxWalkX]);
+
   useFrame((_, delta) => {
     if (!characterRef.current) return;
     const char = characterRef.current;
     const keys = keysRef.current;
     const orbit = orbitRef.current;
     const dt = Math.min(delta, 0.05);
+    const scripted = unlockScriptRef.current;
+    const zMin = Math.min(minWalkZ, DEFAULT_MIN_WALK_Z);
 
     const camYaw = orbit.yaw;
     _forward.set(-Math.sin(camYaw), 0, -Math.cos(camYaw)).normalize();
     _right.set(-_forward.z, 0, _forward.x);
 
     _move.set(0, 0, 0);
-    if (keys.w) _move.add(_forward);
-    if (keys.s) _move.sub(_forward);
-    if (keys.a) _move.sub(_right);
-    if (keys.d) _move.add(_right);
+    if (!scripted) {
+      if (keys.w) _move.add(_forward);
+      if (keys.s) _move.sub(_forward);
+      if (keys.a) _move.sub(_right);
+      if (keys.d) _move.add(_right);
+    }
 
-    const isMoving = _move.lengthSq() > 0;
+    let isMoving = _move.lengthSq() > 0;
     movingRef.current = isMoving;
 
     if (isMoving) {
@@ -283,8 +344,84 @@ export function MuseumCharacterController() {
       char.rotation.y += diff * LERP_ROTATION;
     }
 
-    char.position.x = THREE.MathUtils.clamp(char.position.x, -7.5, 7.5);
-    char.position.z = THREE.MathUtils.clamp(char.position.z, -93, 4);
+    if (scripted) {
+      if (scripted.phase === "move") {
+        _targetMove.set(
+          scripted.destinationX - char.position.x,
+          0,
+          scripted.destinationZ - char.position.z
+        );
+        const dist = _targetMove.length();
+        if (dist > 0.05) {
+          _targetMove.normalize();
+          char.position.addScaledVector(_targetMove, MOVE_SPEED * 1.05 * dt);
+          isMoving = true;
+          movingRef.current = true;
+        } else {
+          scripted.phase = "swing";
+          scripted.timer = 0;
+          isMoving = false;
+          movingRef.current = false;
+        }
+
+        const targetYaw = Math.atan2(
+          scripted.faceX - char.position.x,
+          scripted.faceZ - char.position.z
+        );
+        let diff = targetYaw - char.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        char.rotation.y += diff * 0.25;
+      } else {
+        scripted.timer += dt;
+        const targetYaw = Math.atan2(
+          scripted.faceX - char.position.x,
+          scripted.faceZ - char.position.z
+        );
+        let diff = targetYaw - char.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        char.rotation.y += diff * 0.26;
+
+        if (scripted.timer >= 1.15) {
+          onUnlockAnimationDone?.(scripted.artworkId);
+          unlockScriptRef.current = null;
+        }
+      }
+    }
+
+    // ── Corridor collision bounds ──────────────────────────────────────
+    // Geometry (world space):
+    //   Corridor 1 (main):  X ∈ [-7.5,+7.5],  Z free (full length)
+    //   Corridor 2 (right): X ∈ [+8,+57.5],   Z ∈ [-51,-35]
+    //   Corridor 3 (left):  X ∈ [-57.5,-8],   Z ∈ [-51,-35]
+    //   Junction opening in Corridor 1 walls at Z ∈ [-51,-35]
+    const MAIN_HALF_W     = 7.5;
+    const BRANCH_OUTER_X  = maxWalkX;  // 57.5
+    const JUNCTION_Z_FAR  = -51;       // back wall of side corridors
+    const JUNCTION_Z_NEAR = -35;       // front wall of side corridors
+
+    const cx = char.position.x;
+    const cz = char.position.z;
+
+    const inJunctionZ = cz <= JUNCTION_Z_NEAR && cz >= JUNCTION_Z_FAR;
+    const inBranch    = inJunctionZ && Math.abs(cx) > MAIN_HALF_W;
+
+    if (inBranch) {
+      // In a side branch — clamp Z first so they can't walk through back wall
+      char.position.z = THREE.MathUtils.clamp(char.position.z, JUNCTION_Z_FAR, JUNCTION_Z_NEAR);
+      // Then clamp X to the correct branch
+      if (cx > 0) {
+        char.position.x = THREE.MathUtils.clamp(cx, MAIN_HALF_W + 0.1, BRANCH_OUTER_X);
+      } else {
+        char.position.x = THREE.MathUtils.clamp(cx, -BRANCH_OUTER_X, -MAIN_HALF_W - 0.1);
+      }
+    } else {
+      // In main corridor (before junction, inside junction on main axis, or past junction)
+      char.position.x = THREE.MathUtils.clamp(cx, -MAIN_HALF_W, MAIN_HALF_W);
+    }
+
+    char.position.z = THREE.MathUtils.clamp(char.position.z, zMin, 4);
     char.position.y = 0;
 
     const dist = orbit.distance;
@@ -295,8 +432,27 @@ export function MuseumCharacterController() {
     let camZ = char.position.z + Math.cos(camYaw) * horizDist;
     let camY = CAMERA_LOOK_HEIGHT + vertOffset;
 
-    camX = THREE.MathUtils.clamp(camX, -7.2, 7.2);
-    camZ = THREE.MathUtils.clamp(camZ, -93.2, 4.2);
+    // ── Camera wall collision ─────────────────────────────────────────
+    // Mirror the same corridor geometry. CAM_INSET prevents near-clip clipping.
+    const CAM_INSET = 0.3;
+    const camInJunctionZ = camZ <= JUNCTION_Z_NEAR && camZ >= JUNCTION_Z_FAR;
+    const camInBranch    = camInJunctionZ && Math.abs(camX) > MAIN_HALF_W;
+
+    if (camInBranch) {
+      // Camera is in a side branch — clamp Z first, then X
+      camZ = THREE.MathUtils.clamp(camZ, JUNCTION_Z_FAR + CAM_INSET, JUNCTION_Z_NEAR - CAM_INSET);
+      if (camX > 0) {
+        camX = THREE.MathUtils.clamp(camX, MAIN_HALF_W + CAM_INSET, BRANCH_OUTER_X - CAM_INSET);
+      } else {
+        camX = THREE.MathUtils.clamp(camX, -BRANCH_OUTER_X + CAM_INSET, -MAIN_HALF_W - CAM_INSET);
+      }
+    } else {
+      // Main corridor (all sections)
+      camX = THREE.MathUtils.clamp(camX, -MAIN_HALF_W + CAM_INSET, MAIN_HALF_W - CAM_INSET);
+    }
+
+    const camZMin = zMin - 0.2;
+    camZ = THREE.MathUtils.clamp(camZ, camZMin, 4.2);
     camY = THREE.MathUtils.clamp(camY, 0.5, 4.5);
 
     _idealCam.set(camX, camY, camZ);
@@ -304,9 +460,45 @@ export function MuseumCharacterController() {
 
     camera.position.lerp(_idealCam, LERP_CAM);
     camera.lookAt(_lookTarget);
+
+    if (hammerGroupRef.current) {
+      const runningScript = unlockScriptRef.current;
+      const visible = !!runningScript;
+      hammerGroupRef.current.visible = visible;
+      if (visible && runningScript) {
+        const offset = _hammerOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), char.rotation.y);
+        hammerGroupRef.current.position.set(
+          char.position.x + offset.x,
+          char.position.y + offset.y,
+          char.position.z + offset.z
+        );
+        const swingT = runningScript.phase === "swing"
+          ? Math.min(1, runningScript.timer / 1.05)
+          : 0;
+        hammerGroupRef.current.rotation.set(
+          -0.25 + Math.sin(swingT * Math.PI * 3.2) * 0.85 * (1 - swingT * 0.25),
+          char.rotation.y + 0.35,
+          0.5
+        );
+      }
+    }
   });
 
-  return <CharacterModel groupRef={characterRef} movingRef={movingRef} />;
+  return (
+    <group>
+      <CharacterModel groupRef={characterRef} movingRef={movingRef} />
+      <group ref={hammerGroupRef} visible={false}>
+        <mesh>
+          <boxGeometry args={[0.08, 0.55, 0.08]} />
+          <meshStandardMaterial color="#7b4c29" roughness={0.7} metalness={0.05} />
+        </mesh>
+        <mesh position={[0, 0.27, 0]}>
+          <boxGeometry args={[0.24, 0.1, 0.12]} />
+          <meshStandardMaterial color="#c6c0d2" roughness={0.25} metalness={0.7} />
+        </mesh>
+      </group>
+    </group>
+  );
 }
 
 useGLTF.preload(AVATAR_MODEL_URL);

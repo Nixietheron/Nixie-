@@ -16,6 +16,12 @@ interface MuseumOverlayProps {
   walletConnected: boolean;
   walletReady: boolean;
   isBaseNetwork: boolean;
+  /** Paginated catalog: more rows available from the API */
+  hasMoreArtworks?: boolean;
+  loadingMoreArtworks?: boolean;
+  onLoadMoreArtworks?: () => void;
+  loadedArtworkCount?: number;
+  totalArtworkCount?: number | null;
 }
 
 export function MuseumOverlay({
@@ -28,9 +34,19 @@ export function MuseumOverlay({
   walletConnected,
   walletReady,
   isBaseNetwork,
+  hasMoreArtworks = false,
+  loadingMoreArtworks = false,
+  onLoadMoreArtworks,
+  loadedArtworkCount,
+  totalArtworkCount,
 }: MuseumOverlayProps) {
   const isLocked = selectedArtwork?.hasNsfw && !selectedArtwork?.nsfwUnlocked;
   const isFree = selectedArtwork?.price === 0;
+  const displayImageSrc = selectedArtwork
+    ? selectedArtwork.hasNsfw && selectedArtwork.nsfwUnlocked && selectedArtwork.nsfwFull
+      ? selectedArtwork.nsfwFull
+      : selectedArtwork.sfwPreview
+    : "";
 
   return (
     <>
@@ -84,7 +100,7 @@ export function MuseumOverlay({
             <div className="relative">
               <div className={`aspect-[3/4] overflow-hidden rounded-t-2xl bg-[#16131f] ${isLocked ? "relative" : ""}`}>
                 <ImageWithFallback
-                  src={selectedArtwork.sfwPreview}
+                  src={displayImageSrc}
                   alt={selectedArtwork.title || "Artwork"}
                   className={`w-full h-full object-cover ${isLocked ? "blur-xl scale-105 brightness-75" : ""}`}
                 />
@@ -189,6 +205,33 @@ export function MuseumOverlay({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {onLoadMoreArtworks && (
+        <div className="fixed bottom-6 left-6 z-50 pointer-events-auto flex flex-col gap-2 items-start">
+          {totalArtworkCount != null && loadedArtworkCount != null && (
+            <div className="text-xs text-white/45 px-1">
+              Loaded {loadedArtworkCount} of {totalArtworkCount}
+            </div>
+          )}
+          {hasMoreArtworks && (
+            <button
+              type="button"
+              onClick={onLoadMoreArtworks}
+              disabled={loadingMoreArtworks}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white/90 bg-[#0f0d14]/90 backdrop-blur-md border border-white/15 hover:border-[#D27A92]/40 hover:bg-[#16131f] transition-colors disabled:opacity-50"
+            >
+              {loadingMoreArtworks ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading…
+                </>
+              ) : (
+                "Load more artworks"
+              )}
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 }

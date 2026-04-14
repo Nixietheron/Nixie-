@@ -6,6 +6,7 @@ import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { Artwork } from "@/lib/types";
 import { ipfsProxyUrl } from "@/lib/constants";
+import { loadCachedImage } from "@/lib/museum/cached-image";
 
 const FRAME_COLOR = "#1a1520";
 const FRAME_ACCENT = "#D27A92";
@@ -37,7 +38,10 @@ function createCullingStore(): MuseumCullingStore {
 }
 
 function resolveTextureUrl(artwork: Artwork): string {
-  const src = artwork.sfwPreview;
+  const src =
+    artwork.hasNsfw && artwork.nsfwUnlocked && artwork.nsfwFull
+      ? artwork.nsfwFull
+      : artwork.sfwPreview;
   if (!src) return "";
   if (src.includes("/ipfs/")) {
     return ipfsProxyUrl(src) || src;
@@ -140,45 +144,41 @@ function ArtFrame({
     if (!url) return;
 
     let cancelled = false;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (cancelled) return;
-      let source: TexImageSource = img;
-      if (isLocked) {
-        source = blurImage(img, 18);
-      } else if (lodTier === "low") {
-        const src = source instanceof HTMLImageElement ? source : img;
-        source = downscaleImage(src, LOW_RES_MAX_EDGE);
-      }
-      const tex = new THREE.Texture(source);
-      tex.needsUpdate = true;
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.minFilter = THREE.LinearFilter;
-      tex.magFilter = THREE.LinearFilter;
-      tex.generateMipmaps = false;
-      setTexture((prev) => {
-        if (prev) prev.dispose();
-        return tex;
-      });
-    };
-    img.onerror = () => {
-      if (!cancelled) {
+
+    loadCachedImage(url)
+      .then((img) => {
+        if (cancelled) return;
+        let source: TexImageSource = img;
+        if (isLocked) {
+          source = blurImage(img, 18);
+        } else if (lodTier === "low") {
+          const src = source instanceof HTMLImageElement ? source : img;
+          source = downscaleImage(src, LOW_RES_MAX_EDGE);
+        }
+        const tex = new THREE.Texture(source);
+        tex.needsUpdate = true;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = false;
         setTexture((prev) => {
           if (prev) prev.dispose();
-          return null;
+          return tex;
         });
-      }
-    };
-    img.src = url;
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTexture((prev) => {
+            if (prev) prev.dispose();
+            return null;
+          });
+        }
+      });
 
     return () => {
       cancelled = true;
-      img.onload = null;
-      img.onerror = null;
-      img.src = "";
     };
-  }, [lodTier, artwork.id, artwork.sfwPreview, isLocked]);
+  }, [lodTier, artwork.id, artwork.sfwPreview, artwork.nsfwFull, artwork.nsfwUnlocked, artwork.hasNsfw, isLocked]);
 
   useEffect(() => {
     return () => {
@@ -288,19 +288,107 @@ interface MuseumArtFramesProps {
   onSelect: (artwork: Artwork | null) => void;
 }
 
+type PublicFrameSlot = {
+  artwork: Artwork;
+  position: [number, number, number];
+  rotation: [number, number, number];
+};
+
+const FRAME_SPACING = 5;
+const FRAME_Y = 2.3;
+const MAIN_WALL_X = 7.6;
+const PUBLIC_MAIN_CAPACITY = 20;
+const BRANCH_LEFT_OUTER_X = -19.6;
+const BRANCH_LEFT_INNER_X = -12.4;
+const BRANCH_RIGHT_INNER_X = 12.4;
+const BRANCH_RIGHT_OUTER_X = 19.6;
+const BRANCH_START_Z = -8;
+
+// NSFW arch is at Z=-58 — NSFW frames must start past the arch.
+// Keep this in sync with DividerArch zPos in museum-environment.tsx.
+const NSFW_ARCH_Z = -58;
+const NSFW_FRAMES_START_Z = NSFW_ARCH_Z - 5; // first frame 5 units past the arch
+
+export function hasPublicBranchCorridors(publicCount: number): boolean {
+  return publicCount > PUBLIC_MAIN_CAPACITY;
+}
+
+export function getPublicFrameSlots(publicArtworks: Artwork[]): PublicFrameSlot[] {
+  const slots: PublicFrameSlot[] = [];
+
+  const main = publicArtworks.slice(0, PUBLIC_MAIN_CAPACITY);
+  const mainLeft: Artwork[] = [];
+  const mainRight: Artwork[] = [];
+  main.forEach((art, i) => {
+    if (i % 2 === 0) mainLeft.push(art);
+    else mainRight.push(art);
+  });
+
+  mainLeft.forEach((art, i) => {
+    slots.push({
+      artwork: art,
+      position: [-MAIN_WALL_X, FRAME_Y, -3 - i * FRAME_SPACING],
+      rotation: [0, Math.PI / 2, 0],
+    });
+  });
+  mainRight.forEach((art, i) => {
+    slots.push({
+      artwork: art,
+      position: [MAIN_WALL_X, FRAME_Y, -3 - i * FRAME_SPACING],
+      rotation: [0, -Math.PI / 2, 0],
+    });
+  });
+
+  const overflow = publicArtworks.slice(PUBLIC_MAIN_CAPACITY);
+  const branchBuckets: Artwork[][] = [[], [], [], []];
+  overflow.forEach((art, i) => {
+    branchBuckets[i % 4].push(art);
+  });
+
+  branchBuckets[0].forEach((art, i) => {
+    slots.push({
+      artwork: art,
+      position: [BRANCH_LEFT_OUTER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
+      rotation: [0, Math.PI / 2, 0],
+    });
+  });
+  branchBuckets[1].forEach((art, i) => {
+    slots.push({
+      artwork: art,
+      position: [BRANCH_LEFT_INNER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
+      rotation: [0, -Math.PI / 2, 0],
+    });
+  });
+  branchBuckets[2].forEach((art, i) => {
+    slots.push({
+      artwork: art,
+      position: [BRANCH_RIGHT_INNER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
+      rotation: [0, Math.PI / 2, 0],
+    });
+  });
+  branchBuckets[3].forEach((art, i) => {
+    slots.push({
+      artwork: art,
+      position: [BRANCH_RIGHT_OUTER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
+      rotation: [0, -Math.PI / 2, 0],
+    });
+  });
+
+  return slots;
+}
+
+export function getPublicFrameSlotForArtwork(
+  publicArtworks: Artwork[],
+  artworkId: string
+): { frameX: number; frameZ: number } | null {
+  const slot = getPublicFrameSlots(publicArtworks).find((s) => s.artwork.id === artworkId);
+  if (!slot) return null;
+  return { frameX: slot.position[0], frameZ: slot.position[2] };
+}
+
 export function MuseumArtFrames({ publicArtworks, nsfwArtworks, onSelect }: MuseumArtFramesProps) {
   const cullingStoreRef = useRef<MuseumCullingStore>(createCullingStore());
-
-  const FRAME_SPACING = 5;
-  const WALL_X = 7.6;
-  const FRAME_Y = 2.3;
-
-  const sfwLeft: Artwork[] = [];
-  const sfwRight: Artwork[] = [];
-  publicArtworks.forEach((art, i) => {
-    if (i % 2 === 0) sfwLeft.push(art);
-    else sfwRight.push(art);
-  });
+  const publicSlots = getPublicFrameSlots(publicArtworks);
 
   const nsfwLeftArr: Artwork[] = [];
   const nsfwRightArr: Artwork[] = [];
@@ -312,23 +400,12 @@ export function MuseumArtFrames({ publicArtworks, nsfwArtworks, onSelect }: Muse
   return (
     <group>
       <MuseumCullingTick storeRef={cullingStoreRef} />
-      {sfwLeft.map((art, i) => (
+      {publicSlots.map((slot) => (
         <ArtFrame
-          key={`left-${art.id}`}
-          artwork={art}
-          position={[-WALL_X, FRAME_Y, -3 - i * FRAME_SPACING]}
-          rotation={[0, Math.PI / 2, 0]}
-          onSelect={onSelect}
-          cullingStoreRef={cullingStoreRef}
-        />
-      ))}
-
-      {sfwRight.map((art, i) => (
-        <ArtFrame
-          key={`right-${art.id}`}
-          artwork={art}
-          position={[WALL_X, FRAME_Y, -3 - i * FRAME_SPACING]}
-          rotation={[0, -Math.PI / 2, 0]}
+          key={`public-${slot.artwork.id}-${slot.position[0]}-${slot.position[2]}`}
+          artwork={slot.artwork}
+          position={slot.position}
+          rotation={slot.rotation}
           onSelect={onSelect}
           cullingStoreRef={cullingStoreRef}
         />
@@ -338,7 +415,7 @@ export function MuseumArtFrames({ publicArtworks, nsfwArtworks, onSelect }: Muse
         <ArtFrame
           key={`nsfw-l-${art.id}`}
           artwork={art}
-          position={[-WALL_X, FRAME_Y, -55 - i * FRAME_SPACING]}
+          position={[-MAIN_WALL_X, FRAME_Y, NSFW_FRAMES_START_Z - i * FRAME_SPACING]}
           rotation={[0, Math.PI / 2, 0]}
           onSelect={onSelect}
           cullingStoreRef={cullingStoreRef}
@@ -349,7 +426,7 @@ export function MuseumArtFrames({ publicArtworks, nsfwArtworks, onSelect }: Muse
         <ArtFrame
           key={`nsfw-r-${art.id}`}
           artwork={art}
-          position={[WALL_X, FRAME_Y, -55 - i * FRAME_SPACING]}
+          position={[MAIN_WALL_X, FRAME_Y, NSFW_FRAMES_START_Z - i * FRAME_SPACING]}
           rotation={[0, -Math.PI / 2, 0]}
           onSelect={onSelect}
           cullingStoreRef={cullingStoreRef}
