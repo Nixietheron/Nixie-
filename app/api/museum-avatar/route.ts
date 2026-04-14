@@ -3,7 +3,7 @@ import path from "node:path";
 
 export async function GET() {
   try {
-    const modelPath = path.join(process.cwd(), "Mixam444444e.glb");
+    const modelPath = path.join(process.cwd(), "Nixie.glb");
     const data = await fs.readFile(modelPath);
     return new Response(data, {
       headers: {

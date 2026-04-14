@@ -19,7 +19,7 @@ const MIN_DISTANCE = 2.5;
 const MAX_DISTANCE = 12;
 const DESIRED_HEIGHT = 1.7;
 const AVATAR_MODEL_URL =
-  "https://raw.githubusercontent.com/Nixietheron/Nixie-/main/Mixam444444e.glb";
+  "https://raw.githubusercontent.com/Nixietheron/Nixie-/main/Nixie.glb";
 
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
