@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useDisconnect, usePublicClient, useWalletClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { wrapFetchWithPayment } from "@x402/fetch";
 import { x402Client } from "@x402/core/client";
@@ -44,6 +44,7 @@ export default function MuseumPage() {
   const [unlockAnimationArtworkId, setUnlockAnimationArtworkId] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
   const chainId = useChainId();
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
@@ -231,6 +232,7 @@ export default function MuseumPage() {
         selectedArtwork={selectedArtwork}
         onCloseArtwork={() => setSelectedArtwork(null)}
         onConnectWallet={() => openConnectModal?.()}
+        onDisconnectWallet={() => disconnect()}
         onUnlockArtwork={handleUnlockArtwork}
         unlocking={unlocking}
         unlockError={unlockError}

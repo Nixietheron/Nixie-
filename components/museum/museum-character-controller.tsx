@@ -47,67 +47,37 @@ function CharacterModel({
   const wasMoving = useRef(false);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const walkActionRef = useRef<THREE.AnimationAction | null>(null);
+  const hipsBoneRef = useRef<THREE.Object3D | null>(null);
+  const hipsRestPos = useRef<THREE.Vector3 | null>(null);
+  const idlePoseRef = useRef<Map<string, { pos: THREE.Vector3; quat: THREE.Quaternion }>>(new Map());
 
-  const modelScale = useMemo(() => {
+  const computeScaleAndYOffset = (src: THREE.Object3D) => {
     const tmp = new THREE.Group();
-    tmp.add(clonedScene.clone());
+    tmp.add(src.clone());
     tmp.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(tmp);
     const size = new THREE.Vector3();
     box.getSize(size);
     const h = size.y;
-    if (h < 0.001) return 1;
-    return DESIRED_HEIGHT / h;
-  }, [clonedScene]);
+    const scale = h < 0.001 ? 1 : DESIRED_HEIGHT / h;
+    const tmpScaled = new THREE.Group();
+    const c = src.clone();
+    c.scale.setScalar(scale);
+    tmpScaled.add(c);
+    tmpScaled.updateMatrixWorld(true);
+    const boxScaled = new THREE.Box3().setFromObject(tmpScaled);
+    return { scale, yOffset: -boxScaled.min.y };
+  };
 
-  const yOffset = useMemo(() => {
-    const tmp = new THREE.Group();
-    const c = clonedScene.clone();
-    c.scale.setScalar(modelScale);
-    tmp.add(c);
-    tmp.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(tmp);
-    return -box.min.y;
-  }, [clonedScene, modelScale]);
-
-  const hipsBoneRef = useRef<THREE.Object3D | null>(null);
-  const hipsRestPos = useRef<THREE.Vector3 | null>(null);
-  const idlePoseRef = useRef<Map<string, { pos: THREE.Vector3; quat: THREE.Quaternion }>>(new Map());
+  const metrics = useMemo(() => computeScaleAndYOffset(clonedScene), [clonedScene]);
 
   useEffect(() => {
-    if (!animations.length) return;
-
-    const mixer = new THREE.AnimationMixer(clonedScene);
-    mixerRef.current = mixer;
-
-    // Strip root motion (Hips translation) so WASD movement isn't fighting the clip
-    const clip = animations[0].clone();
-    clip.tracks = clip.tracks.filter(
-      (t) => !(t.name.includes("Hips") && t.name.endsWith(".position")),
-    );
-
-    const action = mixer.clipAction(clip);
-    action.loop = THREE.LoopRepeat;
-    action.clampWhenFinished = false;
-    walkActionRef.current = action;
-
-    // Sample a mid-walk frame to capture a natural standing pose (arms down, legs together)
-    // Frame 0 is T-pose, so we sample ~50% of the clip where arms are most relaxed
-    action.play();
-    action.time = clip.duration * 0.5;
-    action.weight = 1;
-    mixer.setTime(clip.duration * 0.5);
-
-    // Find hips bone
+    // Find hips once for root-motion cancellation.
     clonedScene.traverse((child) => {
-      if (child.name === "mixamorig:Hips" && !hipsBoneRef.current) {
+      if ((child.name === "mixamorig:Hips" || child.name === "Hips") && !hipsBoneRef.current) {
         hipsBoneRef.current = child;
         hipsRestPos.current = child.position.clone();
       }
-    });
-
-    // Store idle pose from this sampled frame
-    clonedScene.traverse((child) => {
       if ((child as THREE.Bone).isBone) {
         idlePoseRef.current.set(child.name, {
           pos: child.position.clone(),
@@ -116,17 +86,51 @@ function CharacterModel({
       }
     });
 
-    // Stop animation, then immediately apply the idle pose so character doesn't start in T-pose
-    action.stop();
+    if (!animations.length) return;
+
+    const mixer = new THREE.AnimationMixer(clonedScene);
+    mixerRef.current = mixer;
+
+    // Prefer a walking clip by name; fallback to first available clip.
+    // Force a natural human walk clip from this avatar pack.
+    // Available names include: Running, Side_Shot, Stylish_Walk_inplace,
+    // Walk_Turn_Right_Idle_Style, Walk_to_Sit, Walking_Woman, Walking
+    const preferredClip =
+      animations.find((a) => /^Walking_Woman$/i.test(a.name ?? "")) ??
+      animations.find((a) => /^Walking$/i.test(a.name ?? "")) ??
+      animations.find((a) => /walk/i.test(a.name ?? "")) ??
+      animations.find((a) => !/run|running|sprint|stylish|side_shot/i.test(a.name ?? "")) ??
+      animations[0];
+
+    // Build static idle pose from the FIRST STEP frame of the same walk clip.
+    const idleReferenceAction = mixer.clipAction(preferredClip);
+    idleReferenceAction.play();
+    idleReferenceAction.setEffectiveWeight(1);
+    // First-step sample: keeps the nice "start walking" stance while idle.
+    const firstStepTime = Math.min(0.12, Math.max(0.03, preferredClip.duration * 0.05));
+    mixer.setTime(firstStepTime);
     clonedScene.traverse((child) => {
       if ((child as THREE.Bone).isBone) {
-        const saved = idlePoseRef.current.get(child.name);
-        if (saved) {
-          child.position.copy(saved.pos);
-          child.quaternion.copy(saved.quat);
-        }
+        idlePoseRef.current.set(child.name, {
+          pos: child.position.clone(),
+          quat: child.quaternion.clone(),
+        });
       }
     });
+    idleReferenceAction.stop();
+
+    // Strip root motion so world translation stays under controller.
+    const clip = preferredClip.clone();
+    clip.tracks = clip.tracks.filter(
+      (t) => !(t.name.includes("Hips") && t.name.endsWith(".position")),
+    );
+
+    const action = mixer.clipAction(clip);
+    action.loop = THREE.LoopRepeat;
+    action.clampWhenFinished = false;
+    action.enabled = true;
+    action.setEffectiveWeight(1);
+    walkActionRef.current = action;
 
     return () => {
       mixer.stopAllAction();
@@ -136,34 +140,33 @@ function CharacterModel({
 
   useFrame((_, delta) => {
     const mixer = mixerRef.current;
-    const action = walkActionRef.current;
-    if (!mixer || !action) return;
-
+    const walkAction = walkActionRef.current;
     const moving = movingRef.current ?? false;
 
-    if (moving && !wasMoving.current) {
-      action.reset().fadeIn(0.2).play();
-    } else if (!moving && wasMoving.current) {
-      action.fadeOut(0.3);
+    if (mixer && walkAction) {
+      if (moving && !wasMoving.current) {
+        walkAction.reset().fadeIn(0.18).play();
+      } else if (!moving && wasMoving.current) {
+        walkAction.fadeOut(0.2);
+      }
+      wasMoving.current = moving;
+      mixer.update(delta);
     }
-    wasMoving.current = moving;
 
-    mixer.update(delta);
-
-    // When animation has faded out, smoothly restore idle pose
-    if (!moving && !action.isRunning()) {
+    // No idle animation: blend into a static custom stance.
+    if (!moving) {
       clonedScene.traverse((child) => {
         if ((child as THREE.Bone).isBone) {
           const saved = idlePoseRef.current.get(child.name);
           if (saved) {
-            child.quaternion.slerp(saved.quat, 0.12);
-            child.position.lerp(saved.pos, 0.12);
+            child.quaternion.slerp(saved.quat, 0.2);
+            child.position.lerp(saved.pos, 0.2);
           }
         }
       });
     }
 
-    // Cancel any residual root motion on the hips bone
+    // Keep root translation cancelled even while clip plays.
     if (hipsBoneRef.current && hipsRestPos.current) {
       hipsBoneRef.current.position.copy(hipsRestPos.current);
     }
@@ -171,8 +174,8 @@ function CharacterModel({
 
   return (
     <group ref={groupRef} position={[0, 0, -3]} rotation={[0, Math.PI, 0]}>
-      <group ref={containerRef} position={[0, yOffset, 0]}>
-        <primitive object={clonedScene} scale={modelScale} />
+      <group ref={containerRef} position={[0, metrics.yOffset, 0]}>
+        <primitive object={clonedScene} scale={metrics.scale} />
       </group>
     </group>
   );

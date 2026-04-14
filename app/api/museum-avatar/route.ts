@@ -1,9 +1,10 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+ 
 
 export async function GET() {
   try {
-    const modelPath = path.join(process.cwd(), "Nixie.glb");
+    const modelPath = path.join(process.cwd(), "nixie2.glb");
     const data = await fs.readFile(modelPath);
     return new Response(data, {
       headers: {

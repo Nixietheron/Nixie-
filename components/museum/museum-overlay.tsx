@@ -10,6 +10,7 @@ interface MuseumOverlayProps {
   selectedArtwork: Artwork | null;
   onCloseArtwork: () => void;
   onConnectWallet: () => void;
+  onDisconnectWallet: () => void;
   onUnlockArtwork: (artwork: Artwork) => void;
   unlocking: boolean;
   unlockError: string | null;
@@ -28,6 +29,7 @@ export function MuseumOverlay({
   selectedArtwork,
   onCloseArtwork,
   onConnectWallet,
+  onDisconnectWallet,
   onUnlockArtwork,
   unlocking,
   unlockError,
@@ -75,13 +77,21 @@ export function MuseumOverlay({
               Connect Wallet
             </button>
           ) : (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs border ${
-              walletReady
-                ? "text-emerald-400/80 bg-emerald-500/10 border-emerald-500/20"
-                : "text-amber-400/80 bg-amber-500/10 border-amber-500/20"
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${walletReady ? "bg-emerald-400" : "bg-amber-400"}`} />
-              {walletReady ? "Base Connected" : !isBaseNetwork ? "Switch to Base" : "Connecting..."}
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs border ${
+                walletReady
+                  ? "text-emerald-400/80 bg-emerald-500/10 border-emerald-500/20"
+                  : "text-amber-400/80 bg-amber-500/10 border-amber-500/20"
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${walletReady ? "bg-emerald-400" : "bg-amber-400"}`} />
+                {walletReady ? "Base Connected" : !isBaseNetwork ? "Switch to Base" : "Connecting..."}
+              </div>
+              <button
+                onClick={onDisconnectWallet}
+                className="px-3 py-2 rounded-xl text-xs font-medium text-white/75 bg-white/5 border border-white/15 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                Disconnect
+              </button>
             </div>
           )}
         </div>
