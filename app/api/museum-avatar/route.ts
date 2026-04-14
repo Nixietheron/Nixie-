@@ -1,10 +1,13 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { NextRequest } from "next/server";
  
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const modelPath = path.join(process.cwd(), "nixie2.glb");
+    const avatar = new URL(request.url).searchParams.get("avatar");
+    const fileName = avatar === "male" ? "MaleWalking.glb" : "nixie2.glb";
+    const modelPath = path.join(process.cwd(), fileName);
     const data = await fs.readFile(modelPath);
     return new Response(data, {
       headers: {

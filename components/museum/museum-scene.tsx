@@ -14,6 +14,7 @@ import { computeCorridorMinZ } from "@/lib/museum/corridor-bounds";
 
 interface MuseumSceneProps {
   artworks: Artwork[];
+  avatarChoice?: "female" | "male";
   onArtworkSelect: (artwork: Artwork | null) => void;
   unlockAnimationArtworkId?: string | null;
   onUnlockAnimationDone?: (artworkId: string) => void;
@@ -21,6 +22,7 @@ interface MuseumSceneProps {
 
 export function MuseumScene({
   artworks,
+  avatarChoice = "female",
   onArtworkSelect,
   unlockAnimationArtworkId,
   onUnlockAnimationDone,
@@ -106,6 +108,7 @@ export function MuseumScene({
           onSelect={onArtworkSelect}
         />
         <MuseumCharacterController
+          avatarChoice={avatarChoice}
           minWalkZ={corridorMinZ}
           maxWalkX={hasBranches ? branchOuterX : 7.5}
           unlockAnimationTarget={unlockAnimationTarget}

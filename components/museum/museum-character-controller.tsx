@@ -18,7 +18,6 @@ const SCROLL_ZOOM_SPEED = 0.8;
 const MIN_DISTANCE = 2.5;
 const MAX_DISTANCE = 12;
 const DESIRED_HEIGHT = 1.7;
-const AVATAR_MODEL_URL = "/api/museum-avatar";
 
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
@@ -35,14 +34,20 @@ type UnlockAnimationTarget = {
 };
 
 function CharacterModel({
+  avatarChoice,
   groupRef,
   movingRef,
 }: {
+  avatarChoice: "female" | "male";
   groupRef: React.RefObject<THREE.Group>;
   movingRef: React.MutableRefObject<boolean>;
 }) {
   const containerRef = useRef<THREE.Group>(null!);
-  const { scene, animations } = useGLTF(AVATAR_MODEL_URL);
+  const avatarUrl = useMemo(
+    () => `/api/museum-avatar?avatar=${avatarChoice}`,
+    [avatarChoice]
+  );
+  const { scene, animations } = useGLTF(avatarUrl);
   const clonedScene = useMemo(() => clone(scene), [scene]);
   const wasMoving = useRef(false);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -184,11 +189,13 @@ function CharacterModel({
 const DEFAULT_MIN_WALK_Z = -105;
 
 export function MuseumCharacterController({
+  avatarChoice = "female",
   minWalkZ = DEFAULT_MIN_WALK_Z,
   maxWalkX = 7.5,
   unlockAnimationTarget,
   onUnlockAnimationDone,
 }: {
+  avatarChoice?: "female" | "male";
   minWalkZ?: number;
   maxWalkX?: number;
   unlockAnimationTarget?: UnlockAnimationTarget | null;
@@ -521,7 +528,7 @@ export function MuseumCharacterController({
 
   return (
     <group>
-      <CharacterModel groupRef={characterRef} movingRef={movingRef} />
+      <CharacterModel avatarChoice={avatarChoice} groupRef={characterRef} movingRef={movingRef} />
       <group ref={hammerGroupRef} visible={false}>
         <mesh>
           <boxGeometry args={[0.08, 0.55, 0.08]} />
@@ -536,4 +543,5 @@ export function MuseumCharacterController({
   );
 }
 
-useGLTF.preload(AVATAR_MODEL_URL);
+useGLTF.preload("/api/museum-avatar?avatar=female");
+useGLTF.preload("/api/museum-avatar?avatar=male");

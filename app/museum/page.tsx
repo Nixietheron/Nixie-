@@ -14,6 +14,8 @@ import type { Artwork } from "@/lib/types";
 import { BASE_CHAIN_ID, X402_CHAIN_IDS } from "@/lib/constants";
 import { MuseumOverlay } from "@/components/museum";
 
+type AvatarChoice = "female" | "male";
+
 const MuseumScene = dynamic(
   () => import("@/components/museum/museum-scene").then((m) => m.MuseumScene),
   { ssr: false }
@@ -42,6 +44,12 @@ export default function MuseumPage() {
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlockAnimationArtworkId, setUnlockAnimationArtworkId] = useState<string | null>(null);
+  const [avatarChoice, setAvatarChoice] = useState<AvatarChoice>("female");
+  const [displayName, setDisplayName] = useState("");
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileRequired, setProfileRequired] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
@@ -85,6 +93,49 @@ export default function MuseumPage() {
       })
       .finally(() => setLoading(false));
   }, [address]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isConnected || !address) {
+      setProfileLoading(false);
+      setProfileRequired(true);
+      setDisplayName("");
+      setAvatarChoice("female");
+      return;
+    }
+
+    setProfileLoading(true);
+    setProfileError(null);
+
+    fetch("/api/museum/profile", { cache: "no-store", credentials: "include" })
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok && r.status !== 404) throw new Error(d.error ?? "Failed to load profile");
+        return d as { profile?: { displayName?: string; avatar?: AvatarChoice } | null };
+      })
+      .then((d) => {
+        if (cancelled) return;
+        if (d.profile) {
+          setDisplayName(d.profile.displayName ?? "");
+          setAvatarChoice(d.profile.avatar === "male" ? "male" : "female");
+          setProfileRequired(false);
+        } else {
+          setProfileRequired(true);
+        }
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setProfileRequired(true);
+        setProfileError(e instanceof Error ? e.message : "Failed to load profile");
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address]);
 
   const loadMoreArtworks = useCallback(() => {
     if (!hasMore || loadingMore) return;
@@ -189,6 +240,37 @@ export default function MuseumPage() {
     setUnlockAnimationArtworkId((current) => (current === artworkId ? null : current));
   }, []);
 
+  const handleSaveMuseumProfile = useCallback(async () => {
+    if (!isConnected || !address) {
+      openConnectModal?.();
+      return;
+    }
+    const trimmed = displayName.trim();
+    if (trimmed.length < 2) {
+      setProfileError("Please enter at least 2 characters for your name.");
+      return;
+    }
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      const res = await fetch("/api/museum/profile", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: trimmed, avatar: avatarChoice }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error ?? "Failed to save profile");
+      setDisplayName(d.profile?.displayName ?? trimmed);
+      setAvatarChoice(d.profile?.avatar === "male" ? "male" : "female");
+      setProfileRequired(false);
+    } catch (e) {
+      setProfileError(e instanceof Error ? e.message : "Failed to save profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [isConnected, address, openConnectModal, displayName, avatarChoice]);
+
   if (isMobile) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 font-anime" style={{ background: "#0a080c" }}>
@@ -223,6 +305,7 @@ export default function MuseumPage() {
     <div className="relative w-screen h-screen overflow-hidden font-anime" style={{ background: "#080610" }}>
       <MuseumScene
         artworks={artworks}
+        avatarChoice={avatarChoice}
         onArtworkSelect={handleArtworkSelect}
         unlockAnimationArtworkId={unlockAnimationArtworkId}
         onUnlockAnimationDone={handleUnlockAnimationDone}
@@ -245,6 +328,79 @@ export default function MuseumPage() {
         loadedArtworkCount={artworks.length}
         totalArtworkCount={totalCatalog}
       />
+
+      {(!isConnected || profileLoading || profileRequired) && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-6 text-white shadow-2xl">
+            <h2 className="text-xl font-semibold">Start Museum Experience</h2>
+            <p className="mt-2 text-sm text-white/65">
+              Choose your avatar and name once. We save it and do not ask again.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <label className="text-xs uppercase tracking-wide text-white/60">Display Name</label>
+              <input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Your name"
+                className="w-full rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-sm text-white outline-none focus:border-[#D27A92]"
+                maxLength={40}
+              />
+            </div>
+
+            <div className="mt-5">
+              <p className="text-xs uppercase tracking-wide text-white/60 mb-2">Avatar</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAvatarChoice("female")}
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                    avatarChoice === "female"
+                      ? "border-[#D27A92] bg-[#D27A92]/20 text-white"
+                      : "border-white/15 bg-black/20 text-white/80 hover:border-white/30"
+                  }`}
+                >
+                  Female
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAvatarChoice("male")}
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                    avatarChoice === "male"
+                      ? "border-[#D27A92] bg-[#D27A92]/20 text-white"
+                      : "border-white/15 bg-black/20 text-white/80 hover:border-white/30"
+                  }`}
+                >
+                  Male
+                </button>
+              </div>
+            </div>
+
+            {profileError ? <p className="mt-3 text-sm text-red-300">{profileError}</p> : null}
+
+            <div className="mt-6 flex items-center gap-2">
+              {!isConnected ? (
+                <button
+                  type="button"
+                  onClick={() => openConnectModal?.()}
+                  className="w-full rounded-lg bg-[#D27A92] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D27A92]/90 transition"
+                >
+                  Connect Wallet to Start
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSaveMuseumProfile}
+                  disabled={profileSaving || profileLoading}
+                  className="w-full rounded-lg bg-[#D27A92] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D27A92]/90 transition disabled:opacity-60"
+                >
+                  {profileSaving ? "Saving..." : "Save and Enter Museum"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
