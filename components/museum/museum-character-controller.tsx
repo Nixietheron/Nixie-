@@ -18,8 +18,7 @@ const SCROLL_ZOOM_SPEED = 0.8;
 const MIN_DISTANCE = 2.5;
 const MAX_DISTANCE = 12;
 const DESIRED_HEIGHT = 1.7;
-const AVATAR_MODEL_URL =
-  "https://raw.githubusercontent.com/Nixietheron/Nixie-/main/Nixie.glb";
+const AVATAR_MODEL_URL = "/api/museum-avatar";
 
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
