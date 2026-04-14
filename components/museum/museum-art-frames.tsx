@@ -297,12 +297,18 @@ type PublicFrameSlot = {
 const FRAME_SPACING = 5;
 const FRAME_Y = 2.3;
 const MAIN_WALL_X = 7.6;
-const PUBLIC_MAIN_CAPACITY = 20;
-const BRANCH_LEFT_OUTER_X = -19.6;
-const BRANCH_LEFT_INNER_X = -12.4;
-const BRANCH_RIGHT_INNER_X = 12.4;
-const BRANCH_RIGHT_OUTER_X = 19.6;
-const BRANCH_START_Z = -8;
+// Corridor-aware public layout:
+// - Corridor 1 (main): walls on X = ±7.6, Z from -3 down to -33 (7 slots per wall)
+// - Corridor 2 (right branch): X from +12 to +52, two walls (Z=-35 and Z=-51), 9 per wall
+// - Corridor 3 (left branch): X from -12 to -52, two walls (Z=-35 and Z=-51), 9 per wall
+const MAIN_START_Z = -3;
+const MAIN_SLOTS_PER_WALL = 7;
+const MAIN_PUBLIC_CAPACITY = MAIN_SLOTS_PER_WALL * 2; // 14
+
+const BRANCH_Z_NEAR_WALL = -35;
+const BRANCH_Z_FAR_WALL = -51;
+const BRANCH_START_X = 12;
+const BRANCH_BASE_SLOTS_PER_WALL = 9;
 
 // NSFW arch is at Z=-58 — NSFW frames must start past the arch.
 // Keep this in sync with DividerArch zPos in museum-environment.tsx.
@@ -310,13 +316,26 @@ const NSFW_ARCH_Z = -58;
 const NSFW_FRAMES_START_Z = NSFW_ARCH_Z - 5; // first frame 5 units past the arch
 
 export function hasPublicBranchCorridors(publicCount: number): boolean {
-  return publicCount > PUBLIC_MAIN_CAPACITY;
+  return publicCount > MAIN_PUBLIC_CAPACITY;
+}
+
+export function getBranchSlotsPerWall(publicCount: number): number {
+  const overflow = Math.max(0, publicCount - MAIN_PUBLIC_CAPACITY);
+  if (overflow <= 0) return BRANCH_BASE_SLOTS_PER_WALL;
+  return Math.max(BRANCH_BASE_SLOTS_PER_WALL, Math.ceil(overflow / 4));
+}
+
+export function getBranchOuterX(publicCount: number): number {
+  // Last frame center X + 5.5 corridor clearance
+  const slots = getBranchSlotsPerWall(publicCount);
+  const lastFrameX = BRANCH_START_X + (slots - 1) * FRAME_SPACING;
+  return lastFrameX + 5.5;
 }
 
 export function getPublicFrameSlots(publicArtworks: Artwork[]): PublicFrameSlot[] {
   const slots: PublicFrameSlot[] = [];
 
-  const main = publicArtworks.slice(0, PUBLIC_MAIN_CAPACITY);
+  const main = publicArtworks.slice(0, MAIN_PUBLIC_CAPACITY);
   const mainLeft: Artwork[] = [];
   const mainRight: Artwork[] = [];
   main.forEach((art, i) => {
@@ -327,50 +346,50 @@ export function getPublicFrameSlots(publicArtworks: Artwork[]): PublicFrameSlot[
   mainLeft.forEach((art, i) => {
     slots.push({
       artwork: art,
-      position: [-MAIN_WALL_X, FRAME_Y, -3 - i * FRAME_SPACING],
+      position: [-MAIN_WALL_X, FRAME_Y, MAIN_START_Z - i * FRAME_SPACING],
       rotation: [0, Math.PI / 2, 0],
     });
   });
   mainRight.forEach((art, i) => {
     slots.push({
       artwork: art,
-      position: [MAIN_WALL_X, FRAME_Y, -3 - i * FRAME_SPACING],
+      position: [MAIN_WALL_X, FRAME_Y, MAIN_START_Z - i * FRAME_SPACING],
       rotation: [0, -Math.PI / 2, 0],
     });
   });
 
-  const overflow = publicArtworks.slice(PUBLIC_MAIN_CAPACITY);
-  const branchBuckets: Artwork[][] = [[], [], [], []];
-  overflow.forEach((art, i) => {
-    branchBuckets[i % 4].push(art);
-  });
+  // Overflow goes into branch corridors in deterministic corridor order.
+  // Order:
+  // 1) Corridor 2 near wall (Z=-35, facing -Z)
+  // 2) Corridor 2 far wall  (Z=-51, facing +Z)
+  // 3) Corridor 3 near wall (Z=-35, facing -Z)
+  // 4) Corridor 3 far wall  (Z=-51, facing +Z)
+  const branchSlotsPerWall = getBranchSlotsPerWall(publicArtworks.length);
+  const branchCapacity = branchSlotsPerWall * 4;
+  const overflow = publicArtworks.slice(MAIN_PUBLIC_CAPACITY, MAIN_PUBLIC_CAPACITY + branchCapacity);
 
-  branchBuckets[0].forEach((art, i) => {
+  const branchWalls: Array<{
+    xSign: 1 | -1;
+    wallZ: number;
+    rotation: [number, number, number];
+  }> = [
+    { xSign: 1, wallZ: BRANCH_Z_NEAR_WALL, rotation: [0, Math.PI, 0] }, // right branch near wall
+    { xSign: 1, wallZ: BRANCH_Z_FAR_WALL, rotation: [0, 0, 0] }, // right branch far wall
+    { xSign: -1, wallZ: BRANCH_Z_NEAR_WALL, rotation: [0, Math.PI, 0] }, // left branch near wall
+    { xSign: -1, wallZ: BRANCH_Z_FAR_WALL, rotation: [0, 0, 0] }, // left branch far wall
+  ];
+
+  overflow.forEach((art, idx) => {
+    const wallIdx = Math.floor(idx / branchSlotsPerWall);
+    const slotInWall = idx % branchSlotsPerWall;
+    const wall = branchWalls[wallIdx];
+    if (!wall) return;
+
+    const x = wall.xSign * (BRANCH_START_X + slotInWall * FRAME_SPACING);
     slots.push({
       artwork: art,
-      position: [BRANCH_LEFT_OUTER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
-      rotation: [0, Math.PI / 2, 0],
-    });
-  });
-  branchBuckets[1].forEach((art, i) => {
-    slots.push({
-      artwork: art,
-      position: [BRANCH_LEFT_INNER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
-      rotation: [0, -Math.PI / 2, 0],
-    });
-  });
-  branchBuckets[2].forEach((art, i) => {
-    slots.push({
-      artwork: art,
-      position: [BRANCH_RIGHT_INNER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
-      rotation: [0, Math.PI / 2, 0],
-    });
-  });
-  branchBuckets[3].forEach((art, i) => {
-    slots.push({
-      artwork: art,
-      position: [BRANCH_RIGHT_OUTER_X, FRAME_Y, BRANCH_START_Z - i * FRAME_SPACING],
-      rotation: [0, -Math.PI / 2, 0],
+      position: [x, FRAME_Y, wall.wallZ],
+      rotation: wall.rotation,
     });
   });
 

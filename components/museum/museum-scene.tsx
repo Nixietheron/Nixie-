@@ -6,6 +6,7 @@ import { MuseumEnvironment } from "./museum-environment";
 import { MuseumCharacterController } from "./museum-character-controller";
 import {
   MuseumArtFrames,
+  getBranchOuterX,
   getPublicFrameSlotForArtwork,
 } from "./museum-art-frames";
 import type { Artwork } from "@/lib/types";
@@ -32,6 +33,7 @@ export function MuseumScene({
   const fogFar = Math.max(80, Math.min(420, -corridorMinZ * 0.35 + 100));
   // Keep free branches open even when currently empty.
   const hasBranches = true;
+  const branchOuterX = getBranchOuterX(publicArtworks.length);
 
   const unlockAnimationTarget = useMemo(() => {
     if (!unlockAnimationArtworkId) return null;
@@ -45,6 +47,7 @@ export function MuseumScene({
     }
 
     const FRAME_SPACING = 5;
+    const NSFW_FRAMES_START_Z = -63;
     const WALL_X = 7.6;
     const nsfwLeft: Artwork[] = [];
     const nsfwRight: Artwork[] = [];
@@ -59,14 +62,14 @@ export function MuseumScene({
       return {
         artworkId: unlockAnimationArtworkId,
         frameX: -WALL_X,
-        frameZ: -55 - nsfwLeftIdx * FRAME_SPACING,
+        frameZ: NSFW_FRAMES_START_Z - nsfwLeftIdx * FRAME_SPACING,
       };
     }
     if (nsfwRightIdx >= 0) {
       return {
         artworkId: unlockAnimationArtworkId,
         frameX: WALL_X,
-        frameZ: -55 - nsfwRightIdx * FRAME_SPACING,
+        frameZ: NSFW_FRAMES_START_Z - nsfwRightIdx * FRAME_SPACING,
       };
     }
     return null;
@@ -74,12 +77,12 @@ export function MuseumScene({
 
   return (
     <Canvas
-      dpr={[1, 1.5]}
+      dpr={[1, 1.25]}
       shadows="basic"
       camera={{ fov: 55, near: 0.1, far: cameraFar, position: [0, 3, 12] }}
       style={{ width: "100%", height: "100%" }}
       gl={{
-        antialias: true,
+        antialias: false,
         alpha: false,
         powerPreference: "high-performance",
         stencil: false,
@@ -92,7 +95,11 @@ export function MuseumScene({
       }}
     >
       <Suspense fallback={null}>
-        <MuseumEnvironment fogFar={fogFar} hasPublicBranches={hasBranches} />
+        <MuseumEnvironment
+          fogFar={fogFar}
+          hasPublicBranches={hasBranches}
+          branchOuterX={branchOuterX}
+        />
         <MuseumArtFrames
           publicArtworks={publicArtworks}
           nsfwArtworks={nsfwArtworks}
@@ -100,7 +107,7 @@ export function MuseumScene({
         />
         <MuseumCharacterController
           minWalkZ={corridorMinZ}
-          maxWalkX={hasBranches ? 57.5 : 7.5}
+          maxWalkX={hasBranches ? branchOuterX : 7.5}
           unlockAnimationTarget={unlockAnimationTarget}
           onUnlockAnimationDone={onUnlockAnimationDone}
         />

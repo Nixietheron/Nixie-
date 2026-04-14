@@ -400,25 +400,48 @@ export function MuseumCharacterController({
     const BRANCH_OUTER_X  = maxWalkX;  // 57.5
     const JUNCTION_Z_FAR  = -51;       // back wall of side corridors
     const JUNCTION_Z_NEAR = -35;       // front wall of side corridors
+    const NSFW_T_Z_FAR    = -139;      // back wall of end T branches
+    const NSFW_T_Z_NEAR   = -123;      // front wall of end T branches
+    const NSFW_T_OUTER_X  = 50;        // end T-branch outer wall X
+    const WALL_INSET = 0.2;            // keep character off wall thickness
 
     const cx = char.position.x;
     const cz = char.position.z;
 
     const inJunctionZ = cz <= JUNCTION_Z_NEAR && cz >= JUNCTION_Z_FAR;
-    const inBranch    = inJunctionZ && Math.abs(cx) > MAIN_HALF_W;
+    const inBranchX = Math.abs(cx) > MAIN_HALF_W + WALL_INSET;
+    const inNsfwTJunctionZ = cz <= NSFW_T_Z_NEAR && cz >= NSFW_T_Z_FAR;
+    const inNsfwBranchX = Math.abs(cx) > MAIN_HALF_W + WALL_INSET;
 
-    if (inBranch) {
-      // In a side branch — clamp Z first so they can't walk through back wall
-      char.position.z = THREE.MathUtils.clamp(char.position.z, JUNCTION_Z_FAR, JUNCTION_Z_NEAR);
-      // Then clamp X to the correct branch
-      if (cx > 0) {
-        char.position.x = THREE.MathUtils.clamp(cx, MAIN_HALF_W + 0.1, BRANCH_OUTER_X);
-      } else {
-        char.position.x = THREE.MathUtils.clamp(cx, -BRANCH_OUTER_X, -MAIN_HALF_W - 0.1);
+    if (inJunctionZ) {
+      // Junction is an open cross area: allow free crossing main <-> side corridors.
+      // Keep only the global outer X bounds here.
+      char.position.x = THREE.MathUtils.clamp(cx, -BRANCH_OUTER_X + WALL_INSET, BRANCH_OUTER_X - WALL_INSET);
+      // If currently deep in branch X zone, keep Z inside branch walls.
+      if (inBranchX) {
+        char.position.z = THREE.MathUtils.clamp(
+          char.position.z,
+          JUNCTION_Z_FAR + WALL_INSET,
+          JUNCTION_Z_NEAR - WALL_INSET,
+        );
+      }
+    } else if (inNsfwTJunctionZ) {
+      // End NSFW T-junction is also open cross-area.
+      char.position.x = THREE.MathUtils.clamp(
+        cx,
+        -NSFW_T_OUTER_X + WALL_INSET,
+        NSFW_T_OUTER_X - WALL_INSET,
+      );
+      if (inNsfwBranchX) {
+        char.position.z = THREE.MathUtils.clamp(
+          char.position.z,
+          NSFW_T_Z_FAR + WALL_INSET,
+          NSFW_T_Z_NEAR - WALL_INSET,
+        );
       }
     } else {
-      // In main corridor (before junction, inside junction on main axis, or past junction)
-      char.position.x = THREE.MathUtils.clamp(cx, -MAIN_HALF_W, MAIN_HALF_W);
+      // Outside junction Z, player must remain in the main corridor width.
+      char.position.x = THREE.MathUtils.clamp(cx, -MAIN_HALF_W + WALL_INSET, MAIN_HALF_W - WALL_INSET);
     }
 
     char.position.z = THREE.MathUtils.clamp(char.position.z, zMin, 4);
@@ -434,20 +457,30 @@ export function MuseumCharacterController({
 
     // ── Camera wall collision ─────────────────────────────────────────
     // Mirror the same corridor geometry. CAM_INSET prevents near-clip clipping.
-    const CAM_INSET = 0.3;
+    const CAM_INSET = 0.35;
     const camInJunctionZ = camZ <= JUNCTION_Z_NEAR && camZ >= JUNCTION_Z_FAR;
-    const camInBranch    = camInJunctionZ && Math.abs(camX) > MAIN_HALF_W;
+    const camInBranchX = Math.abs(camX) > MAIN_HALF_W + CAM_INSET;
+    const camInNsfwTJunctionZ = camZ <= NSFW_T_Z_NEAR && camZ >= NSFW_T_Z_FAR;
+    const camInNsfwBranchX = Math.abs(camX) > MAIN_HALF_W + CAM_INSET;
 
-    if (camInBranch) {
-      // Camera is in a side branch — clamp Z first, then X
-      camZ = THREE.MathUtils.clamp(camZ, JUNCTION_Z_FAR + CAM_INSET, JUNCTION_Z_NEAR - CAM_INSET);
-      if (camX > 0) {
-        camX = THREE.MathUtils.clamp(camX, MAIN_HALF_W + CAM_INSET, BRANCH_OUTER_X - CAM_INSET);
-      } else {
-        camX = THREE.MathUtils.clamp(camX, -BRANCH_OUTER_X + CAM_INSET, -MAIN_HALF_W - CAM_INSET);
+    if (camInJunctionZ) {
+      // Open cross junction: camera can cross freely.
+      camX = THREE.MathUtils.clamp(camX, -BRANCH_OUTER_X + CAM_INSET, BRANCH_OUTER_X - CAM_INSET);
+      if (camInBranchX) {
+        camZ = THREE.MathUtils.clamp(camZ, JUNCTION_Z_FAR + CAM_INSET, JUNCTION_Z_NEAR - CAM_INSET);
+      }
+    } else if (camInNsfwTJunctionZ) {
+      // End NSFW T-junction: allow left/right branches, keep camera in bounds.
+      camX = THREE.MathUtils.clamp(
+        camX,
+        -NSFW_T_OUTER_X + CAM_INSET,
+        NSFW_T_OUTER_X - CAM_INSET,
+      );
+      if (camInNsfwBranchX) {
+        camZ = THREE.MathUtils.clamp(camZ, NSFW_T_Z_FAR + CAM_INSET, NSFW_T_Z_NEAR - CAM_INSET);
       }
     } else {
-      // Main corridor (all sections)
+      // Outside junction, keep camera in main corridor.
       camX = THREE.MathUtils.clamp(camX, -MAIN_HALF_W + CAM_INSET, MAIN_HALF_W - CAM_INSET);
     }
 

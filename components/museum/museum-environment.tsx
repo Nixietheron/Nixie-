@@ -94,9 +94,9 @@ function Floor() {
 
   return (
     <group>
-      {/* Main floor — covers Z: +5 to -110 (centre=-52.5, len=115) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -52.5]} receiveShadow>
-        <planeGeometry args={[20, 115]} />
+      {/* Main floor — covers Z: +5 to -160 (centre=-77.5, len=165) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -77.5]} receiveShadow>
+        <planeGeometry args={[20, 165]} />
         <meshStandardMaterial
           color="#2b2241"
           map={tileTexture ?? undefined}
@@ -105,8 +105,8 @@ function Floor() {
         />
       </mesh>
       {/* Center walkway strip */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, -52.5]}>
-        <planeGeometry args={[3, 115]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, -77.5]}>
+        <planeGeometry args={[3, 165]} />
         <meshStandardMaterial
           color="#3a2c59"
           map={tileTexture ?? undefined}
@@ -115,12 +115,12 @@ function Floor() {
         />
       </mesh>
       {/* Edge accent lines */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.6, 0.006, -52.5]}>
-        <planeGeometry args={[0.05, 115]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.6, 0.006, -77.5]}>
+        <planeGeometry args={[0.05, 165]} />
         <meshBasicMaterial color="#D27A92" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.6, 0.006, -52.5]}>
-        <planeGeometry args={[0.05, 115]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.6, 0.006, -77.5]}>
+        <planeGeometry args={[0.05, 165]} />
         <meshBasicMaterial color="#D27A92" />
       </mesh>
     </group>
@@ -129,8 +129,8 @@ function Floor() {
 
 function Ceiling() {
   return (
-    <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 5, -52.5]}>
-      <planeGeometry args={[20, 115]} />
+    <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 5, -77.5]}>
+      <planeGeometry args={[20, 165]} />
       <meshStandardMaterial color={CEILING_COLOR} roughness={0.9} />
     </mesh>
   );
@@ -183,15 +183,10 @@ function PulsingOrb({
   color: string;
   intensity?: number;
 }) {
-  const ref = useRef<THREE.PointLight>(null);
-
-  useFrame(({ clock }) => {
-    if (!ref.current) return;
-    const t = clock.getElapsedTime();
-    ref.current.intensity = intensity * (0.85 + 0.15 * Math.sin(t * 1.2));
-  });
-
-  return <pointLight ref={ref} position={position} color={color} intensity={intensity} distance={20} decay={2} />;
+  void position;
+  void color;
+  void intensity;
+  return null;
 }
 
 function CeilingDiscoLight({
@@ -227,15 +222,12 @@ function CeilingDiscoLight({
           flatShading
         />
       </mesh>
-      {/* Subtle local glow from disco ball */}
-      <pointLight position={[0, -0.05, 0]} color={color} intensity={intensity} distance={5.5} decay={2.2} />
+      {/* Local point glow removed for performance */}
     </group>
   );
 }
 
 function DividerArch({ zPos }: { zPos: number }) {
-  const ledRef = useRef<THREE.PointLight>(null);
-  const sideLightRefs = useRef<THREE.PointLight[]>([]);
   const barMatRef = useRef<THREE.MeshStandardMaterial>(null);
   const sideBarMatRefs = useRef<THREE.MeshStandardMaterial[]>([]);
 
@@ -243,12 +235,6 @@ function DividerArch({ zPos }: { zPos: number }) {
     const t = clock.getElapsedTime();
     // Strong gate-like blink so bars are visibly ON/OFF, not just tiny shimmer.
     const blink = Math.sin(t * 3.0) > 0 ? 1 : 0.08;
-    if (ledRef.current) {
-      ledRef.current.intensity = 2.8 * blink;
-    }
-    sideLightRefs.current.forEach((l) => {
-      l.intensity = 1.9 * blink;
-    });
     if (barMatRef.current) {
       barMatRef.current.emissiveIntensity = 2.8 * blink;
     }
@@ -309,35 +295,6 @@ function DividerArch({ zPos }: { zPos: number }) {
           metalness={0.15}
         />
       </mesh>
-      <pointLight
-        ref={ledRef}
-        position={[0, 4.25, 0.55]}
-        color={NSFW_ACCENT}
-        intensity={1}
-        distance={8}
-        decay={2}
-      />
-      {/* Side column glow */}
-      <pointLight
-        position={[-3.1, 2.9, 0.55]}
-        ref={(l) => {
-          if (l) sideLightRefs.current[0] = l;
-        }}
-        color={NSFW_ACCENT}
-        intensity={0.8}
-        distance={4.8}
-        decay={2.1}
-      />
-      <pointLight
-        position={[3.1, 2.9, 0.55]}
-        ref={(l) => {
-          if (l) sideLightRefs.current[1] = l;
-        }}
-        color={NSFW_ACCENT}
-        intensity={0.8}
-        distance={4.8}
-        decay={2.1}
-      />
       <Text
         position={[0, 3.95, 0.45]}
         fontSize={0.42}
@@ -362,12 +319,10 @@ function DividerArch({ zPos }: { zPos: number }) {
 }
 
 function EntranceNixieSign() {
-  const glowRef = useRef<THREE.PointLight>(null);
   const textBloomRef = useRef<THREE.MeshStandardMaterial>(null);
 
   useFrame(({ clock }) => {
     const pulse = 0.7 + 0.3 * Math.sin(clock.getElapsedTime() * 1.8);
-    if (glowRef.current) glowRef.current.intensity = 2.2 * pulse;
     if (textBloomRef.current) textBloomRef.current.emissiveIntensity = 0.85 * pulse;
   });
 
@@ -416,14 +371,6 @@ function EntranceNixieSign() {
           opacity={0.22}
         />
       </mesh>
-      <pointLight
-        ref={glowRef}
-        position={[0, 0.1, 0.55]}
-        color="#ff9ec4"
-        intensity={1.25}
-        distance={13}
-        decay={2}
-      />
     </group>
   );
 }
@@ -433,9 +380,23 @@ interface MuseumEnvironmentProps {
   fogFar?: number;
   /** Open extra left/right branches for overflow free artworks. */
   hasPublicBranches?: boolean;
+  /** Side corridor outer X bound (dynamic, grows with content). */
+  branchOuterX?: number;
 }
 
-export function MuseumEnvironment({ fogFar = 80, hasPublicBranches = false }: MuseumEnvironmentProps) {
+export function MuseumEnvironment({
+  fogFar = 80,
+  hasPublicBranches = false,
+  branchOuterX = 57.5,
+}: MuseumEnvironmentProps) {
+  const branchLength = Math.max(50, branchOuterX - 8);
+  const branchCenterX = 8 + branchLength / 2;
+  const branchAccentLength = Math.max(0, branchLength - 8);
+  const branchAccentCenterX = 16 + branchAccentLength / 2;
+  const branchEndX = 8 + branchLength;
+  const branchLightX1 = 8 + branchLength * 0.25;
+  const branchLightX2 = 8 + branchLength * 0.75;
+
   return (
     <group>
       {/* Global illumination — 3 cheap lights only */}
@@ -525,93 +486,162 @@ export function MuseumEnvironment({ fogFar = 80, hasPublicBranches = false }: Mu
                 Floor/ceiling overlap the main corridor floor seamlessly.
                 Long walls start at X=+8 (flush with main corridor wall).
                 Corner pieces fill the gap between main wall end and branch wall. ── */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[33, 0.003, -43]}>
-            <planeGeometry args={[50, 16]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[branchCenterX, 0.003, -43]}>
+            <planeGeometry args={[branchLength, 16]} />
             <meshStandardMaterial color="#2b2241" roughness={0.88} metalness={0.04} />
           </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]} position={[33, 5, -43]}>
-            <planeGeometry args={[50, 16]} />
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[branchCenterX, 5, -43]}>
+            <planeGeometry args={[branchLength, 16]} />
             <meshStandardMaterial color={CEILING_COLOR} roughness={0.9} />
           </mesh>
-          {/* Long walls — start at X=+8, length=50 → centre X=+33 */}
-          <WallSegment position={[33, 2.5, -35]} width={50} />
-          <WallSegment position={[33, 2.5, -51]} width={50} />
+          {/* Long walls — start at X=+8, dynamic branch length */}
+          <WallSegment position={[branchCenterX, 2.5, -35]} width={branchLength} />
+          <WallSegment position={[branchCenterX, 2.5, -51]} width={branchLength} />
           {/* End cap */}
-          <WallSegment position={[58, 2.5, -43]} width={16} rotation={[0, Math.PI / 2, 0]} />
-          {/* Wall accent strips — only the outer 42 units (X=+16..+58), avoiding overlap */}
-          <AccentStrip position={[37, 0.15, -35.2]} width={42} />
-          <AccentStrip position={[37, 0.15, -50.8]} width={42} />
-          <AccentStrip position={[37, 4.85, -35.2]} width={42} color={ACCENT_PURPLE} />
-          <AccentStrip position={[37, 4.85, -50.8]} width={42} color={ACCENT_PURPLE} />
+          <WallSegment position={[branchEndX, 2.5, -43]} width={16} rotation={[0, Math.PI / 2, 0]} />
+          {/* Wall accent strips — avoid overlap with main corridor entrance zone */}
+          <AccentStrip position={[branchAccentCenterX, 0.15, -35.2]} width={branchAccentLength} />
+          <AccentStrip position={[branchAccentCenterX, 0.15, -50.8]} width={branchAccentLength} />
+          <AccentStrip position={[branchAccentCenterX, 4.85, -35.2]} width={branchAccentLength} color={ACCENT_PURPLE} />
+          <AccentStrip position={[branchAccentCenterX, 4.85, -50.8]} width={branchAccentLength} color={ACCENT_PURPLE} />
           {/* Floor center walkway strip (X axis, matching Corridor 1) */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[33, 0.005, -43]}>
-            <planeGeometry args={[50, 3]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[branchCenterX, 0.005, -43]}>
+            <planeGeometry args={[branchLength, 3]} />
             <meshStandardMaterial color="#3a2c59" roughness={0.86} metalness={0.04} />
           </mesh>
           {/* Edge accent lines along walkway */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[33, 0.006, -41.4]}>
-            <planeGeometry args={[50, 0.05]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[branchCenterX, 0.006, -41.4]}>
+            <planeGeometry args={[branchLength, 0.05]} />
             <meshBasicMaterial color="#D27A92" />
           </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[33, 0.006, -44.6]}>
-            <planeGeometry args={[50, 0.05]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[branchCenterX, 0.006, -44.6]}>
+            <planeGeometry args={[branchLength, 0.05]} />
             <meshBasicMaterial color="#D27A92" />
           </mesh>
           {/* Lights */}
-          <PulsingOrb        position={[20, 3.5,  -43]} color={ACCENT_PINK}   intensity={4} />
-          <PulsingOrb        position={[45, 3.5,  -43]} color={ACCENT_PURPLE} intensity={4} />
-          <CeilingDiscoLight position={[20, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
-          <CeilingDiscoLight position={[45, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
+          <PulsingOrb        position={[branchLightX1, 3.5,  -43]} color={ACCENT_PINK}   intensity={4} />
+          <PulsingOrb        position={[branchLightX2, 3.5,  -43]} color={ACCENT_PURPLE} intensity={4} />
+          <CeilingDiscoLight position={[branchLightX1, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
+          <CeilingDiscoLight position={[branchLightX2, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
 
           {/* ── Corridor 3 — LEFT (X: -8..-58, Z: -35..-51) ── */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-33, 0.003, -43]}>
-            <planeGeometry args={[50, 16]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-branchCenterX, 0.003, -43]}>
+            <planeGeometry args={[branchLength, 16]} />
             <meshStandardMaterial color="#2b2241" roughness={0.88} metalness={0.04} />
           </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]} position={[-33, 5, -43]}>
-            <planeGeometry args={[50, 16]} />
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[-branchCenterX, 5, -43]}>
+            <planeGeometry args={[branchLength, 16]} />
             <meshStandardMaterial color={CEILING_COLOR} roughness={0.9} />
           </mesh>
           {/* Long walls */}
-          <WallSegment position={[-33, 2.5, -35]} width={50} />
-          <WallSegment position={[-33, 2.5, -51]} width={50} />
+          <WallSegment position={[-branchCenterX, 2.5, -35]} width={branchLength} />
+          <WallSegment position={[-branchCenterX, 2.5, -51]} width={branchLength} />
           {/* End cap */}
-          <WallSegment position={[-58, 2.5, -43]} width={16} rotation={[0, Math.PI / 2, 0]} />
+          <WallSegment position={[-branchEndX, 2.5, -43]} width={16} rotation={[0, Math.PI / 2, 0]} />
           {/* Wall accent strips — only outer 42 units */}
-          <AccentStrip position={[-37, 0.15, -35.2]} width={42} />
-          <AccentStrip position={[-37, 0.15, -50.8]} width={42} />
-          <AccentStrip position={[-37, 4.85, -35.2]} width={42} color={ACCENT_PURPLE} />
-          <AccentStrip position={[-37, 4.85, -50.8]} width={42} color={ACCENT_PURPLE} />
+          <AccentStrip position={[-branchAccentCenterX, 0.15, -35.2]} width={branchAccentLength} />
+          <AccentStrip position={[-branchAccentCenterX, 0.15, -50.8]} width={branchAccentLength} />
+          <AccentStrip position={[-branchAccentCenterX, 4.85, -35.2]} width={branchAccentLength} color={ACCENT_PURPLE} />
+          <AccentStrip position={[-branchAccentCenterX, 4.85, -50.8]} width={branchAccentLength} color={ACCENT_PURPLE} />
           {/* Floor center walkway strip (X axis, matching Corridor 1) */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-33, 0.005, -43]}>
-            <planeGeometry args={[50, 3]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-branchCenterX, 0.005, -43]}>
+            <planeGeometry args={[branchLength, 3]} />
             <meshStandardMaterial color="#3a2c59" roughness={0.86} metalness={0.04} />
           </mesh>
           {/* Edge accent lines along walkway */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-33, 0.006, -41.4]}>
-            <planeGeometry args={[50, 0.05]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-branchCenterX, 0.006, -41.4]}>
+            <planeGeometry args={[branchLength, 0.05]} />
             <meshBasicMaterial color="#D27A92" />
           </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-33, 0.006, -44.6]}>
-            <planeGeometry args={[50, 0.05]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-branchCenterX, 0.006, -44.6]}>
+            <planeGeometry args={[branchLength, 0.05]} />
             <meshBasicMaterial color="#D27A92" />
           </mesh>
           {/* Lights */}
-          <PulsingOrb        position={[-20, 3.5,  -43]} color={ACCENT_PINK}   intensity={4} />
-          <PulsingOrb        position={[-45, 3.5,  -43]} color={ACCENT_PURPLE} intensity={4} />
-          <CeilingDiscoLight position={[-20, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
-          <CeilingDiscoLight position={[-45, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
+          <PulsingOrb        position={[-branchLightX1, 3.5,  -43]} color={ACCENT_PINK}   intensity={4} />
+          <PulsingOrb        position={[-branchLightX2, 3.5,  -43]} color={ACCENT_PURPLE} intensity={4} />
+          <CeilingDiscoLight position={[-branchLightX1, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
+          <CeilingDiscoLight position={[-branchLightX2, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
 
-          {/* Overhead junction labels */}
-          <Text position={[0,   4.55, -28]} fontSize={0.22} color="#ffd9ea" anchorX="center" anchorY="middle" letterSpacing={0.06}>
-            CORRIDOR 1 ↑
-          </Text>
-          <Text position={[9,   4.55, -43]} fontSize={0.22} color="#ffd9ea" anchorX="left"   anchorY="middle" letterSpacing={0.06}>
-            CORRIDOR 2 →
-          </Text>
-          <Text position={[-9,  4.55, -43]} fontSize={0.22} color="#ffd9ea" anchorX="right"  anchorY="middle" letterSpacing={0.06}>
-            ← CORRIDOR 3
-          </Text>
+          {/* ── Corridor signs — hanging neon panels below ceiling ──
+                Lowered to Y=3.15, and text is duplicated on back faces
+                so signage remains readable after passing underneath. ── */}
+
+          {/* CORRIDOR 1 — hangs in the middle of main corridor at Z=-30,
+              facing toward entrance (positive Z direction) */}
+          <group position={[0, 4.1, -30]}>
+            {/* Outer neon border */}
+            <mesh position={[0, 0, 0]}>
+              <boxGeometry args={[2.4, 0.56, 0.05]} />
+              <meshBasicMaterial color={ACCENT_PINK} />
+            </mesh>
+            {/* Inner panel */}
+            <mesh position={[0, 0, 0.04]}>
+              <boxGeometry args={[2.15, 0.38, 0.05]} />
+              <meshStandardMaterial color="#140822" emissive={ACCENT_PINK} emissiveIntensity={0.3} roughness={0.3} />
+            </mesh>
+            <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+              CORRIDOR 1
+            </Text>
+            <Text position={[0, 0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+              CORRIDOR 1
+            </Text>
+            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+              ▲
+            </Text>
+            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+              ▼
+            </Text>
+          </group>
+
+          {/* CORRIDOR 2 (RIGHT) — hangs at the right opening (X=+8), facing into main corridor (facing -X).
+              Panel is rotated 90° so it faces the player walking along Z. */}
+          <group position={[8, 4.1, -43]} rotation={[0, -Math.PI / 2, 0]}>
+            <mesh position={[0, 0, 0]}>
+              <boxGeometry args={[2.4, 0.56, 0.05]} />
+              <meshBasicMaterial color={ACCENT_PINK} />
+            </mesh>
+            <mesh position={[0, 0, 0.04]}>
+              <boxGeometry args={[2.15, 0.38, 0.05]} />
+              <meshStandardMaterial color="#140822" emissive={ACCENT_PINK} emissiveIntensity={0.3} roughness={0.3} />
+            </mesh>
+            <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+              CORRIDOR 2
+            </Text>
+            <Text position={[0, 0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+              CORRIDOR 2
+            </Text>
+            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+              ▶
+            </Text>
+            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+              ◀
+            </Text>
+          </group>
+
+          {/* CORRIDOR 3 (LEFT) — hangs at the left opening (X=-8), facing into main corridor (facing +X). */}
+          <group position={[-8, 4.1, -43]} rotation={[0, Math.PI / 2, 0]}>
+            <mesh position={[0, 0, 0]}>
+              <boxGeometry args={[2.4, 0.56, 0.05]} />
+              <meshBasicMaterial color={ACCENT_PINK} />
+            </mesh>
+            <mesh position={[0, 0, 0.04]}>
+              <boxGeometry args={[2.15, 0.38, 0.05]} />
+              <meshStandardMaterial color="#140822" emissive={ACCENT_PINK} emissiveIntensity={0.3} roughness={0.3} />
+            </mesh>
+            <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+              CORRIDOR 3
+            </Text>
+            <Text position={[0, 0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+              CORRIDOR 3
+            </Text>
+            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+              ◀
+            </Text>
+            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+              ▶
+            </Text>
+          </group>
         </>
       )}
 
@@ -626,33 +656,168 @@ export function MuseumEnvironment({ fogFar = 80, hasPublicBranches = false }: Mu
       <PulsingOrb position={[0, 3.5, -25]} color={ACCENT_PURPLE} intensity={4} />
       <PulsingOrb position={[0, 3.5, -45]} color={ACCENT_PINK} intensity={5} />
 
-      {/* 2 wall-wash lights per section instead of 10 */}
-      <pointLight position={[-5, 3, -15]} color="#e8dff5" intensity={4} distance={25} decay={2} />
-      <pointLight position={[5, 3, -35]} color="#e8dff5" intensity={4} distance={25} decay={2} />
+      {/* Wall-wash point lights removed */}
 
       {/* === DIVIDER (NSFW arch) — after side corridors === */}
       <DividerArch zPos={-58} />
 
-      {/* === NSFW CORRIDOR (Z: -58 to -107) === */}
-      <WallSegment position={[0, 2.5, -107]} width={16} />
+      {/* === NSFW MAIN CORRIDOR (extended) ===
+          Main run: Z -58 .. -147
+          End T-junction opening zone: Z -123 .. -139
+      */}
+      {/* Split side walls to create end T-junction openings at Z=-131 */}
+      <WallSegment position={[-8, 2.5, -90.5]} width={65} rotation={[0, Math.PI / 2, 0]} />
+      <WallSegment position={[-8, 2.5, -143]} width={16} rotation={[0, Math.PI / 2, 0]} />
+      <WallSegment position={[8, 2.5, -90.5]} width={65} rotation={[0, Math.PI / 2, 0]} />
+      <WallSegment position={[8, 2.5, -143]} width={16} rotation={[0, Math.PI / 2, 0]} />
+      {/* End cap */}
+      <WallSegment position={[0, 2.5, -147]} width={16} />
 
-      {/* NSFW accent strips along walls (Z: -58 to -107, centre=-82.5, len=49) */}
-      <AccentStrip position={[-7.8, 0.15, -82.5]} width={49} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
-      <AccentStrip position={[7.8,  0.15, -82.5]} width={49} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
-      <AccentStrip position={[-7.8, 4.85, -82.5]} width={49} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
-      <AccentStrip position={[7.8,  4.85, -82.5]} width={49} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      {/* NSFW accent strips along split walls */}
+      <AccentStrip position={[-7.8, 0.15, -90.5]} width={65} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      <AccentStrip position={[7.8,  0.15, -90.5]} width={65} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      <AccentStrip position={[-7.8, 4.85, -90.5]} width={65} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      <AccentStrip position={[7.8,  4.85, -90.5]} width={65} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      <AccentStrip position={[-7.8, 0.15, -143]} width={16} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      <AccentStrip position={[7.8,  0.15, -143]} width={16} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      <AccentStrip position={[-7.8, 4.85, -143]} width={16} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+      <AccentStrip position={[7.8,  4.85, -143]} width={16} rotation={[0, Math.PI / 2, 0]} color={NSFW_ACCENT} />
+
+      {/* End-junction arch headers on left/right openings */}
+      {([-8, 8] as number[]).map((x) => (
+        <group key={`nsfw-end-open-${x}`}>
+          <mesh position={[x, 4.55, -131]}>
+            <boxGeometry args={[0.34, 0.5, 16.2]} />
+            <meshStandardMaterial color="#12101a" roughness={0.6} metalness={0.2} />
+          </mesh>
+          <mesh position={[x, 4.78, -131]}>
+            <boxGeometry args={[0.37, 0.06, 16.2]} />
+            <meshBasicMaterial color={NSFW_ACCENT} />
+          </mesh>
+        </group>
+      ))}
 
       {/* NSFW disco-ball lights */}
-      <CeilingDiscoLight position={[0, 4.72, -66]} color={NSFW_ACCENT} intensity={1} />
-      <CeilingDiscoLight position={[0, 4.72, -82]} color={NSFW_ACCENT} intensity={1} />
-      <CeilingDiscoLight position={[0, 4.72, -98]} color={NSFW_ACCENT} intensity={1} />
+      <CeilingDiscoLight position={[0, 4.72, -72]} color={NSFW_ACCENT} intensity={1} />
+      <CeilingDiscoLight position={[0, 4.72, -92]} color={NSFW_ACCENT} intensity={1} />
+      <CeilingDiscoLight position={[0, 4.72, -112]} color={NSFW_ACCENT} intensity={1} />
+      <CeilingDiscoLight position={[0, 4.72, -142]} color={NSFW_ACCENT} intensity={1} />
 
       {/* Point lights for NSFW corridor */}
-      <PulsingOrb position={[0, 3.5, -70]} color={NSFW_ACCENT}   intensity={5} />
-      <PulsingOrb position={[0, 3.5, -90]} color={ACCENT_PURPLE} intensity={4} />
+      <PulsingOrb position={[0, 3.5, -76]} color={NSFW_ACCENT}   intensity={5} />
+      <PulsingOrb position={[0, 3.5, -106]} color={ACCENT_PURPLE} intensity={4} />
+      <PulsingOrb position={[0, 3.5, -136]} color={NSFW_ACCENT} intensity={4} />
 
-      <pointLight position={[-5, 3, -75]} color="#ffb0c0" intensity={4} distance={25} decay={2} />
-      <pointLight position={[5,  3, -90]} color="#ffb0c0" intensity={4} distance={25} decay={2} />
+      {/* === NSFW END BRANCHES (T-junction) ===
+          Centered at Z=-131, width 16 (Z:-123..-139), X: ±8..±50
+      */}
+      {/* Right branch */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[29, 0.003, -131]}>
+        <planeGeometry args={[42, 16]} />
+        <meshStandardMaterial color="#2b2241" roughness={0.88} metalness={0.04} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[29, 5, -131]}>
+        <planeGeometry args={[42, 16]} />
+        <meshStandardMaterial color={CEILING_COLOR} roughness={0.9} />
+      </mesh>
+      <WallSegment position={[29, 2.5, -123]} width={42} />
+      <WallSegment position={[29, 2.5, -139]} width={42} />
+      <WallSegment position={[50, 2.5, -131]} width={16} rotation={[0, Math.PI / 2, 0]} />
+      <AccentStrip position={[29, 0.15, -123.2]} width={42} color={NSFW_ACCENT} />
+      <AccentStrip position={[29, 0.15, -138.8]} width={42} color={NSFW_ACCENT} />
+      <AccentStrip position={[29, 4.85, -123.2]} width={42} color={NSFW_ACCENT} />
+      <AccentStrip position={[29, 4.85, -138.8]} width={42} color={NSFW_ACCENT} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[29, 0.005, -131]}>
+        <planeGeometry args={[42, 3]} />
+        <meshStandardMaterial color="#3a2c59" roughness={0.86} metalness={0.04} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[29, 0.006, -129.4]}>
+        <planeGeometry args={[42, 0.05]} />
+        <meshBasicMaterial color={NSFW_ACCENT} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[29, 0.006, -132.6]}>
+        <planeGeometry args={[42, 0.05]} />
+        <meshBasicMaterial color={NSFW_ACCENT} />
+      </mesh>
+
+      {/* Left branch */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-29, 0.003, -131]}>
+        <planeGeometry args={[42, 16]} />
+        <meshStandardMaterial color="#2b2241" roughness={0.88} metalness={0.04} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[-29, 5, -131]}>
+        <planeGeometry args={[42, 16]} />
+        <meshStandardMaterial color={CEILING_COLOR} roughness={0.9} />
+      </mesh>
+      <WallSegment position={[-29, 2.5, -123]} width={42} />
+      <WallSegment position={[-29, 2.5, -139]} width={42} />
+      <WallSegment position={[-50, 2.5, -131]} width={16} rotation={[0, Math.PI / 2, 0]} />
+      <AccentStrip position={[-29, 0.15, -123.2]} width={42} color={NSFW_ACCENT} />
+      <AccentStrip position={[-29, 0.15, -138.8]} width={42} color={NSFW_ACCENT} />
+      <AccentStrip position={[-29, 4.85, -123.2]} width={42} color={NSFW_ACCENT} />
+      <AccentStrip position={[-29, 4.85, -138.8]} width={42} color={NSFW_ACCENT} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-29, 0.005, -131]}>
+        <planeGeometry args={[42, 3]} />
+        <meshStandardMaterial color="#3a2c59" roughness={0.86} metalness={0.04} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-29, 0.006, -129.4]}>
+        <planeGeometry args={[42, 0.05]} />
+        <meshBasicMaterial color={NSFW_ACCENT} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-29, 0.006, -132.6]}>
+        <planeGeometry args={[42, 0.05]} />
+        <meshBasicMaterial color={NSFW_ACCENT} />
+      </mesh>
+
+      {/* NSFW end-junction signs */}
+      <group position={[0, 4.08, -120]}>
+        <mesh>
+          <boxGeometry args={[2.4, 0.56, 0.05]} />
+          <meshBasicMaterial color={NSFW_ACCENT} />
+        </mesh>
+        <mesh position={[0, 0, 0.04]}>
+          <boxGeometry args={[2.15, 0.38, 0.05]} />
+          <meshStandardMaterial color="#1b0a12" emissive={NSFW_ACCENT} emissiveIntensity={0.28} roughness={0.32} />
+        </mesh>
+        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffd8e7" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+          CORRIDOR 1
+        </Text>
+        <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={NSFW_ACCENT} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+          ▲
+        </Text>
+      </group>
+      <group position={[8, 4.08, -131]} rotation={[0, -Math.PI / 2, 0]}>
+        <mesh>
+          <boxGeometry args={[2.4, 0.56, 0.05]} />
+          <meshBasicMaterial color={NSFW_ACCENT} />
+        </mesh>
+        <mesh position={[0, 0, 0.04]}>
+          <boxGeometry args={[2.15, 0.38, 0.05]} />
+          <meshStandardMaterial color="#1b0a12" emissive={NSFW_ACCENT} emissiveIntensity={0.28} roughness={0.32} />
+        </mesh>
+        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffd8e7" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+          CORRIDOR 4
+        </Text>
+        <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={NSFW_ACCENT} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+          ▶
+        </Text>
+      </group>
+      <group position={[-8, 4.08, -131]} rotation={[0, Math.PI / 2, 0]}>
+        <mesh>
+          <boxGeometry args={[2.4, 0.56, 0.05]} />
+          <meshBasicMaterial color={NSFW_ACCENT} />
+        </mesh>
+        <mesh position={[0, 0, 0.04]}>
+          <boxGeometry args={[2.15, 0.38, 0.05]} />
+          <meshStandardMaterial color="#1b0a12" emissive={NSFW_ACCENT} emissiveIntensity={0.28} roughness={0.32} />
+        </mesh>
+        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffd8e7" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+          CORRIDOR 5
+        </Text>
+        <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={NSFW_ACCENT} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+          ◀
+        </Text>
+      </group>
 
       {/* Entrance spotlight */}
       <spotLight
