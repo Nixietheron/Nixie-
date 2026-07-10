@@ -109,11 +109,26 @@ export default function SplashScreen() {
           transition={{ delay: 0.3, duration: 0.7 }}
           className="flex items-center justify-between shrink-0 pt-8 sm:pt-10"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#D7FF00] animate-pulse" />
-            <span className="text-white/45 text-xs tracking-[0.2em] uppercase font-medium">
-              Nixie — Exclusive Art
-            </span>
+          <div className="flex w-full items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#D7FF00] animate-pulse" />
+              <span className="text-white/45 text-xs tracking-[0.2em] uppercase font-medium">
+                Nixie — Private Museum
+              </span>
+            </div>
+            {!isConnected ? (
+              <button
+                type="button"
+                onClick={() => openConnectModal?.()}
+                className="rounded-xl border border-[#D7FF00]/55 bg-black/35 px-4 py-2 text-xs font-bold text-[#D7FF00] backdrop-blur-sm transition hover:bg-[#D7FF00]/15"
+              >
+                Connect wallet
+              </button>
+            ) : (
+              <span className="rounded-xl border border-[#D7FF00]/30 bg-[#D7FF00]/10 px-3 py-2 text-xs font-semibold text-[#D7FF00]">
+                Wallet connected
+              </span>
+            )}
           </div>
         </motion.div>
 
