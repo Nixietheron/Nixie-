@@ -672,8 +672,7 @@ export function MuseumEnvironment({
 
       {/* Wall-wash point lights removed */}
 
-      {/* === DIVIDER (NSFW arch) — after side corridors === */}
-      <DividerArch zPos={-58} />
+      {/* The token gate authorizes the full museum; this corridor remains fully open. */}
 
       {/* === NSFW MAIN CORRIDOR (extended) ===
           Main run: Z -58 .. -147
