@@ -12,7 +12,7 @@ export default function TermsPage() {
       <div className="mx-auto max-w-2xl">
         <Link
           href="/"
-          className="inline-block text-sm text-[#D27A92] hover:text-[#e8a0b3] mb-10 transition-colors"
+          className="inline-block text-sm text-[#D7FF00] hover:text-[#efff8a] mb-10 transition-colors"
         >
           ← Back
         </Link>
@@ -20,21 +20,17 @@ export default function TermsPage() {
         <p className="text-white/40 text-sm mb-10">Last updated: {new Date().getFullYear()}</p>
         <div className="space-y-6 text-[15px] leading-relaxed text-white/70">
           <p>
-            These terms govern your use of Nixie and any purchases or unlocks made through the
-            service. By using the site, you agree to these terms.
+            These terms govern your use of Nixie Museum. By using the site, you agree to these
+            terms.
           </p>
           <p>
             <strong className="text-white/90">Content.</strong> Artwork is provided for personal,
-            non-commercial viewing unless otherwise stated. Redistribution or resale of unlocked
-            files may be prohibited by the creator.
-          </p>
-          <p>
-            <strong className="text-white/90">Payments.</strong> Onchain payments (including USDC
-            on Base) are final once confirmed on chain, except where required by law.
+            non-commercial viewing unless otherwise stated. Redistribution or resale of files may
+            be prohibited by the creator.
           </p>
           <p>
             <strong className="text-white/90">Eligibility.</strong> You must be of legal age in
-            your jurisdiction to purchase adult-oriented content where applicable.
+            your jurisdiction to view adult-oriented content where applicable.
           </p>
           <p>
             This is a placeholder summary. Replace with counsel-reviewed terms before launch.

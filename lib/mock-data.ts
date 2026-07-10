@@ -1,5 +1,5 @@
 import { Artwork } from "@/lib/types";
-import { CommentDisplay } from "@/components/nixie/comments-panel";
+import type { CommentDisplay } from "@/lib/supabase/data";
 
 export const mockArtworks: Artwork[] = [
   {

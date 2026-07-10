@@ -1,69 +1,12 @@
-# Nixie
+# Nixie Museum
 
-Base ağında çalışan bir Web3 mini uygulaması. SFW önizlemeleri ücretsiz, NSFW içerik USDC (x402) ile açılıyor.
+Nixie is a private 3D museum. Entry is granted only to wallets that hold the Nixie ERC-20 token or a Nixie NFT on Robinhood Mainnet.
 
-## Kurulum
+## Setup
 
-```bash
-npm install
-cp .env.example .env
-# .env dosyasını düzenleyin: Supabase, Pinata, isteğe bağlı ADMIN_EMAIL, X402_RECIPIENT_WALLET, NEXT_PUBLIC_APP_URL
-```
+1. Copy `.env.example` to `.env.local`.
+2. Set the official Robinhood Mainnet chain ID, RPC URL, and the token and/or NFT contract address.
+3. Set `AUTH_SECRET` to a long random value and configure Supabase and Pinata if you use the profile and artwork catalog.
+4. Run `npm run dev`.
 
-## Supabase
-
-1. [Supabase](https://supabase.com) projesi oluşturun.
-2. SQL Editor'da `supabase/migrations/00001_initial_schema.sql` içeriğini çalıştırın.
-3. Realtime istiyorsanız Dashboard > Database > Replication altından `comments` ve `likes` tablolarını ekleyin.
-4. Auth > Providers ile Email açın; admin için bir kullanıcı oluşturun.
-5. `.env` içine `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` ekleyin.
-
-## Admin paneli
-
-- `/admin` — Giriş yapılmışsa upload + yayınlama formu.
-- `/admin/login` — E-posta/şifre ile giriş.
-- `ADMIN_EMAIL` ile sadece bu e-postayı admin kabul edebilirsiniz (boş bırakırsanız giriş yapan herkes admin sayılır).
-- Pinata: `PINATA_API_KEY` ve `PINATA_SECRET_KEY` gerekli (görsel yükleme için).
-
-### Admin girişi kurulumu
-
-**1. .env dosyası (Supabase hatası alıyorsanız)**  
-Proje kökünde `.env` dosyası olmalı (`.env.example` değil). Yoksa:
-```bash
-cp .env.example .env
-```
-`.env` içinde `NEXT_PUBLIC_SUPABASE_URL` ve `NEXT_PUBLIC_SUPABASE_ANON_KEY` dolu olmalı. Değişiklikten sonra `npm run dev` **yeniden başlatın**.
-
-**2. Supabase’de admin kullanıcı + e-posta onayı**  
-- **Authentication → Users → Add user → Create new user**  
-  E-posta ve şifre gir; açılır veya formun altında **“Auto confirm user”** (veya “Confirm email”) işaretli olsun. Kaydet.  
-- Alternatif: **Authentication → Providers → Email** içinde **“Confirm email”** (Kaydı onayla) ayarını **kapatırsan** tüm yeni kullanıcılar e-posta doğrulamadan giriş yapabilir; sonra Users’tan Add user ile admin ekleyebilirsin.
-
-## Base Mini App / Farcaster
-
-Bu proje Base App içinde **standart web app** olarak çalışacak şekilde güncellendi. Farcaster manifest’i ve `fc:miniapp` metadata artık kullanılmıyor.
-
-## Ödemeler (x402)
-
-- `X402_RECIPIENT_WALLET` ayarlı değilse unlock isteği “mock” modda çalışır (ödeme olmadan kayıt).
-- Ayarlıysa API 402 döner; istemci USDC (Base) gönderir, `txHash` ile tekrar unlock çağırır.
-
-## Çalıştırma
-
-```bash
-npm run dev
-```
-
-Build:
-
-```bash
-npm run build
-npm start
-```
-
-## Proje yapısı
-
-- `app/` — Sayfalar (splash, feed, admin).
-- `components/nixie/` — Nixie UI bileşenleri (Figma tasarımına uygun).
-- `lib/` — Supabase, Pinata, constants, types.
-- `app/api/` — content, comments, like, unlock, upload, publish.
+The entry API is fail-closed: until a valid `ROBINHOOD_TOKEN_ADDRESS` or `ROBINHOOD_NFT_ADDRESS` is set, the museum cannot be entered. Token ownership is checked with `balanceOf(address) >= ROBINHOOD_MIN_TOKEN_BALANCE`; NFT ownership is checked with `balanceOf(address) > 0`.

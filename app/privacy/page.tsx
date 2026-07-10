@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <div className="mx-auto max-w-2xl">
         <Link
           href="/"
-          className="inline-block text-sm text-[#D27A92] hover:text-[#e8a0b3] mb-10 transition-colors"
+          className="inline-block text-sm text-[#D7FF00] hover:text-[#efff8a] mb-10 transition-colors"
         >
           ← Back
         </Link>

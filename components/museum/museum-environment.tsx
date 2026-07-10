@@ -8,9 +8,9 @@ import * as THREE from "three";
 const WALL_COLOR = "#1a1528";
 const FLOOR_COLOR = "#1e1830";
 const CEILING_COLOR = "#0e0b16";
-const ACCENT_PINK = "#D27A92";
+const ACCENT_LIME = "#D7FF00";
 const ACCENT_PURPLE = "#7B68C0";
-const NSFW_ACCENT = "#ff4080";
+const NSFW_ACCENT = "#D7FF00";
 
 function Floor() {
   const tileTexture = useMemo(() => {
@@ -117,11 +117,11 @@ function Floor() {
       {/* Edge accent lines */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.6, 0.006, -77.5]}>
         <planeGeometry args={[0.05, 165]} />
-        <meshBasicMaterial color="#D27A92" />
+        <meshBasicMaterial color="#D7FF00" />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1.6, 0.006, -77.5]}>
         <planeGeometry args={[0.05, 165]} />
-        <meshBasicMaterial color="#D27A92" />
+        <meshBasicMaterial color="#D7FF00" />
       </mesh>
     </group>
   );
@@ -159,7 +159,7 @@ function AccentStrip({
   position,
   rotation,
   width,
-  color = ACCENT_PINK,
+  color = ACCENT_LIME,
 }: {
   position: [number, number, number];
   rotation?: [number, number, number];
@@ -183,10 +183,24 @@ function PulsingOrb({
   color: string;
   intensity?: number;
 }) {
-  void position;
-  void color;
-  void intensity;
-  return null;
+  const coreRef = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    if (coreRef.current) {
+      coreRef.current.emissiveIntensity = intensity * (0.22 + Math.sin(clock.getElapsedTime() * 1.5 + position[2]) * 0.08);
+    }
+  });
+  return (
+    <group position={position}>
+      <mesh>
+        <icosahedronGeometry args={[0.16, 2]} />
+        <meshStandardMaterial ref={coreRef} color={color} emissive={color} emissiveIntensity={0.3} metalness={0.7} roughness={0.2} />
+      </mesh>
+      <mesh scale={1.9}>
+        <sphereGeometry args={[0.16, 16, 12]} />
+        <meshBasicMaterial color={color} transparent opacity={0.08} depthWrite={false} />
+      </mesh>
+    </group>
+  );
 }
 
 function CeilingDiscoLight({
@@ -210,7 +224,7 @@ function CeilingDiscoLight({
         <torusGeometry args={[0.08, 0.012, 10, 20]} />
         <meshStandardMaterial color="#c9b2d4" metalness={0.8} roughness={0.2} />
       </mesh>
-      {/* Pink disco ball */}
+      {/* Lime disco ball */}
       <mesh>
         <icosahedronGeometry args={[0.28, 4]} />
         <meshStandardMaterial
@@ -298,7 +312,7 @@ function DividerArch({ zPos }: { zPos: number }) {
       <Text
         position={[0, 3.95, 0.45]}
         fontSize={0.42}
-        color="#ffb3d2"
+        color="#EFFF8A"
         anchorX="center"
         anchorY="middle"
       >
@@ -328,22 +342,22 @@ function EntranceNixieSign() {
 
   return (
     <group position={[0, 2.55, 4.84]} rotation={[0, Math.PI, 0]}>
-      {/* Full-wall pink panel */}
+      {/* Full-wall lime panel */}
       <mesh>
         <planeGeometry args={[14.8, 4.7]} />
-        <meshStandardMaterial color="#5a1f3f" roughness={0.72} metalness={0.02} />
+        <meshStandardMaterial color="#172000" roughness={0.72} metalness={0.12} />
       </mesh>
       {/* Inner glossy area */}
       <mesh position={[0, 0, 0.01]}>
         <planeGeometry args={[14.2, 4.1]} />
-        <meshStandardMaterial color="#7a2d57" roughness={0.45} metalness={0.03} />
+        <meshStandardMaterial color="#253600" roughness={0.45} metalness={0.15} />
       </mesh>
       {/* Soft center glow on the wall */}
       <mesh position={[0, 0, 0.02]}>
         <planeGeometry args={[8.8, 2.4]} />
         <meshStandardMaterial
-          color="#a34777"
-          emissive="#ff8fc2"
+          color="#D7FF00"
+          emissive="#D7FF00"
           emissiveIntensity={0.12}
           transparent
           opacity={0.3}
@@ -354,7 +368,7 @@ function EntranceNixieSign() {
       <Text
         position={[0, -0.02, 0.045]}
         fontSize={2.05}
-        color="#fff3f8"
+        color="#F8FFE5"
         anchorX="center"
         anchorY="middle"
       >
@@ -364,8 +378,8 @@ function EntranceNixieSign() {
         <planeGeometry args={[6.2, 1.05]} />
         <meshStandardMaterial
           ref={textBloomRef}
-          color="#ffd3e7"
-          emissive="#ff9cc7"
+          color="#EFFF8A"
+          emissive="#D7FF00"
           emissiveIntensity={0.65}
           transparent
           opacity={0.22}
@@ -401,7 +415,7 @@ export function MuseumEnvironment({
     <group>
       {/* Global illumination — 3 cheap lights only */}
       <ambientLight intensity={0.45} color="#2a2040" />
-      <hemisphereLight color="#D27A92" groundColor="#1a1528" intensity={0.5} />
+      <hemisphereLight color="#D7FF00" groundColor="#1a1528" intensity={0.5} />
       <directionalLight
         position={[5, 8, 5]}
         intensity={0.5}
@@ -451,7 +465,7 @@ export function MuseumEnvironment({
               </mesh>
               <mesh position={[x, 4.78, -43]}>
                 <boxGeometry args={[0.37, 0.06, 16.2]} />
-                <meshBasicMaterial color={ACCENT_PINK} />
+                <meshBasicMaterial color={ACCENT_LIME} />
               </mesh>
             </group>
           ))}
@@ -512,17 +526,17 @@ export function MuseumEnvironment({
           {/* Edge accent lines along walkway */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[branchCenterX, 0.006, -41.4]}>
             <planeGeometry args={[branchLength, 0.05]} />
-            <meshBasicMaterial color="#D27A92" />
+            <meshBasicMaterial color="#D7FF00" />
           </mesh>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[branchCenterX, 0.006, -44.6]}>
             <planeGeometry args={[branchLength, 0.05]} />
-            <meshBasicMaterial color="#D27A92" />
+            <meshBasicMaterial color="#D7FF00" />
           </mesh>
           {/* Lights */}
-          <PulsingOrb        position={[branchLightX1, 3.5,  -43]} color={ACCENT_PINK}   intensity={4} />
+          <PulsingOrb        position={[branchLightX1, 3.5,  -43]} color={ACCENT_LIME}   intensity={4} />
           <PulsingOrb        position={[branchLightX2, 3.5,  -43]} color={ACCENT_PURPLE} intensity={4} />
-          <CeilingDiscoLight position={[branchLightX1, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
-          <CeilingDiscoLight position={[branchLightX2, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
+          <CeilingDiscoLight position={[branchLightX1, 4.72, -43]} color={ACCENT_LIME}   intensity={0.9} />
+          <CeilingDiscoLight position={[branchLightX2, 4.72, -43]} color={ACCENT_LIME}   intensity={0.9} />
 
           {/* ── Corridor 3 — LEFT (X: -8..-58, Z: -35..-51) ── */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-branchCenterX, 0.003, -43]}>
@@ -551,17 +565,17 @@ export function MuseumEnvironment({
           {/* Edge accent lines along walkway */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-branchCenterX, 0.006, -41.4]}>
             <planeGeometry args={[branchLength, 0.05]} />
-            <meshBasicMaterial color="#D27A92" />
+            <meshBasicMaterial color="#D7FF00" />
           </mesh>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-branchCenterX, 0.006, -44.6]}>
             <planeGeometry args={[branchLength, 0.05]} />
-            <meshBasicMaterial color="#D27A92" />
+            <meshBasicMaterial color="#D7FF00" />
           </mesh>
           {/* Lights */}
-          <PulsingOrb        position={[-branchLightX1, 3.5,  -43]} color={ACCENT_PINK}   intensity={4} />
+          <PulsingOrb        position={[-branchLightX1, 3.5,  -43]} color={ACCENT_LIME}   intensity={4} />
           <PulsingOrb        position={[-branchLightX2, 3.5,  -43]} color={ACCENT_PURPLE} intensity={4} />
-          <CeilingDiscoLight position={[-branchLightX1, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
-          <CeilingDiscoLight position={[-branchLightX2, 4.72, -43]} color={ACCENT_PINK}   intensity={0.9} />
+          <CeilingDiscoLight position={[-branchLightX1, 4.72, -43]} color={ACCENT_LIME}   intensity={0.9} />
+          <CeilingDiscoLight position={[-branchLightX2, 4.72, -43]} color={ACCENT_LIME}   intensity={0.9} />
 
           {/* ── Corridor signs — hanging neon panels below ceiling ──
                 Lowered to Y=3.15, and text is duplicated on back faces
@@ -573,12 +587,12 @@ export function MuseumEnvironment({
             {/* Outer neon border */}
             <mesh position={[0, 0, 0]}>
               <boxGeometry args={[2.4, 0.56, 0.05]} />
-              <meshBasicMaterial color={ACCENT_PINK} />
+              <meshBasicMaterial color={ACCENT_LIME} />
             </mesh>
             {/* Inner panel */}
             <mesh position={[0, 0, 0.04]}>
               <boxGeometry args={[2.15, 0.38, 0.05]} />
-              <meshStandardMaterial color="#140822" emissive={ACCENT_PINK} emissiveIntensity={0.3} roughness={0.3} />
+              <meshStandardMaterial color="#140822" emissive={ACCENT_LIME} emissiveIntensity={0.3} roughness={0.3} />
             </mesh>
             <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
               CORRIDOR 1
@@ -586,10 +600,10 @@ export function MuseumEnvironment({
             <Text position={[0, 0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
               CORRIDOR 1
             </Text>
-            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_LIME} anchorX="center" anchorY="middle" letterSpacing={0.03}>
               ▲
             </Text>
-            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_LIME} anchorX="center" anchorY="middle" letterSpacing={0.03}>
               ▼
             </Text>
           </group>
@@ -599,11 +613,11 @@ export function MuseumEnvironment({
           <group position={[8, 4.1, -43]} rotation={[0, -Math.PI / 2, 0]}>
             <mesh position={[0, 0, 0]}>
               <boxGeometry args={[2.4, 0.56, 0.05]} />
-              <meshBasicMaterial color={ACCENT_PINK} />
+              <meshBasicMaterial color={ACCENT_LIME} />
             </mesh>
             <mesh position={[0, 0, 0.04]}>
               <boxGeometry args={[2.15, 0.38, 0.05]} />
-              <meshStandardMaterial color="#140822" emissive={ACCENT_PINK} emissiveIntensity={0.3} roughness={0.3} />
+              <meshStandardMaterial color="#140822" emissive={ACCENT_LIME} emissiveIntensity={0.3} roughness={0.3} />
             </mesh>
             <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
               CORRIDOR 2
@@ -611,10 +625,10 @@ export function MuseumEnvironment({
             <Text position={[0, 0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
               CORRIDOR 2
             </Text>
-            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_LIME} anchorX="center" anchorY="middle" letterSpacing={0.03}>
               ▶
             </Text>
-            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_LIME} anchorX="center" anchorY="middle" letterSpacing={0.03}>
               ◀
             </Text>
           </group>
@@ -623,11 +637,11 @@ export function MuseumEnvironment({
           <group position={[-8, 4.1, -43]} rotation={[0, Math.PI / 2, 0]}>
             <mesh position={[0, 0, 0]}>
               <boxGeometry args={[2.4, 0.56, 0.05]} />
-              <meshBasicMaterial color={ACCENT_PINK} />
+              <meshBasicMaterial color={ACCENT_LIME} />
             </mesh>
             <mesh position={[0, 0, 0.04]}>
               <boxGeometry args={[2.15, 0.38, 0.05]} />
-              <meshStandardMaterial color="#140822" emissive={ACCENT_PINK} emissiveIntensity={0.3} roughness={0.3} />
+              <meshStandardMaterial color="#140822" emissive={ACCENT_LIME} emissiveIntensity={0.3} roughness={0.3} />
             </mesh>
             <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
               CORRIDOR 3
@@ -635,10 +649,10 @@ export function MuseumEnvironment({
             <Text position={[0, 0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.17} color="#ffffff" anchorX="center" anchorY="middle" letterSpacing={0.06}>
               CORRIDOR 3
             </Text>
-            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+            <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={ACCENT_LIME} anchorX="center" anchorY="middle" letterSpacing={0.03}>
               ◀
             </Text>
-            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_PINK} anchorX="center" anchorY="middle" letterSpacing={0.03}>
+            <Text position={[0, -0.1, -0.08]} rotation={[0, Math.PI, 0]} fontSize={0.14} color={ACCENT_LIME} anchorX="center" anchorY="middle" letterSpacing={0.03}>
               ▶
             </Text>
           </group>
@@ -646,15 +660,15 @@ export function MuseumEnvironment({
       )}
 
       {/* Disco-ball ceiling lights — visual only, no real light */}
-      <CeilingDiscoLight position={[0, 4.72, -7]} color={ACCENT_PINK} intensity={0.9} />
-      <CeilingDiscoLight position={[0, 4.72, -21]} color={ACCENT_PINK} intensity={0.9} />
-      <CeilingDiscoLight position={[0, 4.72, -35]} color={ACCENT_PINK} intensity={0.9} />
-      <CeilingDiscoLight position={[0, 4.72, -48]} color={ACCENT_PINK} intensity={0.9} />
+      <CeilingDiscoLight position={[0, 4.72, -7]} color={ACCENT_LIME} intensity={0.9} />
+      <CeilingDiscoLight position={[0, 4.72, -21]} color={ACCENT_LIME} intensity={0.9} />
+      <CeilingDiscoLight position={[0, 4.72, -35]} color={ACCENT_LIME} intensity={0.9} />
+      <CeilingDiscoLight position={[0, 4.72, -48]} color={ACCENT_LIME} intensity={0.9} />
 
       {/* 3 point lights for entire SFW corridor (was 10+5+5=20) */}
-      <PulsingOrb position={[0, 3.5, -5]} color={ACCENT_PINK} intensity={5} />
+      <PulsingOrb position={[0, 3.5, -5]} color={ACCENT_LIME} intensity={5} />
       <PulsingOrb position={[0, 3.5, -25]} color={ACCENT_PURPLE} intensity={4} />
-      <PulsingOrb position={[0, 3.5, -45]} color={ACCENT_PINK} intensity={5} />
+      <PulsingOrb position={[0, 3.5, -45]} color={ACCENT_LIME} intensity={5} />
 
       {/* Wall-wash point lights removed */}
 
@@ -779,7 +793,7 @@ export function MuseumEnvironment({
           <boxGeometry args={[2.15, 0.38, 0.05]} />
           <meshStandardMaterial color="#1b0a12" emissive={NSFW_ACCENT} emissiveIntensity={0.28} roughness={0.32} />
         </mesh>
-        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffd8e7" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#EFFF8A" anchorX="center" anchorY="middle" letterSpacing={0.06}>
           CORRIDOR 1
         </Text>
         <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={NSFW_ACCENT} anchorX="center" anchorY="middle" letterSpacing={0.03}>
@@ -795,7 +809,7 @@ export function MuseumEnvironment({
           <boxGeometry args={[2.15, 0.38, 0.05]} />
           <meshStandardMaterial color="#1b0a12" emissive={NSFW_ACCENT} emissiveIntensity={0.28} roughness={0.32} />
         </mesh>
-        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffd8e7" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#EFFF8A" anchorX="center" anchorY="middle" letterSpacing={0.06}>
           CORRIDOR 4
         </Text>
         <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={NSFW_ACCENT} anchorX="center" anchorY="middle" letterSpacing={0.03}>
@@ -811,7 +825,7 @@ export function MuseumEnvironment({
           <boxGeometry args={[2.15, 0.38, 0.05]} />
           <meshStandardMaterial color="#1b0a12" emissive={NSFW_ACCENT} emissiveIntensity={0.28} roughness={0.32} />
         </mesh>
-        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#ffd8e7" anchorX="center" anchorY="middle" letterSpacing={0.06}>
+        <Text position={[0, 0.1, 0.08]} fontSize={0.17} color="#EFFF8A" anchorX="center" anchorY="middle" letterSpacing={0.06}>
           CORRIDOR 5
         </Text>
         <Text position={[0, -0.1, 0.08]} fontSize={0.14} color={NSFW_ACCENT} anchorX="center" anchorY="middle" letterSpacing={0.03}>
@@ -825,7 +839,7 @@ export function MuseumEnvironment({
         angle={0.7}
         penumbra={0.8}
         intensity={4}
-        color={ACCENT_PINK}
+        color={ACCENT_LIME}
       />
     </group>
   );

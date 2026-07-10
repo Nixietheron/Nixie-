@@ -1,32 +1,24 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useAccount, useChainId, useDisconnect, usePublicClient, useWalletClient } from "wagmi";
+import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
-import { wrapFetchWithPayment } from "@x402/fetch";
-import { x402Client } from "@x402/core/client";
-import { ExactEvmScheme } from "@x402/evm/exact/client";
-import { ExactEvmSchemeV1 } from "@x402/evm/exact/v1/client";
-import { Loader2, Monitor } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Monitor, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { Artwork } from "@/lib/types";
-import { BASE_CHAIN_ID, X402_CHAIN_IDS } from "@/lib/constants";
+import { ROBINHOOD_CHAIN_ID } from "@/lib/robinhood-chain";
 import { MuseumOverlay } from "@/components/museum";
 
 type AvatarChoice = "female" | "male";
+type AccessState = "checking" | "allowed" | "wallet-required" | "wrong-network" | "not-eligible" | "not-configured" | "rpc-error";
 
-const MuseumScene = dynamic(
-  () => import("@/components/museum/museum-scene").then((m) => m.MuseumScene),
-  { ssr: false }
-);
+const MuseumScene = dynamic(() => import("@/components/museum/museum-scene").then((m) => m.MuseumScene), { ssr: false });
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
-    check();
-    window.addEventListener("resize", check);
+    check(); window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
   return isMobile;
@@ -34,373 +26,109 @@ function useIsMobile() {
 
 export default function MuseumPage() {
   const isMobile = useIsMobile();
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { disconnect } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
+  const [accessState, setAccessState] = useState<AccessState>("checking");
   const [artworks, setArtworks] = useState<Artwork[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffset, setNextOffset] = useState(0);
   const [totalCatalog, setTotalCatalog] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
-  const [unlocking, setUnlocking] = useState(false);
-  const [unlockError, setUnlockError] = useState<string | null>(null);
-  const [unlockAnimationArtworkId, setUnlockAnimationArtworkId] = useState<string | null>(null);
   const [avatarChoice, setAvatarChoice] = useState<AvatarChoice>("female");
   const [displayName, setDisplayName] = useState("");
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [profileRequired, setProfileRequired] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileRequired, setProfileRequired] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const chainId = useChainId();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
-  const { openConnectModal } = useConnectModal();
-
-  const fetchWithPayment = useMemo(() => {
-    if (!X402_CHAIN_IDS.includes(chainId as (typeof X402_CHAIN_IDS)[number])) return null;
-    if (!walletClient?.account || !publicClient) return null;
-    const signer = {
-      address: walletClient.account.address,
-      signTypedData: walletClient.signTypedData.bind(walletClient),
-      readContract: publicClient.readContract.bind(publicClient),
-    };
-    const client = new x402Client();
-    client.register("eip155:*", new ExactEvmScheme(signer));
-    client.registerV1("base", new ExactEvmSchemeV1(signer));
-    return wrapFetchWithPayment(fetch, client);
-  }, [chainId, walletClient, publicClient]);
-
-  const baseWalletReady = !!address && chainId === BASE_CHAIN_ID && !!fetchWithPayment;
-
-  useEffect(() => {
-    setLoading(true);
-    setNextOffset(0);
-    fetch("/api/museum/content?limit=80&offset=0", { cache: "no-store", credentials: "include" })
-      .then((r) => r.json())
-      .then((d) => {
-        const list = Array.isArray(d.artworks) ? d.artworks : [];
-        setArtworks(list);
-        setHasMore(Boolean(d.hasMore));
-        setNextOffset(typeof d.nextOffset === "number" ? d.nextOffset : list.length);
-        setTotalCatalog(typeof d.total === "number" ? d.total : null);
-      })
-      .catch(() => {
-        setArtworks([]);
-        setHasMore(false);
-        setTotalCatalog(null);
-      })
-      .finally(() => setLoading(false));
-  }, [address]);
+  const fetchArtworks = useCallback(async (offset: number, append = false) => {
+    const response = await fetch(`/api/museum/content?limit=80&offset=${offset}`, { cache: "no-store", credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Unable to load museum.");
+    const batch: Artwork[] = Array.isArray(data.artworks) ? data.artworks as Artwork[] : [];
+    setArtworks((current) => append ? [...current, ...batch.filter((item) => !current.some((existing) => existing.id === item.id))] : batch);
+    setHasMore(Boolean(data.hasMore));
+    setNextOffset(typeof data.nextOffset === "number" ? data.nextOffset : offset + batch.length);
+    setTotalCatalog(typeof data.total === "number" ? data.total : null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    if (!isConnected || !address) {
-      setProfileLoading(false);
-      setProfileRequired(true);
-      setDisplayName("");
-      setAvatarChoice("female");
-      return;
-    }
+    setAccessState("checking");
+    fetch("/api/museum/access", { cache: "no-store", credentials: "include" })
+      .then(async (response) => ({ response, data: await response.json().catch(() => ({})) }))
+      .then(({ response, data }) => {
+        if (cancelled) return;
+        if (response.ok && data.allowed) { setAccessState("allowed"); return; }
+        if (!isConnected || !address) { setAccessState("wallet-required"); return; }
+        if (chainId !== ROBINHOOD_CHAIN_ID) { setAccessState("wrong-network"); return; }
+        setAccessState(data.reason === "not-configured" ? "not-configured" : data.reason === "rpc-error" ? "rpc-error" : "not-eligible");
+      }).catch(() => !cancelled && setAccessState("rpc-error"));
+    return () => { cancelled = true; };
+  }, [address, chainId, isConnected]);
 
-    setProfileLoading(true);
-    setProfileError(null);
+  useEffect(() => {
+    if (accessState !== "allowed") return;
+    setLoading(true);
+    fetchArtworks(0).catch(() => setArtworks([])).finally(() => setLoading(false));
+  }, [accessState, fetchArtworks]);
 
+  useEffect(() => {
+    if (accessState !== "allowed") return;
+    if (!address) { setProfileRequired(false); setProfileLoading(false); return; }
+    let cancelled = false;
+    setProfileLoading(true); setProfileError(null);
     fetch("/api/museum/profile", { cache: "no-store", credentials: "include" })
-      .then(async (r) => {
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok && r.status !== 404) throw new Error(d.error ?? "Failed to load profile");
-        return d as { profile?: { displayName?: string; avatar?: AvatarChoice } | null };
-      })
-      .then((d) => {
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok && response.status !== 404) throw new Error(data.error || "Failed to load profile");
+        return data;
+      }).then((data) => {
         if (cancelled) return;
-        if (d.profile) {
-          setDisplayName(d.profile.displayName ?? "");
-          setAvatarChoice(d.profile.avatar === "male" ? "male" : "female");
-          setProfileRequired(false);
-        } else {
-          setProfileRequired(true);
-        }
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setProfileRequired(true);
-        setProfileError(e instanceof Error ? e.message : "Failed to load profile");
-      })
-      .finally(() => {
-        if (!cancelled) setProfileLoading(false);
-      });
+        if (data.profile) { setDisplayName(data.profile.displayName || ""); setAvatarChoice(data.profile.avatar === "male" ? "male" : "female"); setProfileRequired(false); }
+        else setProfileRequired(true);
+      }).catch((error) => !cancelled && setProfileError(error instanceof Error ? error.message : "Failed to load profile"))
+      .finally(() => !cancelled && setProfileLoading(false));
+    return () => { cancelled = true; };
+  }, [accessState, address]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isConnected, address]);
-
-  const loadMoreArtworks = useCallback(() => {
-    if (!hasMore || loadingMore) return;
-    setLoadingMore(true);
-    fetch(`/api/museum/content?limit=80&offset=${nextOffset}`, {
-      cache: "no-store",
-      credentials: "include",
-    })
-      .then((r) => r.json())
-      .then((d) => {
-        const batch = Array.isArray(d.artworks) ? d.artworks : [];
-        setArtworks((prev) => {
-          const seen = new Set(prev.map((a) => a.id));
-          const merged = [...prev];
-          for (const a of batch) {
-            if (!seen.has(a.id)) {
-              seen.add(a.id);
-              merged.push(a);
-            }
-          }
-          return merged;
-        });
-        setHasMore(Boolean(d.hasMore));
-        setNextOffset(typeof d.nextOffset === "number" ? d.nextOffset : nextOffset + batch.length);
-        if (typeof d.total === "number") setTotalCatalog(d.total);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingMore(false));
-  }, [hasMore, loadingMore, nextOffset]);
-
-  const handleArtworkSelect = useCallback((artwork: Artwork | null) => {
-    setSelectedArtwork(artwork);
-    setUnlockError(null);
-  }, []);
-
-  const handleUnlockArtwork = useCallback(
-    async (artwork: Artwork) => {
-      if (!address) {
-        openConnectModal?.();
-        return;
-      }
-      if (chainId !== BASE_CHAIN_ID) {
-        setUnlockError("Please switch your wallet to Base network.");
-        return;
-      }
-      if (!fetchWithPayment) {
-        setUnlockError("Preparing payment client... please try again.");
-        return;
-      }
-      setUnlocking(true);
-      setUnlockError(null);
-      try {
-        const body = JSON.stringify({
-          wallet: address,
-          contentId: artwork.id,
-          unlockType: "nsfw",
-        });
-        const res = await fetchWithPayment("/api/unlock", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body,
-        });
-        const d = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(d.error ?? "Unlock failed");
-
-        // Apply unlock immediately so the purchased piece opens without waiting animation.
-        setArtworks((prev) =>
-          prev.map((a) =>
-            a.id === artwork.id
-              ? {
-                  ...a,
-                  nsfwUnlocked: true,
-                  isUnlocked: true,
-                  // contentToArtwork returns empty nsfwFull while locked; fill it immediately after purchase.
-                  nsfwFull: a.nsfwFull || `/api/ipfs-image?contentId=${a.id}`,
-                }
-              : a
-          )
-        );
-        setSelectedArtwork((prev) =>
-          prev && prev.id === artwork.id
-            ? {
-                ...prev,
-                nsfwUnlocked: true,
-                isUnlocked: true,
-                nsfwFull: prev.nsfwFull || `/api/ipfs-image?contentId=${prev.id}`,
-              }
-            : prev
-        );
-        setUnlockAnimationArtworkId(artwork.id);
-      } catch (e) {
-        setUnlockError(e instanceof Error ? e.message : "Unlock failed");
-      } finally {
-        setUnlocking(false);
-      }
-    },
-    [address, fetchWithPayment, chainId, openConnectModal]
-  );
-
-  const handleUnlockAnimationDone = useCallback((artworkId: string) => {
-    setUnlockAnimationArtworkId((current) => (current === artworkId ? null : current));
-  }, []);
-
-  const handleSaveMuseumProfile = useCallback(async () => {
-    if (!isConnected || !address) {
-      openConnectModal?.();
-      return;
-    }
+  const saveProfile = async () => {
     const trimmed = displayName.trim();
-    if (trimmed.length < 2) {
-      setProfileError("Please enter at least 2 characters for your name.");
-      return;
-    }
-    setProfileSaving(true);
-    setProfileError(null);
+    if (trimmed.length < 2) { setProfileError("Please enter at least 2 characters for your name."); return; }
+    setProfileSaving(true); setProfileError(null);
     try {
-      const res = await fetch("/api/museum/profile", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: trimmed, avatar: avatarChoice }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.error ?? "Failed to save profile");
-      setDisplayName(d.profile?.displayName ?? trimmed);
-      setAvatarChoice(d.profile?.avatar === "male" ? "male" : "female");
+      const response = await fetch("/api/museum/profile", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName: trimmed, avatar: avatarChoice }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to save profile");
       setProfileRequired(false);
-    } catch (e) {
-      setProfileError(e instanceof Error ? e.message : "Failed to save profile");
-    } finally {
-      setProfileSaving(false);
-    }
-  }, [isConnected, address, openConnectModal, displayName, avatarChoice]);
+    } catch (error) { setProfileError(error instanceof Error ? error.message : "Failed to save profile"); }
+    finally { setProfileSaving(false); }
+  };
 
-  if (isMobile) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6 font-anime" style={{ background: "#0a080c" }}>
-        <div className="w-16 h-16 rounded-2xl bg-[#D27A92]/10 border border-[#D27A92]/20 flex items-center justify-center mb-6">
-          <Monitor className="w-8 h-8 text-[#D27A92]" />
-        </div>
-        <h1 className="text-white font-bold text-xl mb-2">Desktop Only</h1>
-        <p className="text-white/50 text-sm text-center max-w-xs mb-6">
-          The Nixie Museum is a 3D experience designed for desktop browsers.
-          Please visit on a computer with a keyboard.
-        </p>
-        <Link
-          href="/feed"
-          className="px-6 py-3 rounded-xl text-sm font-medium text-white bg-[#D27A92]/80 hover:bg-[#D27A92] transition-colors"
-        >
-          Go to Feed
-        </Link>
-      </div>
-    );
-  }
+  const gateCopy = useMemo(() => {
+    if (accessState === "allowed") return null;
+    return ({
+    "checking": ["Checking access", "Verifying your Robinhood Mainnet wallet…"],
+    "wallet-required": ["Enter Nixie Museum", "Connect the Robinhood Mainnet wallet that holds a Nixie token or NFT."],
+    "wrong-network": ["Switch to Robinhood Mainnet", "Museum access is available only on Robinhood Mainnet."],
+    "not-eligible": ["Museum pass required", "Hold a Nixie token or any Nixie NFT in this wallet to enter."],
+    "not-configured": ["Museum opening soon", "The Nixie token and NFT contracts have not been configured yet."],
+    "rpc-error": ["Could not verify access", "Please try again in a moment."],
+    } as const)[accessState];
+  }, [accessState]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center font-anime" style={{ background: "#080610" }}>
-        <Loader2 className="w-10 h-10 text-[#D27A92] animate-spin mb-4" />
-        <p className="text-white/50 text-sm">Loading museum...</p>
-      </div>
-    );
-  }
+  if (isMobile) return <div className="min-h-screen flex flex-col items-center justify-center px-6 font-anime" style={{ background: "#0a080c" }}><Monitor className="mb-6 h-8 w-8 text-[#D7FF00]" /><h1 className="mb-2 text-xl font-bold text-white">Desktop Only</h1><p className="max-w-xs text-center text-sm text-white/50">The Nixie Museum is a 3D experience designed for desktop browsers.</p></div>;
 
-  return (
-    <div className="relative w-screen h-screen overflow-hidden font-anime" style={{ background: "#080610" }}>
-      <MuseumScene
-        artworks={artworks}
-        avatarChoice={avatarChoice}
-        onArtworkSelect={handleArtworkSelect}
-        unlockAnimationArtworkId={unlockAnimationArtworkId}
-        onUnlockAnimationDone={handleUnlockAnimationDone}
-      />
+  if (accessState !== "allowed") return <div className="min-h-screen flex items-center justify-center px-4 font-anime" style={{ background: "#080610" }}><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-7 text-center shadow-2xl"><ShieldCheck className="mx-auto mb-4 h-9 w-9 text-[#D7FF00]" /><h1 className="text-xl font-semibold text-white">{gateCopy?.[0]}</h1><p className="mt-2 text-sm leading-relaxed text-white/60">{gateCopy?.[1]}</p>{accessState !== "checking" && <button onClick={() => openConnectModal?.()} className="mt-6 w-full rounded-xl bg-[#D7FF00] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c6eb00]">{isConnected ? "Open wallet" : "Connect wallet"}</button>}</div></div>;
+  if (loading) return <div className="min-h-screen flex flex-col items-center justify-center font-anime" style={{ background: "#080610" }}><Loader2 className="mb-4 h-10 w-10 animate-spin text-[#D7FF00]" /><p className="text-sm text-white/50">Loading museum...</p></div>;
 
-      <MuseumOverlay
-        selectedArtwork={selectedArtwork}
-        onCloseArtwork={() => setSelectedArtwork(null)}
-        onConnectWallet={() => openConnectModal?.()}
-        onDisconnectWallet={() => disconnect()}
-        onUnlockArtwork={handleUnlockArtwork}
-        unlocking={unlocking}
-        unlockError={unlockError}
-        walletConnected={isConnected && !!address}
-        walletReady={baseWalletReady}
-        isBaseNetwork={chainId === BASE_CHAIN_ID}
-        hasMoreArtworks={hasMore}
-        loadingMoreArtworks={loadingMore}
-        onLoadMoreArtworks={loadMoreArtworks}
-        loadedArtworkCount={artworks.length}
-        totalArtworkCount={totalCatalog}
-      />
-
-      {(!isConnected || profileLoading || profileRequired) && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-6 text-white shadow-2xl">
-            <h2 className="text-xl font-semibold">Start Museum Experience</h2>
-            <p className="mt-2 text-sm text-white/65">
-              Choose your avatar and name once. We save it and do not ask again.
-            </p>
-
-            <div className="mt-5 space-y-3">
-              <label className="text-xs uppercase tracking-wide text-white/60">Display Name</label>
-              <input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Your name"
-                className="w-full rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-sm text-white outline-none focus:border-[#D27A92]"
-                maxLength={40}
-              />
-            </div>
-
-            <div className="mt-5">
-              <p className="text-xs uppercase tracking-wide text-white/60 mb-2">Avatar</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAvatarChoice("female")}
-                  className={`rounded-lg border px-3 py-2 text-sm transition ${
-                    avatarChoice === "female"
-                      ? "border-[#D27A92] bg-[#D27A92]/20 text-white"
-                      : "border-white/15 bg-black/20 text-white/80 hover:border-white/30"
-                  }`}
-                >
-                  Female
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAvatarChoice("male")}
-                  className={`rounded-lg border px-3 py-2 text-sm transition ${
-                    avatarChoice === "male"
-                      ? "border-[#D27A92] bg-[#D27A92]/20 text-white"
-                      : "border-white/15 bg-black/20 text-white/80 hover:border-white/30"
-                  }`}
-                >
-                  Male
-                </button>
-              </div>
-            </div>
-
-            {profileError ? <p className="mt-3 text-sm text-red-300">{profileError}</p> : null}
-
-            <div className="mt-6 flex items-center gap-2">
-              {!isConnected ? (
-                <button
-                  type="button"
-                  onClick={() => openConnectModal?.()}
-                  className="w-full rounded-lg bg-[#D27A92] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D27A92]/90 transition"
-                >
-                  Connect Wallet to Start
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSaveMuseumProfile}
-                  disabled={profileSaving || profileLoading}
-                  className="w-full rounded-lg bg-[#D27A92] px-4 py-2 text-sm font-semibold text-white hover:bg-[#D27A92]/90 transition disabled:opacity-60"
-                >
-                  {profileSaving ? "Saving..." : "Save and Enter Museum"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="relative h-screen w-screen overflow-hidden font-anime" style={{ background: "#080610" }}>
+    <MuseumScene artworks={artworks} avatarChoice={avatarChoice} onArtworkSelect={setSelectedArtwork} />
+    <MuseumOverlay selectedArtwork={selectedArtwork} onCloseArtwork={() => setSelectedArtwork(null)} onConnectWallet={() => openConnectModal?.()} onDisconnectWallet={() => disconnect()} walletConnected={Boolean(address)} hasMoreArtworks={hasMore} loadingMoreArtworks={loadingMore} onLoadMoreArtworks={() => { setLoadingMore(true); fetchArtworks(nextOffset, true).finally(() => setLoadingMore(false)); }} loadedArtworkCount={artworks.length} totalArtworkCount={totalCatalog} />
+    {(profileLoading || profileRequired) && <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-6 text-white"><h2 className="text-xl font-semibold">Start Museum Experience</h2><p className="mt-2 text-sm text-white/65">Choose your avatar and name once.</p><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" maxLength={40} className="mt-5 w-full rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-sm outline-none focus:border-[#D7FF00]" /><div className="mt-4 grid grid-cols-2 gap-2">{(["female", "male"] as const).map((avatar) => <button key={avatar} onClick={() => setAvatarChoice(avatar)} className={`rounded-lg border px-3 py-2 text-sm ${avatarChoice === avatar ? "border-[#D7FF00] bg-[#D7FF00]/20" : "border-white/15"}`}>{avatar === "female" ? "Female" : "Male"}</button>)}</div>{profileError && <p className="mt-3 text-sm text-red-300">{profileError}</p>}<button onClick={saveProfile} disabled={profileSaving || profileLoading} className="mt-6 w-full rounded-lg bg-[#D7FF00] px-4 py-2 text-sm font-semibold disabled:opacity-60">{profileSaving ? "Saving..." : "Save and Enter Museum"}</button></div></div>}
+  </div>;
 }

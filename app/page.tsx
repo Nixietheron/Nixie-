@@ -8,11 +8,11 @@ import { SITE } from "@/lib/site";
 
 /** Landing hero: one artwork per column (left → right). */
 const HERO_IMAGES = [
-  "/Nixie1.png",
-  "/Nixie2.png",
-  "/Nixie3.png",
-  "/Nixie4.png",
-  "/Nixie5.png",
+  "/nixie2.webp",
+  "/nixie3.webp",
+  "/nixie4.webp",
+  "/nixie5.webp",
+  "/nixie6.webp",
 ] as const;
 
 export default function SplashScreen() {
@@ -59,13 +59,13 @@ export default function SplashScreen() {
               className="absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(180deg, rgba(210,122,146,0.08) 0%, transparent 60%)",
+                  "linear-gradient(180deg, rgba(215,255,0,0.08) 0%, transparent 60%)",
               }}
             />
             {i < 4 && (
               <div
                 className="absolute top-0 right-0 bottom-0 w-px"
-                style={{ background: "rgba(210,122,146,0.2)" }}
+                style={{ background: "rgba(215,255,0,0.2)" }}
               />
             )}
           </motion.div>
@@ -106,7 +106,7 @@ export default function SplashScreen() {
           className="flex items-center justify-between shrink-0 pt-8 sm:pt-10"
         >
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#D27A92] animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-[#D7FF00] animate-pulse" />
             <span className="text-white/45 text-xs tracking-[0.2em] uppercase font-medium">
               Nixie — Exclusive Art
             </span>
@@ -125,8 +125,8 @@ export default function SplashScreen() {
                 transition={{ delay: 0.4, duration: 0.7 }}
                 className="flex items-center gap-3 mb-4"
               >
-                <div className="h-px w-10 shrink-0" style={{ background: "#D27A92" }} />
-                <span className="text-[#D27A92] text-xs font-semibold tracking-[0.35em] uppercase">
+                <div className="h-px w-10 shrink-0" style={{ background: "#D7FF00" }} />
+                <span className="text-[#D7FF00] text-xs font-semibold tracking-[0.35em] uppercase">
                   Anime Art Collection
                 </span>
               </motion.div>
@@ -155,8 +155,8 @@ export default function SplashScreen() {
                 transition={{ delay: 0.58, duration: 0.75 }}
                 className="text-white/60 text-base sm:text-[17px] leading-[1.65] mb-6 max-w-md"
               >
-                I&apos;m Nixie — an anime-inspired digital character. Browse previews for free,
-                then unlock the full artwork with USDC. Every drop is exclusive.
+                I&apos;m Nixie — an anime-inspired digital character. Enter my private 3D museum
+                with a Nixie token or NFT on Robinhood Mainnet.
               </motion.p>
             )}
           </AnimatePresence>
@@ -169,24 +169,13 @@ export default function SplashScreen() {
                 transition={{ delay: 0.68, duration: 0.65 }}
                 className="flex flex-wrap items-center gap-4"
               >
-                <Link href="/feed">
+                <Link href="/museum">
                   <motion.button
                     whileHover={{ scale: 1.04, backgroundColor: "#fff" }}
                     whileTap={{ scale: 0.96 }}
                     className="group flex items-center gap-2.5 bg-white text-[#0a080c] font-bold text-[15px] px-7 py-3.5 rounded-2xl transition-all duration-200 shadow-lg shadow-black/30"
                   >
-                    Enter Gallery
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
-                </Link>
-                <Link href="/museum" className="hidden lg:block">
-                  <motion.button
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.96 }}
-                    className="group flex items-center gap-2.5 font-bold text-[15px] px-7 py-3.5 rounded-2xl transition-all duration-200 shadow-lg shadow-black/30 border border-[#D27A92]/50 text-white"
-                    style={{ background: "linear-gradient(135deg, rgba(210,122,146,0.2) 0%, rgba(123,104,192,0.15) 100%)" }}
-                  >
-                    3D Museum
+                    Enter 3D Museum
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </Link>
@@ -216,35 +205,32 @@ export default function SplashScreen() {
       {/* ═══════════════════════════════════
           Footer
       ════════════════════════════════════ */}
-      <footer className="relative z-20 border-t border-[#D27A92]/15 bg-[#060508] px-6 py-14 sm:px-10 lg:px-16 xl:px-24">
+      <footer className="relative z-20 border-t border-[#D7FF00]/15 bg-[#060508] px-6 py-14 sm:px-10 lg:px-16 xl:px-24">
         <div className="mx-auto max-w-6xl grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-10">
           <div className="lg:col-span-1">
             <p className="text-white font-bold tracking-tight text-lg mb-3">{SITE.name}</p>
             <p className="text-white/45 text-sm leading-relaxed max-w-xs">
-              Exclusive anime art onchain. Previews are free; full pieces unlock with USDC on Base.
+              A private 3D museum for Nixie token and NFT holders on Robinhood Mainnet.
             </p>
           </div>
 
           <div>
-            <p className="text-[#D27A92] text-[11px] font-semibold tracking-[0.2em] uppercase mb-4">
-              Explore
+            <p className="text-[#D7FF00] text-[11px] font-semibold tracking-[0.2em] uppercase mb-4">
+              Museum
             </p>
             <ul className="space-y-3 text-sm">
               <li>
-                <Link href="/feed" className="text-white/60 hover:text-white transition-colors">
-                  Gallery
+                <Link href="/museum" className="text-white/60 hover:text-white transition-colors">
+                  Enter Museum
                 </Link>
               </li>
               <li>
-                <Link href="/profile" className="text-white/60 hover:text-white transition-colors">
-                  Profile
-                </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <p className="text-[#D27A92] text-[11px] font-semibold tracking-[0.2em] uppercase mb-4">
+            <p className="text-[#D7FF00] text-[11px] font-semibold tracking-[0.2em] uppercase mb-4">
               Legal
             </p>
             <ul className="space-y-3 text-sm">
@@ -262,30 +248,10 @@ export default function SplashScreen() {
           </div>
 
           <div>
-            <p className="text-[#D27A92] text-[11px] font-semibold tracking-[0.2em] uppercase mb-4">
-              Community &amp; contact
+            <p className="text-[#D7FF00] text-[11px] font-semibold tracking-[0.2em] uppercase mb-4">
+              Contact
             </p>
             <ul className="space-y-3 text-sm">
-              <li>
-                {SITE.baseAppUrl ? (
-                  <a
-                    href={SITE.baseAppUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
-                  >
-                    Base App
-                    <ExternalLink className="w-3.5 h-3.5 opacity-50" />
-                  </a>
-                ) : (
-                  <span
-                    className="inline-flex items-center gap-1.5 text-white/35"
-                    title="Link will be added when the Base App integration is live"
-                  >
-                    Base App
-                  </span>
-                )}
-              </li>
               <li>
                 <a
                   href={SITE.xUrl}
@@ -313,11 +279,7 @@ export default function SplashScreen() {
         <div className="mx-auto max-w-6xl mt-14 pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-xs text-white/30">
           <span>© {new Date().getFullYear()} {SITE.name}. All rights reserved.</span>
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-end">
-            <span>Payments &amp; unlocks on Base</span>
-            <span className="text-white/15" aria-hidden>
-              ·
-            </span>
-            <span>USDC</span>
+            <span>Robinhood Mainnet</span>
           </span>
         </div>
       </footer>

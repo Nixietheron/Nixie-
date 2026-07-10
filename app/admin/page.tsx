@@ -48,7 +48,7 @@ function UploadZone({
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-white/90">{label}</span>
           {required && (
-            <span className="text-[10px] text-anime-pink bg-white/15 px-1.5 py-0.5 rounded-full">
+            <span className="text-[10px] text-anime-lime bg-white/15 px-1.5 py-0.5 rounded-full">
               Required
             </span>
           )}
@@ -69,7 +69,7 @@ function UploadZone({
               type="button"
               onClick={() => onFreeToggle(!isFree)}
               className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                isFree ? "bg-anime-pink" : "bg-white/25"
+                isFree ? "bg-anime-lime" : "bg-white/25"
               }`}
             >
               <span
@@ -93,7 +93,7 @@ function UploadZone({
             }`}
           >
             {isUploading ? (
-              <Loader2 className="w-4 h-4 text-anime-pink animate-spin" />
+              <Loader2 className="w-4 h-4 text-anime-lime animate-spin" />
             ) : cid ? (
               <Check className="w-4 h-4 text-emerald-400" />
             ) : (
@@ -192,7 +192,7 @@ function StoryUploadRow({
             }`}
           >
             {isUploading ? (
-              <Loader2 className="w-4 h-4 text-anime-pink animate-spin" />
+              <Loader2 className="w-4 h-4 text-anime-lime animate-spin" />
             ) : cid ? (
               <Check className="w-4 h-4 text-emerald-400" />
             ) : (
@@ -718,7 +718,7 @@ export default function AdminPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                   placeholder="Artwork title"
                 />
               </div>
@@ -735,7 +735,7 @@ export default function AdminPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value.slice(0, 500))}
                   rows={4}
-                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm resize-none border border-white/25"
+                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm resize-none border border-white/25"
                   placeholder="Tell the story behind this piece..."
                 />
               </div>
@@ -790,7 +790,7 @@ export default function AdminPage() {
                   min="0.01"
                   value={priceUsdc}
                   onChange={(e) => setPriceUsdc(e.target.value)}
-                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                   placeholder="2.50"
                 />
               </div>
@@ -806,7 +806,7 @@ export default function AdminPage() {
                   min="0.01"
                   value={priceAnimatedUsdc}
                   onChange={(e) => setPriceAnimatedUsdc(e.target.value)}
-                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                   placeholder="1.00"
                 />
               </div>
@@ -835,7 +835,7 @@ export default function AdminPage() {
           <div className="space-y-4">
             {contentLoading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 text-[#D27A92] animate-spin" />
+                <Loader2 className="w-8 h-8 text-[#D7FF00] animate-spin" />
               </div>
             ) : contentList.length === 0 ? (
               <div className="bg-black/70 rounded-2xl p-8 border border-white/25 shadow-lg shadow-black/20 text-center text-white/70">
@@ -857,7 +857,7 @@ export default function AdminPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <ImageIcon className="w-8 h-8 text-[#D27A92] opacity-50" />
+                        <ImageIcon className="w-8 h-8 text-[#D7FF00] opacity-50" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0 p-3 flex flex-col justify-center">
@@ -873,7 +873,7 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() => openEdit(row)}
-                        className="p-2 rounded-xl text-white/60 hover:bg-white/10 hover:text-anime-pink transition-colors"
+                        className="p-2 rounded-xl text-white/60 hover:bg-white/10 hover:text-anime-lime transition-colors"
                         title="Edit"
                       >
                         <Pencil className="w-4 h-4" />
@@ -932,7 +932,7 @@ export default function AdminPage() {
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
                         required
-                        className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                        className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                       />
                     </div>
                     <div>
@@ -945,7 +945,7 @@ export default function AdminPage() {
                           setEditDescription(e.target.value.slice(0, 500))
                         }
                         rows={3}
-                        className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm resize-none border border-white/25"
+                        className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm resize-none border border-white/25"
                       />
                     </div>
                     <UploadZone
@@ -1018,7 +1018,7 @@ export default function AdminPage() {
                           min="0"
                           value={editPriceUsdc}
                           onChange={(e) => setEditPriceUsdc(e.target.value)}
-                          className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                          className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                         />
                       </div>
                     )}
@@ -1033,7 +1033,7 @@ export default function AdminPage() {
                           min="0"
                           value={editPriceAnimatedUsdc}
                           onChange={(e) => setEditPriceAnimatedUsdc(e.target.value)}
-                          className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                          className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                         />
                       </div>
                     )}
@@ -1119,7 +1119,7 @@ export default function AdminPage() {
                     type="checkbox"
                     checked={storyPaid}
                     onChange={(e) => setStoryPaid(e.target.checked)}
-                    className="rounded border-white/30 text-anime-pink focus:ring-anime-pink"
+                    className="rounded border-white/30 text-anime-lime focus:ring-anime-lime"
                   />
                   <span className="text-sm text-white/90">Paid story</span>
                 </label>
@@ -1135,7 +1135,7 @@ export default function AdminPage() {
                     min="0.01"
                     value={storyPriceUsdc}
                     onChange={(e) => setStoryPriceUsdc(e.target.value)}
-                    className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                    className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                     placeholder="0.50"
                   />
                 </div>
@@ -1149,7 +1149,7 @@ export default function AdminPage() {
                   onChange={(e) =>
                     setStoryDurationHours(Number(e.target.value))
                   }
-                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25"
+                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
                 >
                   <option value={6}>6 hours</option>
                   <option value={12}>12 hours</option>
@@ -1175,7 +1175,7 @@ export default function AdminPage() {
               </h3>
               {storiesLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-[#D27A92] animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#D7FF00] animate-spin" />
                 </div>
               ) : storiesList.length === 0 ? (
                 <div className="bg-black/70 rounded-2xl p-6 border border-white/25 shadow-lg shadow-black/20 text-center text-white/70 text-sm">
@@ -1254,7 +1254,7 @@ export default function AdminPage() {
           <div className="space-y-4">
             {dmThreadsLoading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 text-[#D27A92] animate-spin" />
+                <Loader2 className="w-8 h-8 text-[#D7FF00] animate-spin" />
               </div>
             ) : !dmSelectedThreadId ? (
               <>
@@ -1311,7 +1311,7 @@ export default function AdminPage() {
                       key={m.id}
                       className={`rounded-xl px-3 py-2 text-sm ${
                         m.sender_type === "admin"
-                          ? "bg-anime-pink/20 border border-anime-pink/40 ml-6"
+                          ? "bg-anime-lime/20 border border-anime-lime/40 ml-6"
                           : "bg-white/10 border border-white/20 mr-6"
                       }`}
                     >
@@ -1349,7 +1349,7 @@ export default function AdminPage() {
                     onChange={(e) => setDmReplyBody(e.target.value)}
                     placeholder="Reply to user…"
                     rows={2}
-                    className="flex-1 bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-pink text-sm border border-white/25 resize-none"
+                    className="flex-1 bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25 resize-none"
                   />
                   <NixieButton
                     type="submit"

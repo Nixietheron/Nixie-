@@ -12,6 +12,7 @@ import {
 } from "@/lib/wallet-session";
 import { getTrustedSiweHosts, isTrustedSiweDomain } from "@/lib/auth-hosts";
 import { publicClientForSiweChain } from "@/lib/siwe-public-client";
+import { ROBINHOOD_CHAIN_ID } from "@/lib/robinhood-chain";
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -55,9 +56,7 @@ export async function POST(request: NextRequest) {
    * Skip domain check entirely only as a last resort when trustedHosts is empty (unusual).
    */
   if (trustedHosts.size > 0 && !isTrustedSiweDomain(parsed.domain, trustedHosts)) {
-    // Last-chance: allow if the nonce matches and the message is otherwise structurally valid.
-    // This handles Base App WebView where window.location.hostname may differ from x-forwarded-host.
-    // We still verify nonce + signature below — domain is advisory here.
+    // The nonce and signature remain mandatory; this also tolerates a www/apex proxy mismatch.
     console.warn(
       `[auth/evm] SIWE domain "${parsed.domain}" not in trusted set ${JSON.stringify(Array.from(trustedHosts))}; proceeding with nonce+sig check`
     );
@@ -68,8 +67,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "SIWE nonce mismatch" }, { status: 401 });
   }
 
-  const chainId =
-    typeof parsed.chainId === "number" && !Number.isNaN(parsed.chainId) ? parsed.chainId : 8453;
+  const chainId = typeof parsed.chainId === "number" && !Number.isNaN(parsed.chainId) ? parsed.chainId : 0;
+  if (chainId !== ROBINHOOD_CHAIN_ID) {
+    return NextResponse.json({ error: "Connect Robinhood Mainnet before signing in." }, { status: 400 });
+  }
   const client = publicClientForSiweChain(chainId);
 
   try {

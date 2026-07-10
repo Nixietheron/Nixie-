@@ -16,20 +16,16 @@ const mPlusRounded = M_PLUS_Rounded_1c({
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixiepink.com";
-/** Favicon, Apple touch icon, Open Graph & Twitter/X link previews (`public/icon.jpg`, 1024×1024). */
-const BRAND_IMAGE_PATH = "/icon.jpg";
+/** Favicon, Apple touch icon, Open Graph & Twitter/X link previews. */
+const BRAND_IMAGE_PATH = "/nixie.webp";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
-  title: "Nixie – Exclusive Anime Artwork",
-  description: "Unlock exclusive artwork with USDC on Base.",
-  /** Base Mini App / Base.dev — discovery & “Import Mini App” (metatag under `metadata.other`) */
-  other: {
-    "base:app_id": "69b947e72d5d7c1605e6333a",
-  },
+  title: "Nixie – 3D Museum",
+  description: "A private 3D museum for Nixie token and NFT holders on Robinhood Mainnet.",
   openGraph: {
-    title: "Nixie – Exclusive Anime Artwork",
-    description: "Unlock exclusive artwork with USDC on Base.",
+    title: "Nixie – 3D Museum",
+    description: "A private 3D museum for Nixie token and NFT holders on Robinhood Mainnet.",
     url: APP_URL,
     siteName: "Nixie",
     images: [
@@ -44,15 +40,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nixie – Exclusive Anime Artwork",
-    description: "Unlock exclusive artwork with USDC on Base.",
+    title: "Nixie – 3D Museum",
+    description: "A private 3D museum for Nixie token and NFT holders on Robinhood Mainnet.",
     images: [BRAND_IMAGE_PATH],
   },
   icons: {
     icon: [
-      { url: BRAND_IMAGE_PATH, sizes: "1024x1024", type: "image/jpeg" },
+      { url: BRAND_IMAGE_PATH, sizes: "1254x1254", type: "image/webp" },
     ],
-    apple: [{ url: BRAND_IMAGE_PATH, sizes: "1024x1024", type: "image/jpeg" }],
+    apple: [{ url: BRAND_IMAGE_PATH, sizes: "1254x1254", type: "image/webp" }],
   },
 };
 
@@ -61,9 +57,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read the wagmi cookie from the incoming request so the client can start
-  // in "reconnecting" state instead of "connecting", preventing SIWE popups
-  // on every page refresh (both in regular browsers and Base App WebView).
+  // Read the wagmi cookie from the incoming request to preserve wallet state on refresh.
   const initialState = cookieToInitialState(config, (await headers()).get("cookie"));
 
   return (

@@ -9,8 +9,8 @@ import { ipfsProxyUrl } from "@/lib/constants";
 import { loadCachedImage } from "@/lib/museum/cached-image";
 
 const FRAME_COLOR = "#1a1520";
-const FRAME_ACCENT = "#D27A92";
-const LOCKED_ACCENT = "#ff4080";
+const FRAME_LIME = "#D7FF00";
+const ACCESS_ACCENT = "#D7FF00";
 
 /** Full-res texture when this close (meters), even if frustum edge misses side walls. */
 const LOD_FULL_DIST = 22;
@@ -118,7 +118,7 @@ function ArtFrame({
   const worldPos = useMemo(() => new THREE.Vector3(px, py, pz), [px, py, pz]);
 
   const isLocked = artwork.hasNsfw && !artwork.nsfwUnlocked;
-  const accentColor = isLocked ? LOCKED_ACCENT : FRAME_ACCENT;
+  const accentColor = isLocked ? ACCESS_ACCENT : FRAME_LIME;
 
   const lodTierRef = useRef<"none" | "low" | "high">("none");
   const [lodTier, setLodTier] = useState<"none" | "low" | "high">("none");
@@ -259,12 +259,12 @@ function ArtFrame({
         <Text
           position={[0, -0.2, 0.12]}
           fontSize={0.14}
-          color="#ffb0c0"
+          color="#F4FFD1"
           anchorX="center"
           anchorY="middle"
           maxWidth={1.6}
         >
-          {`$${artwork.price} USDC`}
+          {"Nixie Museum Collection"}
         </Text>
       )}
 

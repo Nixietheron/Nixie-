@@ -26,7 +26,7 @@ export function NixieButton({
     "rounded-full transition-all duration-300 flex items-center justify-center gap-2";
   const variantStyles = {
     primary:
-      "bg-gradient-to-r from-anime-pink via-anime-coral to-anime-lavender text-white font-bold shadow-anime-soft hover:shadow-anime-glow",
+      "bg-gradient-to-r from-anime-lime via-anime-lime to-anime-lavender text-white font-bold shadow-anime-soft hover:shadow-anime-glow",
     secondary: "bg-anime-lavender/20 text-anime-foreground border border-anime-lavender/30 shadow-md",
     ghost: "bg-white/50 text-nixie-foreground backdrop-blur-sm",
   };

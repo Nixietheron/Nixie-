@@ -6,7 +6,7 @@ function hostOnly(value: string): string {
 }
 
 /**
- * Hostnames allowed for SIWE `domain` verification (proxy, www vs apex, Base App WebView).
+ * Hostnames allowed for SIWE `domain` verification (proxy, www vs apex).
  */
 export function getTrustedSiweHosts(request: NextRequest): Set<string> {
   const set = new Set<string>();

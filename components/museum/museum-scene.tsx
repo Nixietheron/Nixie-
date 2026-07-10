@@ -2,6 +2,7 @@
 
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useMemo } from "react";
+import * as THREE from "three";
 import { MuseumEnvironment } from "./museum-environment";
 import { MuseumCharacterController } from "./museum-character-controller";
 import {
@@ -90,10 +91,14 @@ export function MuseumScene({
         stencil: false,
         depth: true,
       }}
-      onCreated={({ gl }) => {
+      onCreated={({ gl, scene }) => {
         gl.setClearColor("#080610");
+        gl.outputColorSpace = THREE.SRGBColorSpace;
+        gl.toneMapping = THREE.ACESFilmicToneMapping;
+        gl.toneMappingExposure = 1.08;
         gl.shadowMap.autoUpdate = false;
         gl.shadowMap.needsUpdate = true;
+        scene.background = new THREE.Color("#080610");
       }}
     >
       <Suspense fallback={null}>

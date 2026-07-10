@@ -2,8 +2,7 @@ import { createClient } from "./client";
 import { createClient as createServerSupabase, createAdminClient } from "./server";
 import { contentToArtwork } from "@/lib/types";
 import type { Artwork, ContentRow, StoryRow } from "@/lib/types";
-import type { CommentDisplay } from "@/components/nixie/comments-panel";
-import { MEMBERSHIP_DURATION_DAYS } from "@/lib/constants";
+export type CommentDisplay = { id: string; artworkId?: string; wallet: string; text: string; created_at: string };
 
 export type MembershipStatus = {
   active: boolean;
@@ -19,46 +18,9 @@ function computeDaysLeft(endsAt: string | null): number {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-export async function getActiveMembershipForWallets(wallets: string[]): Promise<MembershipStatus> {
-  if (!wallets.length) return { active: false, wallet: null, endsAt: null, daysLeft: 0 };
-  const admin = createAdminClient();
-  const nowIso = new Date().toISOString();
-  const { data } = await admin
-    .from("subscriptions")
-    .select("wallet, ends_at, status")
-    .in("wallet", wallets)
-    .eq("status", "active")
-    .gt("ends_at", nowIso)
-    .order("ends_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (!data) return { active: false, wallet: null, endsAt: null, daysLeft: 0 };
-  const endsAt = (data as { ends_at: string }).ends_at;
-  return {
-    active: true,
-    wallet: (data as { wallet: string }).wallet,
-    endsAt,
-    daysLeft: computeDaysLeft(endsAt),
-  };
-}
-
-export async function upsertMembership(wallet: string, txHash?: string | null) {
-  const admin = createAdminClient();
-  const now = new Date();
-  const current = await getActiveMembershipForWallets([wallet]);
-  const baseDate = current.active && current.endsAt ? new Date(current.endsAt) : now;
-  const endsAt = new Date(baseDate);
-  endsAt.setDate(endsAt.getDate() + MEMBERSHIP_DURATION_DAYS);
-  const payload = {
-    wallet,
-    status: "active",
-    started_at: now.toISOString(),
-    ends_at: endsAt.toISOString(),
-    tx_hash: txHash ?? null,
-    updated_at: now.toISOString(),
-  };
-  const { error } = await admin.from("subscriptions").upsert(payload, { onConflict: "wallet" });
-  return { error, endsAt: payload.ends_at, daysLeft: computeDaysLeft(payload.ends_at) };
+/** Deprecated membership records are ignored; museum access is token/NFT based. */
+export async function getActiveMembershipForWallets(_wallets: string[]): Promise<MembershipStatus> {
+  return { active: false, wallet: null, endsAt: null, daysLeft: 0 };
 }
 
 export async function getContentWithCounts(wallet: string | string[] | undefined) {
@@ -177,23 +139,11 @@ export async function getMuseumArtworksPage(
 
   const contentIds = (contentRows as ContentRow[]).map((c) => c.id);
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
-  const membership = await getActiveMembershipForWallets(wallets);
-
-  const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
-    wallets.length > 0
-      ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets)
-      : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
+  const [likesRes, commentsRes, viewsRes] = await Promise.all([
     supabase.from("likes").select("content_id, wallet").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
     supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
-
-  const nsfwUnlockedIds = new Set(
-    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "nsfw").map((u) => u.content_id)
-  );
-  const animatedUnlockedIds = new Set(
-    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "animated").map((u) => u.content_id)
-  );
 
   const likeCountByContent: Record<string, number> = {};
   (likesRes.data ?? []).forEach((l) => {
@@ -215,10 +165,9 @@ export async function getMuseumArtworksPage(
   });
 
   const artworks = (contentRows as ContentRow[]).map((c) => {
-    const priceUsdc = c.price_usdc ?? 0;
-    const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
-    const nsfwUnlocked = membership.active || priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
-    const animatedUnlocked = membership.active || priceAnimated === 0 || animatedUnlockedIds.has(c.id);
+    // Museum access has already been granted by Robinhood token/NFT ownership.
+    const nsfwUnlocked = true;
+    const animatedUnlocked = true;
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,
