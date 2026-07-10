@@ -17,6 +17,9 @@ const HERO_IMAGES = [
   "/nixie6.webp",
 ] as const;
 
+const BUY_NIX_URL = "https://fun.noxa.fi/robinhood/token/0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f";
+const DEXSCREENER_URL = "https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a";
+
 export default function SplashScreen() {
   const [ready, setReady] = useState(false);
   const { isConnected } = useAccount();
@@ -198,6 +201,12 @@ export default function SplashScreen() {
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </Link>
+                <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2.5 rounded-2xl bg-[#D7FF00] px-7 py-3.5 text-[15px] font-bold text-[#0a080c] shadow-lg shadow-[#D7FF00]/15 transition hover:scale-[1.04]">
+                  BUY $NIX <ExternalLink className="h-4 w-4" />
+                </a>
+                <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-black/25 px-6 py-3.5 text-[15px] font-bold text-white/90 backdrop-blur-sm transition hover:border-[#D7FF00]/55 hover:text-[#D7FF00]">
+                  Dexscreener <ExternalLink className="h-4 w-4" />
+                </a>
                 {!isConnected && <button type="button" onClick={() => openConnectModal?.()} className="rounded-2xl border border-[#D7FF00]/45 bg-[#D7FF00]/10 px-6 py-3.5 text-[15px] font-bold text-[#D7FF00] transition hover:bg-[#D7FF00]/20">Connect wallet</button>}
               </motion.div>
             )}

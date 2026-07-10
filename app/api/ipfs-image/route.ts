@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNsfwCidIfAllowed, getAnimatedCidIfAllowed } from "@/lib/supabase/data";
 import { getWalletsForRequest } from "@/lib/wallet-session";
+import { getMuseumAccess } from "@/lib/museum-access";
+import { createAdminClient } from "@/lib/supabase/server";
 
 const GATEWAY = "https://gateway.pinata.cloud/ipfs";
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const contentId = request.nextUrl.searchParams.get("contentId");
   const cidParam = request.nextUrl.searchParams.get("cid");
   const sessionWallets = getWalletsForRequest(request);
-  const wallets = sessionWallets?.length ? sessionWallets : null;
+  const wallet = sessionWallets?.[0];
   const type = request.nextUrl.searchParams.get("type"); // "animated" | undefined (nsfw)
 
   let cid: string | null = null;
@@ -24,10 +25,15 @@ export async function GET(request: NextRequest) {
     }
     cid = cidParam;
   } else if (contentId) {
+    if (!wallet) return new NextResponse(null, { status: 401 });
+    const access = await getMuseumAccess(wallet);
+    if (!access.allowed) return new NextResponse(null, { status: 403 });
     if (type === "animated") {
-      cid = await getAnimatedCidIfAllowed(wallets, contentId);
+      const { data } = await createAdminClient().from("content").select("animated_cid").eq("id", contentId).maybeSingle();
+      cid = data?.animated_cid ?? null;
     } else {
-      cid = await getNsfwCidIfAllowed(wallets, contentId);
+      const { data } = await createAdminClient().from("content").select("nsfw_cid").eq("id", contentId).maybeSingle();
+      cid = data?.nsfw_cid ?? null;
     }
     if (!cid) {
       return new NextResponse(null, { status: 403 });
