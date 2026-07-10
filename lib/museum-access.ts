@@ -8,8 +8,24 @@ export type MuseumAccess =
 
 const tokenAddress = process.env.ROBINHOOD_TOKEN_ADDRESS;
 const nftAddress = process.env.ROBINHOOD_NFT_ADDRESS;
-const minTokenBalance = BigInt(process.env.ROBINHOOD_MIN_TOKEN_BALANCE || "1");
+const tokenDecimals = Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18");
 const previewMode = process.env.MUSEUM_PREVIEW_MODE === "true";
+
+function parseTokenAmount(value: string, decimals: number): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error("Invalid ROBINHOOD_TOKEN_DECIMALS");
+  const normalized = value.trim();
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) throw new Error("Invalid ROBINHOOD_MIN_TOKEN_AMOUNT");
+  const [whole, fraction = ""] = normalized.split(".");
+  if (fraction.length > decimals) throw new Error("ROBINHOOD_MIN_TOKEN_AMOUNT has too many decimal places");
+  const unit = BigInt(`1${"0".repeat(decimals)}`);
+  const fractionalUnits = decimals === 0 ? BigInt(0) : BigInt((fraction + "0".repeat(decimals)).slice(0, decimals));
+  return BigInt(whole) * unit + fractionalUnits;
+}
+
+const minTokenBalance = parseTokenAmount(
+  process.env.ROBINHOOD_MIN_TOKEN_AMOUNT || "500000",
+  tokenDecimals
+);
 
 function validContract(value: string | undefined): value is Address {
   return Boolean(value && isAddress(value));
