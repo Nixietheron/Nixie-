@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { ArrowRight, ArrowDown, ExternalLink, Mail } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useAccount } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { SITE } from "@/lib/site";
 
 /** Landing hero: one artwork per column (left → right). */
@@ -17,6 +19,8 @@ const HERO_IMAGES = [
 
 export default function SplashScreen() {
   const [ready, setReady] = useState(false);
+  const { isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 100);
@@ -179,6 +183,7 @@ export default function SplashScreen() {
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </motion.button>
                 </Link>
+                {!isConnected && <button type="button" onClick={() => openConnectModal?.()} className="rounded-2xl border border-[#D7FF00]/45 bg-[#D7FF00]/10 px-6 py-3.5 text-[15px] font-bold text-[#D7FF00] transition hover:bg-[#D7FF00]/20">Connect wallet</button>}
               </motion.div>
             )}
           </AnimatePresence>

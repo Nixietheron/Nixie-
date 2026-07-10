@@ -1,10 +1,11 @@
 import { createPublicClient, http, isAddress, type Address } from "viem";
 import { erc20BalanceOfAbi, erc721BalanceOfAbi } from "@/lib/abi/access";
 import { robinhoodMainnet } from "@/lib/robinhood-chain";
+import { ROBINHOOD_RPC_CONFIGURED } from "@/lib/robinhood-chain";
 
 export type MuseumAccess =
   | { allowed: true; source: "token" | "nft" | "preview" }
-  | { allowed: false; reason: "not-configured" | "not-eligible" | "rpc-error" };
+  | { allowed: false; reason: "not-configured" | "network-not-configured" | "not-eligible" | "rpc-error" };
 
 const tokenAddress = process.env.ROBINHOOD_TOKEN_ADDRESS;
 const nftAddress = process.env.ROBINHOOD_NFT_ADDRESS;
@@ -38,6 +39,7 @@ export async function getMuseumAccess(wallet?: string): Promise<MuseumAccess> {
       : { allowed: false, reason: "not-configured" };
   }
   if (!wallet || !isAddress(wallet)) return { allowed: false, reason: "not-eligible" };
+  if (!ROBINHOOD_RPC_CONFIGURED) return { allowed: false, reason: "network-not-configured" };
 
   const client = createPublicClient({ chain: robinhoodMainnet, transport: http() });
   try {

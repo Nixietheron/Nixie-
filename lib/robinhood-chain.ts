@@ -7,7 +7,10 @@ import { defineChain } from "viem";
  */
 export const ROBINHOOD_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ROBINHOOD_CHAIN_ID || 46630);
 export const ROBINHOOD_RPC_URL =
-  process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL || process.env.ROBINHOOD_RPC_URL || "https://rpc.robinhoodchain.com";
+  process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL || process.env.ROBINHOOD_RPC_URL || "https://rpc.invalid";
+export const ROBINHOOD_RPC_CONFIGURED = Boolean(
+  process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL || process.env.ROBINHOOD_RPC_URL
+);
 
 export const robinhoodMainnet = defineChain({
   id: ROBINHOOD_CHAIN_ID,

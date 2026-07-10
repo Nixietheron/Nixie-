@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useAccount, useChainId, useDisconnect } from "wagmi";
+import { useAccount, useChainId, useDisconnect, useSwitchChain } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { Loader2, Monitor, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -29,6 +29,7 @@ export default function MuseumPage() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
+  const { switchChain } = useSwitchChain();
   const { openConnectModal } = useConnectModal();
   const [accessState, setAccessState] = useState<AccessState>("checking");
   const [artworks, setArtworks] = useState<Artwork[]>([]);
@@ -66,7 +67,7 @@ export default function MuseumPage() {
         if (response.ok && data.allowed) { setAccessState("allowed"); return; }
         if (!isConnected || !address) { setAccessState("wallet-required"); return; }
         if (chainId !== ROBINHOOD_CHAIN_ID) { setAccessState("wrong-network"); return; }
-        setAccessState(data.reason === "not-configured" ? "not-configured" : data.reason === "rpc-error" ? "rpc-error" : "not-eligible");
+        setAccessState(data.reason === "not-configured" ? "not-configured" : data.reason === "network-not-configured" ? "rpc-error" : data.reason === "rpc-error" ? "rpc-error" : "not-eligible");
       }).catch(() => !cancelled && setAccessState("rpc-error"));
     return () => { cancelled = true; };
   }, [address, chainId, isConnected]);
@@ -117,13 +118,20 @@ export default function MuseumPage() {
     "wrong-network": ["Switch to Robinhood Mainnet", "Museum access is available only on Robinhood Mainnet."],
     "not-eligible": ["Museum pass required", "Hold a Nixie token or any Nixie NFT in this wallet to enter."],
     "not-configured": ["Museum opening soon", "The Nixie token and NFT contracts have not been configured yet."],
-    "rpc-error": ["Could not verify access", "Please try again in a moment."],
+    "rpc-error": ["Robinhood RPC unavailable", "Set NEXT_PUBLIC_ROBINHOOD_RPC_URL in Colify, then reconnect your wallet."],
     } as const)[accessState];
   }, [accessState]);
 
   if (isMobile) return <div className="min-h-screen flex flex-col items-center justify-center px-6 font-anime" style={{ background: "#0a080c" }}><Monitor className="mb-6 h-8 w-8 text-[#D7FF00]" /><h1 className="mb-2 text-xl font-bold text-white">Desktop Only</h1><p className="max-w-xs text-center text-sm text-white/50">The Nixie Museum is a 3D experience designed for desktop browsers.</p></div>;
 
-  if (accessState !== "allowed") return <div className="min-h-screen flex items-center justify-center px-4 font-anime" style={{ background: "#080610" }}><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-7 text-center shadow-2xl"><ShieldCheck className="mx-auto mb-4 h-9 w-9 text-[#D7FF00]" /><h1 className="text-xl font-semibold text-white">{gateCopy?.[0]}</h1><p className="mt-2 text-sm leading-relaxed text-white/60">{gateCopy?.[1]}</p>{accessState !== "checking" && <button onClick={() => openConnectModal?.()} className="mt-6 w-full rounded-xl bg-[#D7FF00] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c6eb00]">{isConnected ? "Open wallet" : "Connect wallet"}</button>}</div></div>;
+  const retryAccess = () => window.location.reload();
+  const gateAction = accessState === "wallet-required"
+    ? () => openConnectModal?.()
+    : accessState === "wrong-network"
+      ? () => switchChain?.({ chainId: ROBINHOOD_CHAIN_ID })
+      : retryAccess;
+  const gateActionLabel = accessState === "wallet-required" ? "Connect Robinhood wallet" : accessState === "wrong-network" ? "Switch to Robinhood Mainnet" : "Try again";
+  if (accessState !== "allowed") return <div className="min-h-screen flex items-center justify-center px-4 font-anime" style={{ background: "#080610" }}><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-7 text-center shadow-2xl"><ShieldCheck className="mx-auto mb-4 h-9 w-9 text-[#D7FF00]" /><h1 className="text-xl font-semibold text-white">{gateCopy?.[0]}</h1><p className="mt-2 text-sm leading-relaxed text-white/60">{gateCopy?.[1]}</p>{accessState !== "checking" && <button onClick={gateAction} className="mt-6 w-full rounded-xl bg-[#D7FF00] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c6eb00]">{gateActionLabel}</button>}</div></div>;
   if (loading) return <div className="min-h-screen flex flex-col items-center justify-center font-anime" style={{ background: "#080610" }}><Loader2 className="mb-4 h-10 w-10 animate-spin text-[#D7FF00]" /><p className="text-sm text-white/50">Loading museum...</p></div>;
 
   return <div className="relative h-screen w-screen overflow-hidden font-anime" style={{ background: "#080610" }}>
