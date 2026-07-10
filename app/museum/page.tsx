@@ -10,7 +10,7 @@ import { ROBINHOOD_CHAIN_ID } from "@/lib/robinhood-chain";
 import { MuseumOverlay } from "@/components/museum";
 
 type AvatarChoice = "female" | "male";
-type AccessState = "checking" | "allowed" | "wallet-required" | "wrong-network" | "not-eligible" | "not-configured" | "rpc-error";
+type AccessState = "checking" | "allowed" | "wallet-required" | "signature-required" | "wrong-network" | "not-eligible" | "not-configured" | "rpc-error";
 
 const MuseumScene = dynamic(() => import("@/components/museum/museum-scene").then((m) => m.MuseumScene), { ssr: false });
 
@@ -45,6 +45,7 @@ export default function MuseumPage() {
   const [profileRequired, setProfileRequired] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [authRefresh, setAuthRefresh] = useState(0);
 
   const fetchArtworks = useCallback(async (offset: number, append = false) => {
     const response = await fetch(`/api/museum/content?limit=80&offset=${offset}`, { cache: "no-store", credentials: "include" });
@@ -58,6 +59,12 @@ export default function MuseumPage() {
   }, []);
 
   useEffect(() => {
+    const refresh = () => setAuthRefresh((value) => value + 1);
+    window.addEventListener("nixie-wallet-session", refresh);
+    return () => window.removeEventListener("nixie-wallet-session", refresh);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     setAccessState("checking");
     fetch("/api/museum/access", { cache: "no-store", credentials: "include" })
@@ -66,11 +73,12 @@ export default function MuseumPage() {
         if (cancelled) return;
         if (response.ok && data.allowed) { setAccessState("allowed"); return; }
         if (!isConnected || !address) { setAccessState("wallet-required"); return; }
+        if (response.status === 401 || data.reason === "signature-required") { setAccessState("signature-required"); return; }
         if (chainId !== ROBINHOOD_CHAIN_ID) { setAccessState("wrong-network"); return; }
         setAccessState(data.reason === "not-configured" ? "not-configured" : data.reason === "network-not-configured" ? "rpc-error" : data.reason === "rpc-error" ? "rpc-error" : "not-eligible");
       }).catch(() => !cancelled && setAccessState("rpc-error"));
     return () => { cancelled = true; };
-  }, [address, chainId, isConnected]);
+  }, [address, authRefresh, chainId, isConnected]);
 
   useEffect(() => {
     if (accessState !== "allowed") return;
@@ -79,8 +87,7 @@ export default function MuseumPage() {
   }, [accessState, fetchArtworks]);
 
   useEffect(() => {
-    if (accessState !== "allowed") return;
-    if (!address) { setProfileRequired(false); setProfileLoading(false); return; }
+    if (accessState !== "allowed" || !address) return;
     let cancelled = false;
     setProfileLoading(true); setProfileError(null);
     fetch("/api/museum/profile", { cache: "no-store", credentials: "include" })
@@ -115,6 +122,7 @@ export default function MuseumPage() {
     return ({
     "checking": ["Checking access", "Verifying your Robinhood Mainnet wallet…"],
     "wallet-required": ["Enter Nixie Museum", "Connect the Robinhood Mainnet wallet that holds a Nixie token or NFT."],
+    "signature-required": ["Verify wallet", "Sign the secure wallet message to verify ownership before entering."],
     "wrong-network": ["Switch to Robinhood Mainnet", "Museum access is available only on Robinhood Mainnet."],
     "not-eligible": ["Museum pass required", "Hold a Nixie token or any Nixie NFT in this wallet to enter."],
     "not-configured": ["Museum opening soon", "The Nixie token and NFT contracts have not been configured yet."],
@@ -127,10 +135,12 @@ export default function MuseumPage() {
   const retryAccess = () => window.location.reload();
   const gateAction = accessState === "wallet-required"
     ? () => openConnectModal?.()
+    : accessState === "signature-required"
+      ? retryAccess
     : accessState === "wrong-network"
       ? () => switchChain?.({ chainId: ROBINHOOD_CHAIN_ID })
       : retryAccess;
-  const gateActionLabel = accessState === "wallet-required" ? "Connect Robinhood wallet" : accessState === "wrong-network" ? "Switch to Robinhood Mainnet" : "Try again";
+  const gateActionLabel = accessState === "wallet-required" ? "Connect Robinhood wallet" : accessState === "signature-required" ? "Continue verification" : accessState === "wrong-network" ? "Switch to Robinhood Mainnet" : "Try again";
   if (accessState !== "allowed") return <div className="min-h-screen flex items-center justify-center px-4 font-anime" style={{ background: "#080610" }}><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-7 text-center shadow-2xl"><ShieldCheck className="mx-auto mb-4 h-9 w-9 text-[#D7FF00]" /><h1 className="text-xl font-semibold text-white">{gateCopy?.[0]}</h1><p className="mt-2 text-sm leading-relaxed text-white/60">{gateCopy?.[1]}</p>{accessState !== "checking" && <button onClick={gateAction} className="mt-6 w-full rounded-xl bg-[#D7FF00] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c6eb00]">{gateActionLabel}</button>}</div></div>;
   if (loading) return <div className="min-h-screen flex flex-col items-center justify-center font-anime" style={{ background: "#080610" }}><Loader2 className="mb-4 h-10 w-10 animate-spin text-[#D7FF00]" /><p className="text-sm text-white/50">Loading museum...</p></div>;
 

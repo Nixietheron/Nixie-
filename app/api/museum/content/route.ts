@@ -4,8 +4,8 @@ import {
   MUSEUM_PAGE_DEFAULT,
   MUSEUM_PAGE_MAX,
 } from "@/lib/supabase/data";
-import { getWalletsForRequest } from "@/lib/wallet-session";
 import { getMuseumAccess } from "@/lib/museum-access";
+import { getWalletsForRequest } from "@/lib/wallet-session";
 
 export const dynamic = "force-dynamic";
 
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
     : MUSEUM_PAGE_DEFAULT;
   const offset = Number.isFinite(rawOffset) ? Math.max(Math.floor(rawOffset), 0) : 0;
 
-  const sessionWallets = getWalletsForRequest(request);
-  const wallet = sessionWallets?.[0];
+  const wallet = getWalletsForRequest(request)?.[0];
+  if (!wallet) return NextResponse.json({ error: "Signed wallet session required" }, { status: 401 });
   const access = await getMuseumAccess(wallet);
   if (!access.allowed) return NextResponse.json({ error: "Token or NFT ownership is required" }, { status: 403 });
 
