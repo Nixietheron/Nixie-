@@ -1,19 +1,9 @@
 import type { Metadata } from "next";
-import { M_PLUS_Rounded_1c } from "next/font/google";
 import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { config } from "@/lib/wagmi-config";
-
-const mPlusRounded = M_PLUS_Rounded_1c({
-  weight: ["400", "500", "700", "800"],
-  subsets: ["latin"],
-  variable: "--font-anime",
-  display: "swap",
-  // Next 14.2.x doesn't ship font override metadata for this family; disable automatic fallback adjustment.
-  adjustFontFallback: false,
-});
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixiepink.com";
 /** Favicon, Apple touch icon, Open Graph & Twitter/X link previews. */
@@ -61,7 +51,7 @@ export default async function RootLayout({
   const initialState = cookieToInitialState(config, (await headers()).get("cookie"));
 
   return (
-    <html lang="en" className={mPlusRounded.variable}>
+    <html lang="en">
       <body className="font-anime antialiased safe-top safe-bottom">
         <Providers initialState={initialState}>
           <div className="relative z-10 min-h-screen">
