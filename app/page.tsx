@@ -48,7 +48,7 @@ export default function SplashScreen() {
             transition={{ delay: 0.06 * i, duration: 1, ease: [0.22, 1, 0.36, 1] }}
           >
             <div
-              className="absolute inset-0 bg-cover"
+              className="absolute inset-0 bg-cover bg-no-repeat"
               style={{
                 backgroundImage: `url(${src})`,
                 backgroundPosition: "center calc(50% + 70px)",
