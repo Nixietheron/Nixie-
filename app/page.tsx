@@ -110,28 +110,25 @@ export default function SplashScreen() {
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: ready ? 1 : 0, y: ready ? 0 : -16 }}
           transition={{ delay: 0.3, duration: 0.7 }}
-          className="flex items-center justify-between shrink-0 pt-8 sm:pt-10"
+          className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between border-b border-white/[0.08] bg-[#09070d]/75 px-6 py-3 backdrop-blur-xl sm:px-10 lg:px-16 xl:px-24"
         >
-          <div className="flex w-full items-center justify-between gap-4">
+            <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#D7FF00] animate-pulse" />
               <span className="text-white/45 text-xs tracking-[0.2em] uppercase font-medium">
                 Nixie — Private Museum
               </span>
             </div>
-            {!isConnected ? (
-              <button
-                type="button"
-                onClick={() => openConnectModal?.()}
-                className="rounded-xl border border-[#D7FF00]/55 bg-black/35 px-4 py-2 text-xs font-bold text-[#D7FF00] backdrop-blur-sm transition hover:bg-[#D7FF00]/15"
-              >
-                Connect wallet
-              </button>
-            ) : (
-              <span className="rounded-xl border border-[#D7FF00]/30 bg-[#D7FF00]/10 px-3 py-2 text-xs font-semibold text-[#D7FF00]">
-                Wallet connected
-              </span>
-            )}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#D7FF00] px-3 py-2 text-[11px] font-black text-[#0a080c] transition hover:brightness-110 sm:px-4">BUY $NIX</a>
+              <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="hidden rounded-lg border border-white/20 px-3 py-2 text-[11px] font-bold text-white/80 transition hover:border-[#D7FF00]/60 hover:text-[#D7FF00] sm:inline-flex">DEX</a>
+              <a href={SITE.xUrl} target="_blank" rel="noopener noreferrer" className="hidden rounded-lg border border-white/20 px-3 py-2 text-[11px] font-bold text-white/80 transition hover:border-[#D7FF00]/60 hover:text-[#D7FF00] sm:inline-flex">X</a>
+              {!isConnected ? (
+                <button type="button" onClick={() => openConnectModal?.()} className="rounded-lg border border-[#D7FF00]/55 bg-black/35 px-3 py-2 text-[11px] font-bold text-[#D7FF00] transition hover:bg-[#D7FF00]/15 sm:px-4">Connect</button>
+              ) : (
+                <span className="hidden rounded-lg border border-[#D7FF00]/30 bg-[#D7FF00]/10 px-3 py-2 text-[11px] font-semibold text-[#D7FF00] sm:inline-flex">Connected</span>
+              )}
+            </div>
           </div>
         </motion.div>
 
@@ -186,9 +183,29 @@ export default function SplashScreen() {
           <AnimatePresence>
             {ready && (
               <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.63, duration: 0.65 }}
+                className="mb-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 rounded-2xl border border-[#D7FF00]/35 bg-[#0b1000]/75 p-4 backdrop-blur-md shadow-[0_12px_50px_rgba(215,255,0,0.12)]"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#D7FF00]/40 bg-[#D7FF00]/15 text-[#D7FF00]">
+                  <span className="text-lg font-black">$</span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#D7FF00]">Live museum access</p>
+                  <p className="mt-0.5 text-xl font-black tracking-tight text-white">Museum opens at 500K $NIX</p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/55">Hold 500K $NIX to unlock the full private museum.</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {ready && (
+              <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.68, duration: 0.65 }}
+                transition={{ delay: 0.7, duration: 0.65 }}
                 className="flex flex-wrap items-center gap-4"
               >
                 <Link href="/museum">
