@@ -7,6 +7,4 @@ cmds = ["npm install --legacy-peer-deps --no-audit"]
 
 # Keep build explicit as well (provider fallback is usually correct).
 [phases.build]
-# Keep a Next.js production build from exhausting the shared VPS while Docker,
-# Coolify and the self-hosted Supabase services are also running.
-cmds = ["NODE_OPTIONS=--max-old-space-size=2048 npm run build"]
+cmds = ["npm run build"]
