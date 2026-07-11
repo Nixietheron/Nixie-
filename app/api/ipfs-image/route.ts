@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const cidParam = request.nextUrl.searchParams.get("cid");
   const sessionWallets = getWalletsForRequest(request);
   const wallet = sessionWallets?.[0];
-  const type = request.nextUrl.searchParams.get("type"); // "animated" | undefined (nsfw)
+  const type = request.nextUrl.searchParams.get("type"); // "sfw" | "nsfw" | "animated"
 
   let cid: string | null = null;
 
@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
     if (type === "animated") {
       const { data } = await createAdminClient().from("content").select("animated_cid").eq("id", contentId).maybeSingle();
       cid = data?.animated_cid ?? null;
+    } else if (type === "sfw") {
+      const { data } = await createAdminClient().from("content").select("sfw_cid").eq("id", contentId).maybeSingle();
+      cid = data?.sfw_cid ?? null;
     } else {
       const { data } = await createAdminClient().from("content").select("nsfw_cid").eq("id", contentId).maybeSingle();
       cid = data?.nsfw_cid ?? null;

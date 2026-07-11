@@ -7,11 +7,10 @@ import { MuseumEnvironment } from "./museum-environment";
 import { MuseumCharacterController } from "./museum-character-controller";
 import {
   MuseumArtFrames,
-  getBranchOuterX,
   getPublicFrameSlotForArtwork,
 } from "./museum-art-frames";
 import type { Artwork } from "@/lib/types";
-import { computeCorridorMinZ } from "@/lib/museum/corridor-bounds";
+import { PENTHOUSE_BOUNDS, getGalleryCount, getPenthouseMinZ } from "@/lib/museum/penthouse-layout";
 
 interface MuseumSceneProps {
   artworks: Artwork[];
@@ -28,61 +27,37 @@ export function MuseumScene({
   unlockAnimationArtworkId,
   onUnlockAnimationDone,
 }: MuseumSceneProps) {
-  // Keep corridors disjoint: NSFW-capable items live only in NSFW corridor.
-  const publicArtworks = artworks.filter((a) => a.sfwPreview && !a.hasNsfw);
-  const nsfwArtworks = artworks.filter((a) => a.hasNsfw);
-  const corridorMinZ = computeCorridorMinZ(publicArtworks.length, nsfwArtworks.length);
-  const cameraFar = Math.max(120, -corridorMinZ + 45);
-  const fogFar = Math.max(80, Math.min(420, -corridorMinZ * 0.35 + 100));
-  // Keep free branches open even when currently empty.
-  const hasBranches = true;
-  const branchOuterX = getBranchOuterX(publicArtworks.length);
+  // A single token gate opens the full collection in one open-plan gallery.
+  const { publicArtworks, nsfwArtworks, allArtworks } = useMemo(() => {
+    const publicItems = artworks.filter((a) => a.sfwPreview && !a.hasNsfw);
+    const fullCollection = artworks.filter((a) => a.hasNsfw);
+    return {
+      publicArtworks: publicItems,
+      nsfwArtworks: fullCollection,
+      allArtworks: [...publicItems, ...fullCollection],
+    };
+  }, [artworks]);
 
   const unlockAnimationTarget = useMemo(() => {
     if (!unlockAnimationArtworkId) return null;
-    const publicSlot = getPublicFrameSlotForArtwork(publicArtworks, unlockAnimationArtworkId);
-    if (publicSlot) {
+    const slot = getPublicFrameSlotForArtwork(allArtworks, unlockAnimationArtworkId);
+    if (slot) {
       return {
         artworkId: unlockAnimationArtworkId,
-        frameX: publicSlot.frameX,
-        frameZ: publicSlot.frameZ,
-      };
-    }
-
-    const FRAME_SPACING = 5;
-    const NSFW_FRAMES_START_Z = -63;
-    const WALL_X = 7.6;
-    const nsfwLeft: Artwork[] = [];
-    const nsfwRight: Artwork[] = [];
-    nsfwArtworks.forEach((art, i) => {
-      if (i % 2 === 0) nsfwLeft.push(art);
-      else nsfwRight.push(art);
-    });
-    const findIndex = (arr: Artwork[]) => arr.findIndex((art) => art.id === unlockAnimationArtworkId);
-    const nsfwLeftIdx = findIndex(nsfwLeft);
-    const nsfwRightIdx = findIndex(nsfwRight);
-    if (nsfwLeftIdx >= 0) {
-      return {
-        artworkId: unlockAnimationArtworkId,
-        frameX: -WALL_X,
-        frameZ: NSFW_FRAMES_START_Z - nsfwLeftIdx * FRAME_SPACING,
-      };
-    }
-    if (nsfwRightIdx >= 0) {
-      return {
-        artworkId: unlockAnimationArtworkId,
-        frameX: WALL_X,
-        frameZ: NSFW_FRAMES_START_Z - nsfwRightIdx * FRAME_SPACING,
+        frameX: slot.frameX,
+        frameZ: slot.frameZ,
       };
     }
     return null;
-  }, [unlockAnimationArtworkId, publicArtworks, nsfwArtworks]);
+  }, [unlockAnimationArtworkId, allArtworks]);
+  const galleryCount = getGalleryCount(allArtworks.length);
+  const minWalkZ = getPenthouseMinZ(allArtworks.length);
 
   return (
     <Canvas
       dpr={[1, 1.25]}
       shadows="basic"
-      camera={{ fov: 55, near: 0.1, far: cameraFar, position: [0, 3, 12] }}
+      camera={{ fov: 55, near: 0.1, far: 90, position: [0, 3, 12] }}
       style={{ width: "100%", height: "100%" }}
       gl={{
         antialias: false,
@@ -92,21 +67,17 @@ export function MuseumScene({
         depth: true,
       }}
       onCreated={({ gl, scene }) => {
-        gl.setClearColor("#080610");
+        gl.setClearColor("#34382a");
         gl.outputColorSpace = THREE.SRGBColorSpace;
         gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 1.08;
+        gl.toneMappingExposure = 1.18;
         gl.shadowMap.autoUpdate = false;
         gl.shadowMap.needsUpdate = true;
-        scene.background = new THREE.Color("#080610");
+        scene.background = new THREE.Color("#34382a");
       }}
     >
       <Suspense fallback={null}>
-        <MuseumEnvironment
-          fogFar={fogFar}
-          hasPublicBranches={hasBranches}
-          branchOuterX={branchOuterX}
-        />
+        <MuseumEnvironment galleryCount={galleryCount} />
         <MuseumArtFrames
           publicArtworks={publicArtworks}
           nsfwArtworks={nsfwArtworks}
@@ -114,8 +85,8 @@ export function MuseumScene({
         />
         <MuseumCharacterController
           avatarChoice={avatarChoice}
-          minWalkZ={corridorMinZ}
-          maxWalkX={hasBranches ? branchOuterX : 7.5}
+          minWalkZ={minWalkZ}
+          maxWalkX={PENTHOUSE_BOUNDS.maxX}
           unlockAnimationTarget={unlockAnimationTarget}
           onUnlockAnimationDone={onUnlockAnimationDone}
         />

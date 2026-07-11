@@ -18,6 +18,7 @@ const SCROLL_ZOOM_SPEED = 0.8;
 const MIN_DISTANCE = 2.5;
 const MAX_DISTANCE = 12;
 const DESIRED_HEIGHT = 1.7;
+const FLOOR_CLEARANCE = 0.055;
 
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
@@ -179,14 +180,14 @@ function CharacterModel({
 
   return (
     <group ref={groupRef} position={[0, 0, -3]} rotation={[0, Math.PI, 0]}>
-      <group ref={containerRef} position={[0, metrics.yOffset, 0]}>
+      <group ref={containerRef} position={[0, metrics.yOffset + FLOOR_CLEARANCE, 0]}>
         <primitive object={clonedScene} scale={metrics.scale} />
       </group>
     </group>
   );
 }
 
-const DEFAULT_MIN_WALK_Z = -105;
+const DEFAULT_MIN_WALK_Z = -27;
 
 export function MuseumCharacterController({
   avatarChoice = "female",
@@ -325,7 +326,7 @@ export function MuseumCharacterController({
     const orbit = orbitRef.current;
     const dt = Math.min(delta, 0.05);
     const scripted = unlockScriptRef.current;
-    const zMin = Math.min(minWalkZ, DEFAULT_MIN_WALK_Z);
+    const zMin = minWalkZ;
 
     const camYaw = orbit.yaw;
     _forward.set(-Math.sin(camYaw), 0, -Math.cos(camYaw)).normalize();
@@ -399,61 +400,10 @@ export function MuseumCharacterController({
       }
     }
 
-    // ── Corridor collision bounds ──────────────────────────────────────
-    // Geometry (world space):
-    //   Corridor 1 (main):  X ∈ [-7.5,+7.5],  Z free (full length)
-    //   Corridor 2 (right): X ∈ [+8,+57.5],   Z ∈ [-51,-35]
-    //   Corridor 3 (left):  X ∈ [-57.5,-8],   Z ∈ [-51,-35]
-    //   Junction opening in Corridor 1 walls at Z ∈ [-51,-35]
-    const MAIN_HALF_W     = 7.5;
-    const BRANCH_OUTER_X  = maxWalkX;  // 57.5
-    const JUNCTION_Z_FAR  = -51;       // back wall of side corridors
-    const JUNCTION_Z_NEAR = -35;       // front wall of side corridors
-    const NSFW_T_Z_FAR    = -139;      // back wall of end T branches
-    const NSFW_T_Z_NEAR   = -123;      // front wall of end T branches
-    const NSFW_T_OUTER_X  = 50;        // end T-branch outer wall X
-    const WALL_INSET = 0.2;            // keep character off wall thickness
-
-    const cx = char.position.x;
-    const cz = char.position.z;
-
-    const inJunctionZ = cz <= JUNCTION_Z_NEAR && cz >= JUNCTION_Z_FAR;
-    const inBranchX = Math.abs(cx) > MAIN_HALF_W + WALL_INSET;
-    const inNsfwTJunctionZ = cz <= NSFW_T_Z_NEAR && cz >= NSFW_T_Z_FAR;
-    const inNsfwBranchX = Math.abs(cx) > MAIN_HALF_W + WALL_INSET;
-
-    if (inJunctionZ) {
-      // Junction is an open cross area: allow free crossing main <-> side corridors.
-      // Keep only the global outer X bounds here.
-      char.position.x = THREE.MathUtils.clamp(cx, -BRANCH_OUTER_X + WALL_INSET, BRANCH_OUTER_X - WALL_INSET);
-      // If currently deep in branch X zone, keep Z inside branch walls.
-      if (inBranchX) {
-        char.position.z = THREE.MathUtils.clamp(
-          char.position.z,
-          JUNCTION_Z_FAR + WALL_INSET,
-          JUNCTION_Z_NEAR - WALL_INSET,
-        );
-      }
-    } else if (inNsfwTJunctionZ) {
-      // End NSFW T-junction is also open cross-area.
-      char.position.x = THREE.MathUtils.clamp(
-        cx,
-        -NSFW_T_OUTER_X + WALL_INSET,
-        NSFW_T_OUTER_X - WALL_INSET,
-      );
-      if (inNsfwBranchX) {
-        char.position.z = THREE.MathUtils.clamp(
-          char.position.z,
-          NSFW_T_Z_FAR + WALL_INSET,
-          NSFW_T_Z_NEAR - WALL_INSET,
-        );
-      }
-    } else {
-      // Outside junction Z, player must remain in the main corridor width.
-      char.position.x = THREE.MathUtils.clamp(cx, -MAIN_HALF_W + WALL_INSET, MAIN_HALF_W - WALL_INSET);
-    }
-
-    char.position.z = THREE.MathUtils.clamp(char.position.z, zMin, 4);
+    // Open-plan penthouse: keep the player in one intuitive rectangular room.
+    const WALL_INSET = 0.65;
+    char.position.x = THREE.MathUtils.clamp(char.position.x, -maxWalkX + WALL_INSET, maxWalkX - WALL_INSET);
+    char.position.z = THREE.MathUtils.clamp(char.position.z, zMin + WALL_INSET, 10 - WALL_INSET);
     char.position.y = 0;
 
     const dist = orbit.distance;
@@ -464,37 +414,11 @@ export function MuseumCharacterController({
     let camZ = char.position.z + Math.cos(camYaw) * horizDist;
     let camY = CAMERA_LOOK_HEIGHT + vertOffset;
 
-    // ── Camera wall collision ─────────────────────────────────────────
-    // Mirror the same corridor geometry. CAM_INSET prevents near-clip clipping.
+    // Camera uses the same compact room limits, avoiding invisible legacy
+    // corridor bounds while still keeping the avatar framed in the gallery.
     const CAM_INSET = 0.35;
-    const camInJunctionZ = camZ <= JUNCTION_Z_NEAR && camZ >= JUNCTION_Z_FAR;
-    const camInBranchX = Math.abs(camX) > MAIN_HALF_W + CAM_INSET;
-    const camInNsfwTJunctionZ = camZ <= NSFW_T_Z_NEAR && camZ >= NSFW_T_Z_FAR;
-    const camInNsfwBranchX = Math.abs(camX) > MAIN_HALF_W + CAM_INSET;
-
-    if (camInJunctionZ) {
-      // Open cross junction: camera can cross freely.
-      camX = THREE.MathUtils.clamp(camX, -BRANCH_OUTER_X + CAM_INSET, BRANCH_OUTER_X - CAM_INSET);
-      if (camInBranchX) {
-        camZ = THREE.MathUtils.clamp(camZ, JUNCTION_Z_FAR + CAM_INSET, JUNCTION_Z_NEAR - CAM_INSET);
-      }
-    } else if (camInNsfwTJunctionZ) {
-      // End NSFW T-junction: allow left/right branches, keep camera in bounds.
-      camX = THREE.MathUtils.clamp(
-        camX,
-        -NSFW_T_OUTER_X + CAM_INSET,
-        NSFW_T_OUTER_X - CAM_INSET,
-      );
-      if (camInNsfwBranchX) {
-        camZ = THREE.MathUtils.clamp(camZ, NSFW_T_Z_FAR + CAM_INSET, NSFW_T_Z_NEAR - CAM_INSET);
-      }
-    } else {
-      // Outside junction, keep camera in main corridor.
-      camX = THREE.MathUtils.clamp(camX, -MAIN_HALF_W + CAM_INSET, MAIN_HALF_W - CAM_INSET);
-    }
-
-    const camZMin = zMin - 0.2;
-    camZ = THREE.MathUtils.clamp(camZ, camZMin, 4.2);
+    camX = THREE.MathUtils.clamp(camX, -maxWalkX + CAM_INSET, maxWalkX - CAM_INSET);
+    camZ = THREE.MathUtils.clamp(camZ, zMin + CAM_INSET, 10 - CAM_INSET);
     camY = THREE.MathUtils.clamp(camY, 0.5, 4.5);
 
     _idealCam.set(camX, camY, camZ);

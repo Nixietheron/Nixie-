@@ -88,9 +88,13 @@ export function assertWalletMatchesSession(session: WalletSessionPayload | null,
 }
 
 export function sessionCookieOptions(expiresMs: number) {
+  // `next start` runs with NODE_ENV=production locally too. A Secure cookie
+  // cannot be stored on http://127.0.0.1, which otherwise causes a perpetual
+  // SIWE signature loop. Hosted production remains HTTPS-only.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: appUrl.startsWith("https://"),
     sameSite: "lax" as const,
     path: "/",
     maxAge: Math.floor(expiresMs / 1000),

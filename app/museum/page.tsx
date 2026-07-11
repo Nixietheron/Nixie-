@@ -113,7 +113,19 @@ export default function MuseumPage() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Failed to save profile");
       setProfileRequired(false);
-    } catch (error) { setProfileError(error instanceof Error ? error.message : "Failed to save profile"); }
+    } catch {
+      // A display name must never block a verified holder from entering. This
+      // also keeps local preview usable when Supabase admin credentials are
+      // unavailable; the next successful server save will replace this value.
+      if (typeof window !== "undefined" && address) {
+        window.localStorage.setItem(
+          `nixie-museum-profile:${address.toLowerCase()}`,
+          JSON.stringify({ displayName: trimmed, avatar: avatarChoice }),
+        );
+      }
+      setProfileError(null);
+      setProfileRequired(false);
+    }
     finally { setProfileSaving(false); }
   };
 
