@@ -101,6 +101,9 @@ async function handleBuyAlerts(request: NextRequest) {
     const db = createAdminClient();
     const confirmations = positiveInteger(process.env.NIX_BUY_CONFIRMATIONS, 3);
     const maxBlockRange = positiveInteger(process.env.NIX_BUY_MAX_BLOCK_RANGE, 500);
+    // Alchemy's free tier accepts eth_getLogs windows of at most 10 blocks.
+    // Keep progress batching independent, so a delayed job can still catch up.
+    const logBlockRange = positiveInteger(process.env.NIX_BUY_LOG_BLOCK_RANGE, 10);
     const latestBlock = await client.getBlockNumber();
     const safeBlock = latestBlock > BigInt(confirmations) ? latestBlock - BigInt(confirmations) : BigInt(0);
     const { data: state, error: stateError } = await db
@@ -121,12 +124,16 @@ async function handleBuyAlerts(request: NextRequest) {
     const lastProcessed = BigInt(state.last_processed_block);
     if (lastProcessed >= safeBlock) return NextResponse.json({ processed: false, lastProcessedBlock: lastProcessed.toString() });
     const toBlock = lastProcessed + BigInt(maxBlockRange) < safeBlock ? lastProcessed + BigInt(maxBlockRange) : safeBlock;
-    const logs = await client.getLogs({
-      address: tokenAddress,
-      event: erc20TransferEventAbi[0],
-      fromBlock: lastProcessed + BigInt(1),
-      toBlock,
-    });
+    const logRanges: { fromBlock: bigint; toBlock: bigint }[] = [];
+    for (let fromBlock = lastProcessed + BigInt(1); fromBlock <= toBlock; fromBlock += BigInt(logBlockRange)) {
+      const chunkToBlock = fromBlock + BigInt(logBlockRange - 1) < toBlock ? fromBlock + BigInt(logBlockRange - 1) : toBlock;
+      logRanges.push({ fromBlock, toBlock: chunkToBlock });
+    }
+    const logs = (await Promise.all(logRanges.map((range) => client.getLogs({
+        address: tokenAddress,
+        event: erc20TransferEventAbi[0],
+        ...range,
+      })))).flat();
 
     const poolSet = new Set(pools);
     const candidates = logs
