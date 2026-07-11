@@ -13,6 +13,11 @@ type AvatarChoice = "female" | "male";
 type AccessState = "checking" | "allowed" | "wallet-required" | "signature-required" | "wrong-network" | "not-eligible" | "not-configured" | "rpc-error";
 
 const MuseumScene = dynamic(() => import("@/components/museum/museum-scene").then((m) => m.MuseumScene), { ssr: false });
+const GATE_IMAGES = ["/nixie2.webp", "/nixie3.webp", "/nixie4.webp", "/nixie5.webp", "/nixie6.webp"] as const;
+
+function MuseumGateBackdrop() {
+  return <div className="pointer-events-none absolute inset-0 overflow-hidden"><div className="absolute inset-0 flex gap-px opacity-55">{GATE_IMAGES.map((src, index) => <div key={src} className="relative flex-1 overflow-hidden"><div className="absolute inset-0 scale-110 bg-cover bg-center" style={{ backgroundImage: `url(${src})`, backgroundPosition: `center calc(50% + ${index % 2 ? 30 : 58}px)` }} /><div className="absolute inset-0 bg-[#080610]/70" /></div>)}</div><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(215,255,0,0.12),transparent_36%),linear-gradient(to_bottom,rgba(8,6,16,0.65),rgba(8,6,16,0.92))]" /></div>;
+}
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -153,7 +158,7 @@ export default function MuseumPage() {
       ? () => switchChain?.({ chainId: ROBINHOOD_CHAIN_ID })
       : retryAccess;
   const gateActionLabel = accessState === "wallet-required" ? "Connect Robinhood wallet" : accessState === "signature-required" ? "Continue verification" : accessState === "wrong-network" ? "Switch to Robinhood Mainnet" : "Try again";
-  if (accessState !== "allowed") return <div className="min-h-screen flex items-center justify-center px-4 font-anime" style={{ background: "#080610" }}><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-7 text-center shadow-2xl"><ShieldCheck className="mx-auto mb-4 h-9 w-9 text-[#D7FF00]" /><h1 className="text-xl font-semibold text-white">{gateCopy?.[0]}</h1><p className="mt-2 text-sm leading-relaxed text-white/60">{gateCopy?.[1]}</p>{accessState !== "checking" && <button onClick={gateAction} className="mt-6 w-full rounded-xl bg-[#D7FF00] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c6eb00]">{gateActionLabel}</button>}</div></div>;
+  if (accessState !== "allowed") return <div className="relative min-h-screen overflow-hidden px-4 font-anime" style={{ background: "#080610" }}><MuseumGateBackdrop /><div className="relative z-10 flex min-h-screen items-center justify-center"><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e]/90 p-7 text-center shadow-2xl backdrop-blur-md"><ShieldCheck className="mx-auto mb-4 h-9 w-9 text-[#D7FF00]" /><h1 className="text-xl font-semibold text-white">{gateCopy?.[0]}</h1><p className="mt-2 text-sm leading-relaxed text-white/60">{gateCopy?.[1]}</p>{accessState !== "checking" && <button onClick={gateAction} className="mt-6 w-full rounded-xl bg-[#D7FF00] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c6eb00]">{gateActionLabel}</button>}</div></div></div>;
   if (loading) return <div className="min-h-screen flex flex-col items-center justify-center font-anime" style={{ background: "#080610" }}><Loader2 className="mb-4 h-10 w-10 animate-spin text-[#D7FF00]" /><p className="text-sm text-white/50">Loading museum...</p></div>;
 
   return <div className="relative h-screen w-screen overflow-hidden font-anime" style={{ background: "#080610" }}>
