@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
-import { ArrowRight, ArrowDown, ExternalLink, Mail } from "lucide-react";
+import { ArrowRight, ArrowDown, ExternalLink, Flame, Mail } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
@@ -22,6 +22,7 @@ const DEXSCREENER_URL = "https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c
 
 export default function SplashScreen() {
   const [ready, setReady] = useState(false);
+  const [burnedNix, setBurnedNix] = useState<string | null>(null);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
@@ -35,6 +36,22 @@ export default function SplashScreen() {
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 100);
     return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadBurnedNix = async () => {
+      try {
+        const response = await fetch("/api/token/burned", { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (response.ok && typeof data.amount === "string" && !cancelled) setBurnedNix(data.amount);
+      } catch {
+        // The header remains compact and simply hides the counter if the RPC is temporarily unavailable.
+      }
+    };
+    void loadBurnedNix();
+    const interval = window.setInterval(loadBurnedNix, 30 * 60 * 1000);
+    return () => { cancelled = true; window.clearInterval(interval); };
   }, []);
 
   return (
@@ -128,6 +145,7 @@ export default function SplashScreen() {
               </span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              {burnedNix && <span title="Live $NIX balance at the burn address · refreshes every 30 minutes" className="hidden items-center gap-1.5 rounded-lg border border-orange-300/25 bg-orange-400/10 px-3 py-2 text-[11px] font-bold text-orange-200 md:inline-flex"><Flame className="h-3.5 w-3.5 text-orange-400" fill="currentColor" />Burned {burnedNix} $NIX</span>}
               <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#D7FF00] px-3 py-2 text-[11px] font-black text-[#0a080c] transition hover:brightness-110 sm:px-4">BUY $NIX</a>
               <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="hidden rounded-lg border border-white/20 px-3 py-2 text-[11px] font-bold text-white/80 transition hover:border-[#D7FF00]/60 hover:text-[#D7FF00] sm:inline-flex">DEX</a>
               <a href={SITE.xUrl} target="_blank" rel="noopener noreferrer" className="hidden rounded-lg border border-white/20 px-3 py-2 text-[11px] font-bold text-white/80 transition hover:border-[#D7FF00]/60 hover:text-[#D7FF00] sm:inline-flex">X</a>
