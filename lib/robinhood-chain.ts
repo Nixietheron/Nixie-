@@ -1,21 +1,19 @@
 import { defineChain } from "viem";
 
 /**
- * Robinhood's public RPC and chain id are deployment configuration so a launch
- * can move networks without another code change. The defaults keep local
- * development deterministic; production must set both public variables.
+ * Robinhood Mainnet has a fixed public chain ID.  Keeping it out of deployment
+ * configuration prevents an old testnet value from being compiled into the
+ * wallet client and rejected by wallets while a SIWE signature is displayed.
  */
-export const ROBINHOOD_CHAIN_ID = Number(process.env.NEXT_PUBLIC_ROBINHOOD_CHAIN_ID || 4663);
+export const ROBINHOOD_CHAIN_ID = 4663;
 export const ROBINHOOD_RPC_URL =
-  process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL || process.env.ROBINHOOD_RPC_URL || "https://rpc.invalid";
-export const ROBINHOOD_RPC_CONFIGURED = Boolean(
-  process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL || process.env.ROBINHOOD_RPC_URL
-);
+  process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL || process.env.ROBINHOOD_RPC_URL || "https://rpc.mainnet.chain.robinhood.com";
+export const ROBINHOOD_RPC_CONFIGURED = true;
 
 export const robinhoodMainnet = defineChain({
   id: ROBINHOOD_CHAIN_ID,
   name: "Robinhood Mainnet",
-  nativeCurrency: { name: "USDG", symbol: "USDG", decimals: 18 },
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: { http: [ROBINHOOD_RPC_URL] },
     public: { http: [ROBINHOOD_RPC_URL] },

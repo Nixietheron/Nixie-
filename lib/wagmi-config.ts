@@ -1,5 +1,5 @@
 import { createConfig, createStorage, cookieStorage, http } from "wagmi";
-import { robinhoodMainnet } from "@/lib/robinhood-chain";
+import { robinhoodMainnet, ROBINHOOD_RPC_URL } from "@/lib/robinhood-chain";
 import {
   coinbaseWallet,
   injected,
@@ -31,7 +31,7 @@ export const config = createConfig({
   ssr: true,
   storage: clientStorage,
   transports: {
-    [robinhoodMainnet.id]: http(),
+    [robinhoodMainnet.id]: http(ROBINHOOD_RPC_URL),
   },
   connectors,
 });

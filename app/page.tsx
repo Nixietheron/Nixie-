@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { ArrowRight, ArrowDown, ExternalLink, Mail } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { SITE } from "@/lib/site";
 
@@ -22,8 +22,15 @@ const DEXSCREENER_URL = "https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c
 
 export default function SplashScreen() {
   const [ready, setReady] = useState(false);
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
+  const shortAddress = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : "";
+
+  const disconnectWallet = () => {
+    void fetch("/api/auth/logout", { method: "POST", credentials: "include", keepalive: true });
+    disconnect();
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 100);
@@ -126,9 +133,7 @@ export default function SplashScreen() {
               <a href={SITE.xUrl} target="_blank" rel="noopener noreferrer" className="hidden rounded-lg border border-white/20 px-3 py-2 text-[11px] font-bold text-white/80 transition hover:border-[#D7FF00]/60 hover:text-[#D7FF00] sm:inline-flex">X</a>
               {!isConnected ? (
                 <button type="button" onClick={() => openConnectModal?.()} className="rounded-lg border border-[#D7FF00]/55 bg-black/35 px-3 py-2 text-[11px] font-bold text-[#D7FF00] transition hover:bg-[#D7FF00]/15 sm:px-4">Connect</button>
-              ) : (
-                <span className="hidden rounded-lg border border-[#D7FF00]/30 bg-[#D7FF00]/10 px-3 py-2 text-[11px] font-semibold text-[#D7FF00] sm:inline-flex">Connected</span>
-              )}
+              ) : <button type="button" onClick={disconnectWallet} title={`Disconnect ${address}`} className="hidden rounded-lg border border-[#D7FF00]/30 bg-[#D7FF00]/10 px-3 py-2 text-[11px] font-semibold text-[#D7FF00] transition hover:border-red-300/60 hover:bg-red-300/10 hover:text-red-200 sm:inline-flex">{shortAddress} · Disconnect</button>}
             </div>
           </div>
         </motion.div>

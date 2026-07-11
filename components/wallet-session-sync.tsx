@@ -38,7 +38,10 @@ export function WalletSessionSync() {
           version: "1",
           statement: "Sign in to Nixie Museum to verify wallet ownership.",
         });
-        const signature = await signMessageAsync({ message });
+        // Explicitly bind the request to the connected account. Some injected
+        // wallets otherwise reuse a stale selected account/chain during a
+        // reconnect and reject the SIWE prompt before it can be displayed.
+        const signature = await signMessageAsync({ message, account: address });
         const response = await fetch("/api/auth/evm", {
           method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message, signature }),
