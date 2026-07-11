@@ -16,7 +16,7 @@ The entry API is fail-closed: until a valid `ROBINHOOD_TOKEN_ADDRESS` or `ROBINH
 `/api/telegram/buy-alerts` is a protected cron worker. It reads confirmed ERC-20 `Transfer` logs and publishes an alert only when NIX leaves a configured, verified DEX liquidity-pool address. This avoids treating wallet-to-wallet transfers as buys.
 
 1. Create a bot with [@BotFather](https://t.me/BotFather), add it to the Nixie group/channel as an administrator, and set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
-2. Set `NIX_BUY_POOL_ADDRESSES` to the actual NIX pool address(es), comma-separated. Do not use the token contract address here.
+2. Set `NIX_BUY_POOL_ADDRESSES` to the actual NIX pool address(es), comma-separated. Do not use the token contract address here. Set `NIX_BUY_RPC_URL` when the worker should use a dedicated RPC quota; it otherwise falls back to `ROBINHOOD_RPC_URL`.
 3. Apply `supabase/migrations/00018_telegram_buy_alerts.sql`, then schedule it every 1–5 minutes with `Authorization: Bearer $CRON_SECRET`. External schedulers can use `POST`; Vercel Cron calls `GET` and supplies that header automatically when `CRON_SECRET` is set. Add the following only if the Vercel plan supports a sub-daily cron schedule:
 
 ```json

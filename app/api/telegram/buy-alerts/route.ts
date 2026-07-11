@@ -101,7 +101,10 @@ async function handleBuyAlerts(request: NextRequest) {
     const minAmount = Number(process.env.NIX_BUY_MIN_AMOUNT || "0");
     if (!Number.isFinite(minAmount) || minAmount < 0) throw new Error("NIX_BUY_MIN_AMOUNT must be zero or a positive number");
 
-    const client = createPublicClient({ chain: robinhoodMainnet, transport: http(ROBINHOOD_RPC_URL) });
+    // Keep the alert worker on an independent RPC quota. The rest of the app
+    // continues using ROBINHOOD_RPC_URL (for example, its Alchemy endpoint).
+    const buyRpcUrl = process.env.NIX_BUY_RPC_URL || ROBINHOOD_RPC_URL;
+    const client = createPublicClient({ chain: robinhoodMainnet, transport: http(buyRpcUrl) });
     const db = createAdminClient();
     const confirmations = positiveInteger(process.env.NIX_BUY_CONFIRMATIONS, 3);
     const maxBlockRange = positiveInteger(process.env.NIX_BUY_MAX_BLOCK_RANGE, 500);
