@@ -71,7 +71,10 @@ async function sendTelegramAlert(text: string) {
       },
     }),
   });
-  if (!response.ok) throw new Error(`Telegram sendPhoto failed (${response.status})`);
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Telegram sendPhoto failed (${response.status}): ${details}`);
+  }
 }
 
 function authorized(request: NextRequest) {
