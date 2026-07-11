@@ -11,6 +11,7 @@ const STREAM_KEY = "nix-buy-alerts-v1";
 const MAX_NOTIFICATIONS_PER_RUN = 30;
 const NOXA_BUY_URL = "https://fun.noxa.fi/robinhood/token/0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f";
 const DEXSCREENER_URL = "https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a";
+const DEXSCREENER_PAIR_API = "https://api.dexscreener.com/latest/dex/pairs/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a";
 
 function delay(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
@@ -33,13 +34,28 @@ function shortAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-function alertText(alert: { buyer_wallet: string; token_amount: string; transaction_hash: string }) {
+async function getNixUsdPrice() {
+  const response = await fetch(DEXSCREENER_PAIR_API, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Dexscreener price lookup failed (${response.status})`);
+  const payload = await response.json() as { pair?: { priceUsd?: string } };
+  const price = Number(payload.pair?.priceUsd);
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Dexscreener returned an invalid NIX USD price");
+  return price;
+}
+
+function formatUsd(amount: string | number | null | undefined) {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+}
+
+function alertText(alert: { buyer_wallet: string; token_amount: string; usd_amount: string | null; transaction_hash: string }) {
   const symbol = process.env.NIX_TOKEN_SYMBOL || "NIX";
   const explorer = process.env.NEXT_PUBLIC_ROBINHOOD_EXPLORER_URL || "https://robinhoodchain.blockscout.com";
   const amount = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(Number(alert.token_amount));
   const buyerUrl = `${explorer}/address/${alert.buyer_wallet}`;
   const txUrl = `${explorer}/tx/${alert.transaction_hash}`;
-  return `💚 <b>Nixie’s after-hours radar just lit up…</b>\n\n<b>${amount} ${symbol}</b> just turned up the heat.\n💋 <b>Buyer:</b> <a href="${buyerUrl}">${shortAddress(alert.buyer_wallet)}</a>\n✨ <b>Pair:</b> ${symbol}/WETH\n\n<i>Green candles look better after dark.</i>\n<a href="${txUrl}">View transaction</a>`;
+  return `💚 <b>Nixie’s after-hours radar just lit up…</b>\n\n<b>Amount:</b> ${amount} ${symbol}\n<b>Value:</b> ≈ ${formatUsd(alert.usd_amount)}\n💋 <b>Buyer:</b> <a href="${buyerUrl}">${shortAddress(alert.buyer_wallet)}</a>\n✨ <b>Pair:</b> ${symbol}/WETH\n\n<i>Green candles look better after dark.</i>\n<a href="${txUrl}">View transaction</a>`;
 }
 
 function alertImageUrl() {
@@ -103,6 +119,8 @@ async function handleBuyAlerts(request: NextRequest) {
     const pools = configuredPools(process.env.NIX_BUY_POOL_ADDRESSES);
     const minAmount = Number(process.env.NIX_BUY_MIN_AMOUNT || "0");
     if (!Number.isFinite(minAmount) || minAmount < 0) throw new Error("NIX_BUY_MIN_AMOUNT must be zero or a positive number");
+    const minUsd = Number(process.env.NIX_BUY_MIN_USD || "3");
+    if (!Number.isFinite(minUsd) || minUsd < 0) throw new Error("NIX_BUY_MIN_USD must be zero or a positive number");
 
     // Keep the alert worker on an independent RPC quota. The rest of the app
     // continues using ROBINHOOD_RPC_URL (for example, its Alchemy endpoint).
@@ -164,22 +182,26 @@ async function handleBuyAlerts(request: NextRequest) {
       if (index < logRanges.length - 1) await delay(logRequestDelay);
     }
 
+    const nixUsdPrice = logs.length ? await getNixUsdPrice() : 0;
     const poolSet = new Set(pools);
     const candidates = logs
-      .filter((log) => {
+      .map((log) => {
         const from = log.args.from?.toLowerCase();
         const to = log.args.to?.toLowerCase();
         const value = log.args.value;
-        return Boolean(from && to && value !== undefined && from !== zeroAddress && to !== zeroAddress && from !== to && poolSet.has(from as Address) && !poolSet.has(to as Address) && Number(formatUnits(value!, Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18"))) >= minAmount);
+        const tokenAmount = value === undefined ? 0 : Number(formatUnits(value, Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18")));
+        return { log, from, to, value, tokenAmount, usdAmount: tokenAmount * nixUsdPrice };
       })
-      .map((log) => ({
+      .filter(({ from, to, value, tokenAmount, usdAmount }) => Boolean(from && to && value !== undefined && from !== zeroAddress && to !== zeroAddress && from !== to && poolSet.has(from as Address) && !poolSet.has(to as Address) && tokenAmount >= minAmount && usdAmount >= minUsd))
+      .map(({ log, from, to, value, usdAmount }) => ({
         id: `${log.transactionHash}-${log.logIndex}`,
         transaction_hash: log.transactionHash!,
         log_index: Number(log.logIndex),
         block_number: Number(log.blockNumber),
-        buyer_wallet: log.args.to!.toLowerCase(),
-        pool_address: log.args.from!.toLowerCase(),
-        token_amount: formatUnits(log.args.value!, Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18")),
+        buyer_wallet: to!,
+        pool_address: from!,
+        token_amount: formatUnits(value!, Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18")),
+        usd_amount: usdAmount.toFixed(6),
       }));
 
     if (candidates.length) {
@@ -189,7 +211,7 @@ async function handleBuyAlerts(request: NextRequest) {
 
     const { data: pending, error: pendingError } = await db
       .from("telegram_buy_alerts")
-      .select("id, buyer_wallet, token_amount, transaction_hash")
+      .select("id, buyer_wallet, token_amount, usd_amount, transaction_hash")
       .is("sent_at", null)
       .order("block_number", { ascending: true })
       .limit(MAX_NOTIFICATIONS_PER_RUN);
