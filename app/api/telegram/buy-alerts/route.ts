@@ -75,6 +75,17 @@ function authorized(request: NextRequest) {
   return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
+function workerErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const value = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    const details = [value.message, value.details, value.hint].filter((item): item is string => typeof item === "string" && item.length > 0);
+    if (details.length) return details.join(" — ");
+    if (typeof value.code === "string") return `Worker error (${value.code})`;
+  }
+  return "Buy-alert worker failed";
+}
+
 async function handleBuyAlerts(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -165,7 +176,7 @@ async function handleBuyAlerts(request: NextRequest) {
     return NextResponse.json({ processed: true, fromBlock: (lastProcessed + BigInt(1)).toString(), toBlock: toBlock.toString(), detected: candidates.length, sent: (pending || []).length });
   } catch (error) {
     console.error("Telegram buy-alert worker failed", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Buy-alert worker failed" }, { status: 500 });
+    return NextResponse.json({ error: workerErrorMessage(error) }, { status: 500 });
   }
 }
 
