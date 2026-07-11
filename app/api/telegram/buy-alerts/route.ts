@@ -12,6 +12,10 @@ const MAX_NOTIFICATIONS_PER_RUN = 30;
 const NOXA_BUY_URL = "https://fun.noxa.fi/robinhood/token/0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f";
 const DEXSCREENER_URL = "https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a";
 
+function delay(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
 function positiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -104,6 +108,9 @@ async function handleBuyAlerts(request: NextRequest) {
     // Alchemy's free tier accepts eth_getLogs windows of at most 10 blocks.
     // Keep progress batching independent, so a delayed job can still catch up.
     const logBlockRange = positiveInteger(process.env.NIX_BUY_LOG_BLOCK_RANGE, 10);
+    // Free RPC plans also cap requests per second. 500ms keeps catch-up traffic
+    // below that limit while leaving enough headroom for a five-minute task.
+    const logRequestDelay = positiveInteger(process.env.NIX_BUY_LOG_REQUEST_DELAY_MS, 500);
     const latestBlock = await client.getBlockNumber();
     const safeBlock = latestBlock > BigInt(confirmations) ? latestBlock - BigInt(confirmations) : BigInt(0);
     const { data: state, error: stateError } = await db
@@ -129,11 +136,27 @@ async function handleBuyAlerts(request: NextRequest) {
       const chunkToBlock = fromBlock + BigInt(logBlockRange - 1) < toBlock ? fromBlock + BigInt(logBlockRange - 1) : toBlock;
       logRanges.push({ fromBlock, toBlock: chunkToBlock });
     }
-    const logs = (await Promise.all(logRanges.map((range) => client.getLogs({
-        address: tokenAddress,
-        event: erc20TransferEventAbi[0],
-        ...range,
-      })))).flat();
+    const getTransferLogs = (range: { fromBlock: bigint; toBlock: bigint }) => client.getLogs({
+      address: tokenAddress,
+      event: erc20TransferEventAbi[0],
+      ...range,
+    });
+    const logs: Awaited<ReturnType<typeof getTransferLogs>> = [];
+    for (let index = 0; index < logRanges.length; index += 1) {
+      const range = logRanges[index];
+      let attempt = 0;
+      while (true) {
+        try {
+          logs.push(...await getTransferLogs(range));
+          break;
+        } catch (error) {
+          if (attempt >= 3) throw error;
+          attempt += 1;
+          await delay(logRequestDelay * attempt * 2);
+        }
+      }
+      if (index < logRanges.length - 1) await delay(logRequestDelay);
+    }
 
     const poolSet = new Set(pools);
     const candidates = logs

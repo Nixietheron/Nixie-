@@ -25,6 +25,6 @@ The entry API is fail-closed: until a valid `ROBINHOOD_TOKEN_ADDRESS` or `ROBINH
 }
 ```
 
-Every alert is sent as a Telegram photo card, with the Nixie after-hours visual, the buy amount and buyer wallet in the caption, plus Noxa and Dexscreener buttons. `public/nix-buy-alert.png` is used by default; set `NIX_BUY_ALERT_IMAGE_URL` only when you host a different HTTPS image. If the RPC is Alchemy Free, keep `NIX_BUY_LOG_BLOCK_RANGE=10`; the worker automatically batches larger catch-up ranges into compliant log requests.
+Every alert is sent as a Telegram photo card, with the Nixie after-hours visual, the buy amount and buyer wallet in the caption, plus Noxa and Dexscreener buttons. `public/nix-buy-alert.png` is used by default; set `NIX_BUY_ALERT_IMAGE_URL` only when you host a different HTTPS image. If the RPC is Alchemy Free, keep `NIX_BUY_LOG_BLOCK_RANGE=10` and `NIX_BUY_LOG_REQUEST_DELAY_MS=500`; the worker automatically batches and paces larger catch-up ranges within its limits.
 
 The first successful call only records the current confirmed block; it deliberately does not announce old transactions. Later calls are idempotent: delivered event IDs are stored in Supabase, and failed Telegram sends remain queued for the next run.
