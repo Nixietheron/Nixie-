@@ -37,10 +37,12 @@ function shortAddress(address: string) {
 async function getNixUsdPrice() {
   const response = await fetch(DEXSCREENER_PAIR_API, { cache: "no-store" });
   if (!response.ok) throw new Error(`Dexscreener price lookup failed (${response.status})`);
-  const payload = await response.json() as { pair?: { priceUsd?: string } };
+  const payload = await response.json() as { pair?: { priceUsd?: string; marketCap?: number; fdv?: number } };
   const price = Number(payload.pair?.priceUsd);
   if (!Number.isFinite(price) || price <= 0) throw new Error("Dexscreener returned an invalid NIX USD price");
-  return price;
+  const marketCap = Number(payload.pair?.marketCap ?? payload.pair?.fdv);
+  if (!Number.isFinite(marketCap) || marketCap <= 0) throw new Error("Dexscreener returned an invalid NIX market cap");
+  return { price, marketCap };
 }
 
 function formatUsd(amount: string | number | null | undefined) {
@@ -49,13 +51,13 @@ function formatUsd(amount: string | number | null | undefined) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 }
 
-function alertText(alert: { buyer_wallet: string; token_amount: string; usd_amount: string | null; transaction_hash: string }) {
+function alertText(alert: { buyer_wallet: string; token_amount: string; usd_amount: string | null; market_cap_usd: string | null; transaction_hash: string }) {
   const symbol = process.env.NIX_TOKEN_SYMBOL || "NIX";
   const explorer = process.env.NEXT_PUBLIC_ROBINHOOD_EXPLORER_URL || "https://robinhoodchain.blockscout.com";
   const amount = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(Number(alert.token_amount));
   const buyerUrl = `${explorer}/address/${alert.buyer_wallet}`;
   const txUrl = `${explorer}/tx/${alert.transaction_hash}`;
-  return `💚 <b>Nixie’s after-hours radar just lit up…</b>\n\n<b>Amount:</b> ${amount} ${symbol}\n<b>Value:</b> ≈ ${formatUsd(alert.usd_amount)}\n💋 <b>Buyer:</b> <a href="${buyerUrl}">${shortAddress(alert.buyer_wallet)}</a>\n✨ <b>Pair:</b> ${symbol}/WETH\n\n<i>Green candles look better after dark.</i>\n<a href="${txUrl}">View transaction</a>`;
+  return `💚 <b>Nixie’s after-hours radar just lit up…</b>\n\n<b>Amount:</b> ${amount} ${symbol}\n<b>Value:</b> ≈ ${formatUsd(alert.usd_amount)}\n<b>MC:</b> ${formatUsd(alert.market_cap_usd)}\n💋 <b>Buyer:</b> <a href="${buyerUrl}">${shortAddress(alert.buyer_wallet)}</a>\n✨ <b>Pair:</b> ${symbol}/WETH\n\n<i>Green candles look better after dark.</i>\n<a href="${txUrl}">View transaction</a>`;
 }
 
 function alertImageUrl() {
@@ -182,7 +184,7 @@ async function handleBuyAlerts(request: NextRequest) {
       if (index < logRanges.length - 1) await delay(logRequestDelay);
     }
 
-    const nixUsdPrice = logs.length ? await getNixUsdPrice() : 0;
+    const market = logs.length ? await getNixUsdPrice() : null;
     const poolSet = new Set(pools);
     const candidates = logs
       .map((log) => {
@@ -190,7 +192,7 @@ async function handleBuyAlerts(request: NextRequest) {
         const to = log.args.to?.toLowerCase();
         const value = log.args.value;
         const tokenAmount = value === undefined ? 0 : Number(formatUnits(value, Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18")));
-        return { log, from, to, value, tokenAmount, usdAmount: tokenAmount * nixUsdPrice };
+        return { log, from, to, value, tokenAmount, usdAmount: tokenAmount * (market?.price || 0) };
       })
       .filter(({ from, to, value, tokenAmount, usdAmount }) => Boolean(from && to && value !== undefined && from !== zeroAddress && to !== zeroAddress && from !== to && poolSet.has(from as Address) && !poolSet.has(to as Address) && tokenAmount >= minAmount && usdAmount >= minUsd))
       .map(({ log, from, to, value, usdAmount }) => ({
@@ -202,6 +204,7 @@ async function handleBuyAlerts(request: NextRequest) {
         pool_address: from!,
         token_amount: formatUnits(value!, Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18")),
         usd_amount: usdAmount.toFixed(6),
+        market_cap_usd: market!.marketCap.toFixed(2),
       }));
 
     if (candidates.length) {
@@ -211,7 +214,7 @@ async function handleBuyAlerts(request: NextRequest) {
 
     const { data: pending, error: pendingError } = await db
       .from("telegram_buy_alerts")
-      .select("id, buyer_wallet, token_amount, usd_amount, transaction_hash")
+      .select("id, buyer_wallet, token_amount, usd_amount, market_cap_usd, transaction_hash")
       .is("sent_at", null)
       .order("block_number", { ascending: true })
       .limit(MAX_NOTIFICATIONS_PER_RUN);
