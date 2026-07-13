@@ -1,0 +1,9 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getWalletsForRequest } from "@/lib/wallet-session";
+import { getMuseumAccess } from "@/lib/museum-access";
+import { createAdminClient } from "@/lib/supabase/server";
+
+async function holder(request: NextRequest) { const wallet = getWalletsForRequest(request)?.[0]; if (!wallet) return null; const access = await getMuseumAccess(wallet); return access.allowed ? { wallet, access } : null; }
+export const dynamic = "force-dynamic";
+export async function GET(request: NextRequest) { const user = await holder(request); if (!user) return NextResponse.json({ error: "Museum pass required" }, { status: 403 }); const activeSince = new Date(Date.now() - 70_000).toISOString(); const { data, error } = await createAdminClient().from("museum_presence").select("wallet, display_name, avatar, access_source").gte("last_seen_at", activeSince).order("last_seen_at", { ascending: false }).limit(8); if (error) return NextResponse.json({ error: error.message }, { status: 500 }); return NextResponse.json({ visitors: data ?? [] }); }
+export async function POST(request: NextRequest) { const user = await holder(request); if (!user) return NextResponse.json({ error: "Museum pass required" }, { status: 403 }); const admin = createAdminClient(); const { data: profile } = await admin.from("museum_profiles").select("display_name, avatar").eq("wallet", user.wallet).maybeSingle(); const displayName = profile?.display_name || `${user.wallet.slice(0, 6)}…${user.wallet.slice(-4)}`; const { error } = await admin.from("museum_presence").upsert({ wallet: user.wallet, display_name: displayName, avatar: profile?.avatar === "male" ? "male" : "female", access_source: user.access.source, last_seen_at: new Date().toISOString() }, { onConflict: "wallet" }); if (error) return NextResponse.json({ error: error.message }, { status: 500 }); return NextResponse.json({ ok: true }); }

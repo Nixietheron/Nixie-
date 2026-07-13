@@ -1,0 +1,8 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getWalletsForRequest } from "@/lib/wallet-session";
+import { getMuseumAccess } from "@/lib/museum-access";
+import { getAdminUser } from "@/lib/auth-admin";
+import { createAdminClient } from "@/lib/supabase/server";
+export const dynamic = "force-dynamic";
+export async function GET(request: NextRequest) { const wallet = getWalletsForRequest(request)?.[0]; if (!wallet || !(await getMuseumAccess(wallet)).allowed) return NextResponse.json({ error: "Museum pass required" }, { status: 403 }); const { data } = await createAdminClient().from("museum_notices").select("id, body, expires_at").gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(1).maybeSingle(); return NextResponse.json({ notice: data ?? null }); }
+export async function POST(request: NextRequest) { const auth = await getAdminUser(); if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: 401 }); const body = await request.json().catch(() => null) as { body?: string; durationHours?: number } | null; const text = body?.body?.trim() || ""; const hours = Math.min(72, Math.max(1, Number(body?.durationHours) || 24)); if (!text || text.length > 280) return NextResponse.json({ error: "Notice must be 1–280 characters" }, { status: 400 }); const { data, error } = await createAdminClient().from("museum_notices").insert({ body: text, expires_at: new Date(Date.now() + hours * 3_600_000).toISOString() }).select("id, body, expires_at").single(); if (error) return NextResponse.json({ error: error.message }, { status: 500 }); return NextResponse.json({ notice: data }, { status: 201 }); }
