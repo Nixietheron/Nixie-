@@ -63,22 +63,6 @@ function UploadZone({
               Remove
             </button>
           )}
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <span className="text-xs text-white/70">Free</span>
-            <button
-              type="button"
-              onClick={() => onFreeToggle(!isFree)}
-              className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                isFree ? "bg-anime-lime" : "bg-white/25"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                  isFree ? "translate-x-4" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </label>
         </div>
       </div>
       <div className="bg-black/55 px-4 py-4">
@@ -146,7 +130,7 @@ function UploadZone({
           />
         </label>
       </div>
-    </div>
+      </div>
   );
 }
 
@@ -258,8 +242,6 @@ export default function AdminPage() {
     hasSfw: boolean;
     hasNsfw: boolean;
     hasAnimated: boolean;
-    priceUsdc: number;
-    priceAnimatedUsdc: number;
   } | null>(null);
 
   // My content list + edit
@@ -409,8 +391,6 @@ export default function AdminPage() {
           sfw_cid: sfwCid.trim() || null,
           nsfw_cid: nsfwCid.trim() || null,
           animated_cid: animatedCid.trim() || null,
-          price_usdc: freeFlags.nsfw ? 0 : parseFloat(priceUsdc) || 0,
-          price_animated_usdc: freeFlags.animated ? 0 : parseFloat(priceAnimatedUsdc) || 0,
         }),
       });
       const data = await res.json();
@@ -425,8 +405,6 @@ export default function AdminPage() {
         hasSfw,
         hasNsfw,
         hasAnimated,
-        priceUsdc: freeFlags.nsfw ? 0 : parseFloat(priceUsdc) || 0,
-        priceAnimatedUsdc: freeFlags.animated ? 0 : parseFloat(priceAnimatedUsdc) || 0,
       });
       setTitle("");
       setDescription("");
@@ -479,8 +457,6 @@ export default function AdminPage() {
       const patchBody: Record<string, unknown> = {
         title: editTitle.trim(),
         description: editDescription.trim() || null,
-        price_usdc: editFreeFlags.nsfw ? 0 : parseFloat(editPriceUsdc) || 0,
-        price_animated_usdc: editFreeFlags.animated ? 0 : parseFloat(editPriceAnimatedUsdc) || 0,
       };
       const sfw = editSfwCid.trim();
       const nsfw = editNsfwCid.trim();
@@ -558,8 +534,8 @@ export default function AdminPage() {
           image_cid: storyImageCid || storyNsfwCid || storyAnimatedCid,
           nsfw_cid: storyNsfwCid || null,
           animated_cid: storyAnimatedCid || null,
-          is_paid: storyPaid,
-          price_usdc: storyPaid ? parseFloat(storyPriceUsdc) || 0 : 0,
+          is_paid: false,
+          price_usdc: 0,
           duration_hours: storyDurationHours,
         }),
       });
@@ -689,14 +665,12 @@ export default function AdminPage() {
                   )}
                   {lastPublishedSummary.hasNsfw && (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/40">
-                      NSFW {lastPublishedSummary.priceUsdc > 0 && `(USD ${lastPublishedSummary.priceUsdc.toFixed(2)})`}
+                      NSFW
                     </span>
                   )}
                   {lastPublishedSummary.hasAnimated && (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/40">
-                      Animated{" "}
-                      {lastPublishedSummary.priceAnimatedUsdc > 0 &&
-                        `(USD ${lastPublishedSummary.priceAnimatedUsdc.toFixed(2)})`}
+                      Animated
                     </span>
                   )}
                 </div>
@@ -779,38 +753,6 @@ export default function AdminPage() {
                 setFreeFlags((p) => ({ ...p, animated: v }))
               }
             />
-            {!!nsfwCid.trim() && !freeFlags.nsfw && (
-              <div className="bg-black/70 rounded-2xl p-4 border border-white/25 shadow-lg shadow-black/20">
-                <label className="block text-sm font-semibold text-white/90 mb-2">
-                  NSFW unlock price (USDC)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={priceUsdc}
-                  onChange={(e) => setPriceUsdc(e.target.value)}
-                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
-                  placeholder="2.50"
-                />
-              </div>
-            )}
-            {!!animatedCid.trim() && !freeFlags.animated && (
-              <div className="bg-black/70 rounded-2xl p-4 border border-white/25 shadow-lg shadow-black/20">
-                <label className="block text-sm font-semibold text-white/90 mb-2">
-                  Animated unlock price (USDC)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={priceAnimatedUsdc}
-                  onChange={(e) => setPriceAnimatedUsdc(e.target.value)}
-                  className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
-                  placeholder="1.00"
-                />
-              </div>
-            )}
             <NixieButton
               type="submit"
               variant="primary"
@@ -818,11 +760,7 @@ export default function AdminPage() {
               disabled={
                 publishing ||
                 // Require at least one media type
-                (!sfwCid.trim() && !nsfwCid.trim() && !animatedCid.trim()) ||
-                // Only require NSFW price if there *is* an NSFW image and it's not free
-                (!!nsfwCid.trim() && !freeFlags.nsfw && !priceUsdc) ||
-                // Only require Animated price if there *is* an animated asset and it's not free
-                (!!animatedCid.trim() && !freeFlags.animated && !priceAnimatedUsdc)
+                (!sfwCid.trim() && !nsfwCid.trim() && !animatedCid.trim())
               }
             >
               {publishing ? "Publishing…" : "Publish to feed"}
@@ -865,7 +803,6 @@ export default function AdminPage() {
                         {row.title}
                       </p>
                       <p className="text-xs text-white/50">
-                        ${row.price_usdc} USDC ·{" "}
                         {new Date(row.created_at).toLocaleDateString()}
                       </p>
                     </div>
@@ -1007,36 +944,6 @@ export default function AdminPage() {
                       }
                       onRemove={() => setEditAnimatedCid("")}
                     />
-                    {!editFreeFlags.nsfw && (
-                      <div>
-                        <label className="block text-sm font-semibold text-white/90 mb-2">
-                          NSFW unlock price (USDC)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editPriceUsdc}
-                          onChange={(e) => setEditPriceUsdc(e.target.value)}
-                          className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
-                        />
-                      </div>
-                    )}
-                    {!editFreeFlags.animated && (
-                      <div>
-                        <label className="block text-sm font-semibold text-white/90 mb-2">
-                          Animated unlock price (USDC)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={editPriceAnimatedUsdc}
-                          onChange={(e) => setEditPriceAnimatedUsdc(e.target.value)}
-                          className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
-                        />
-                      </div>
-                    )}
                     <div className="flex gap-2">
                       <NixieButton
                         type="button"
@@ -1113,33 +1020,6 @@ export default function AdminPage() {
                 onFile={(f) => uploadStoryFile("animated", f)}
                 onRemove={storyAnimatedCid ? () => setStoryAnimatedCid("") : undefined}
               />
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={storyPaid}
-                    onChange={(e) => setStoryPaid(e.target.checked)}
-                    className="rounded border-white/30 text-anime-lime focus:ring-anime-lime"
-                  />
-                  <span className="text-sm text-white/90">Paid story</span>
-                </label>
-              </div>
-              {storyPaid && (
-                <div>
-                  <label className="block text-sm font-semibold text-white/90 mb-2">
-                    Price (USDC)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={storyPriceUsdc}
-                    onChange={(e) => setStoryPriceUsdc(e.target.value)}
-                    className="w-full bg-black/65 rounded-xl px-4 py-3 text-white placeholder:text-white/55 outline-none focus:ring-2 focus:ring-anime-lime text-sm border border-white/25"
-                    placeholder="0.50"
-                  />
-                </div>
-              )}
               <div>
                 <label className="block text-sm font-semibold text-white/90 mb-2">
                   Visible for (hours)
@@ -1210,12 +1090,7 @@ export default function AdminPage() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-white/50">
-                            {s.is_paid
-                              ? `$${s.price_usdc} USDC`
-                              : "Free"}{" "}
-                            · {s.duration_hours}h
-                          </p>
+                          <p className="text-xs text-white/50">Holder access · {s.duration_hours}h</p>
                           <p
                             className={`text-xs ${
                               isExpired ? "text-red-400" : "text-emerald-300"

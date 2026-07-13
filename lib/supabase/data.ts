@@ -38,24 +38,12 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
 
   const contentIds = (contentRows as ContentRow[]).map((c) => c.id);
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
-  const membership = await getActiveMembershipForWallets(wallets);
-
-  // Unlock'ları service role ile oku: RLS yüzünden satın almış kullanıcılar kilitlenmesin (fiyat güncellense bile).
-  const [unlocksRes, likesRes, commentsRes, viewsRes] = await Promise.all([
-    wallets.length > 0
-      ? admin.from("unlocks").select("content_id, unlock_type").in("wallet", wallets)
-      : Promise.resolve({ data: [] as { content_id: string; unlock_type: string }[] }),
+  const [likesRes, commentsRes, viewsRes] = await Promise.all([
     supabase.from("likes").select("content_id, wallet").in("content_id", contentIds),
     supabase.from("comments").select("content_id").in("content_id", contentIds),
     supabase.from("content_views").select("content_id").in("content_id", contentIds),
   ]);
 
-  const nsfwUnlockedIds = new Set(
-    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "nsfw").map((u) => u.content_id)
-  );
-  const animatedUnlockedIds = new Set(
-    (unlocksRes.data ?? []).filter((u) => u.unlock_type === "animated").map((u) => u.content_id)
-  );
 
   const likeCountByContent: Record<string, number> = {};
   (likesRes.data ?? []).forEach((l) => {
@@ -77,17 +65,13 @@ export async function getContentWithCounts(wallet: string | string[] | undefined
   });
 
   const artworks = (contentRows as ContentRow[]).map((c) => {
-    const priceUsdc = c.price_usdc ?? 0;
-    const priceAnimated = (c as ContentRow & { price_animated_usdc?: number }).price_animated_usdc ?? 0;
-    const nsfwUnlocked = membership.active || priceUsdc === 0 || nsfwUnlockedIds.has(c.id);
-    const animatedUnlocked = membership.active || priceAnimated === 0 || animatedUnlockedIds.has(c.id);
     return contentToArtwork(c, {
       likes: likeCountByContent[c.id] ?? 0,
       views: viewCountByContent[c.id] ?? 0,
       comments: commentCountByContent[c.id] ?? 0,
       likedByViewer: viewerLikedIds.has(c.id),
-      nsfwUnlocked,
-      animatedUnlocked,
+      nsfwUnlocked: true,
+      animatedUnlocked: true,
     });
   });
 
@@ -184,48 +168,24 @@ export async function getMuseumArtworksPage(
 const TRENDING_DAYS = 7;
 const TRENDING_LIMIT = 8;
 
-/** Trending: content ordered by unlock count in last 7 days. */
+/** Trending: newest holder collection pieces. */
 export async function getTrendingArtworks(
   wallet: string | string[] | undefined,
   limit: number = TRENDING_LIMIT
 ): Promise<{ artworks: import("@/lib/types").Artwork[] }> {
   const admin = createAdminClient();
   const supabase = await createServerSupabase();
-  const since = new Date();
-  since.setDate(since.getDate() - TRENDING_DAYS);
-  const sinceIso = since.toISOString();
-
-  const { data: recentUnlocks } = await admin
-    .from("unlocks")
-    .select("content_id")
-    .gte("created_at", sinceIso);
-
-  const countByContent: Record<string, number> = {};
-  (recentUnlocks ?? []).forEach((u) => {
-    countByContent[u.content_id] = (countByContent[u.content_id] ?? 0) + 1;
-  });
-  const sortedIds = Object.entries(countByContent)
-    .sort((a, b) => b[1] - a[1])
-    .map(([id]) => id)
-    .slice(0, limit);
-
-  if (sortedIds.length === 0) {
-    return { artworks: [] };
-  }
-
   const { data: contentRows, error: contentError } = await admin
     .from("content")
     .select("*")
-    .in("id", sortedIds);
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (contentError || !contentRows?.length) {
     return { artworks: [] };
   }
 
-  const order = new Map(sortedIds.map((id, i) => [id, i]));
-  const rows = (contentRows as ContentRow[]).sort(
-    (a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999)
-  );
+  const rows = contentRows as ContentRow[];
   const contentIds = rows.map((c) => c.id);
   const wallets = wallet == null ? [] : Array.isArray(wallet) ? wallet : [wallet];
   const membership = await getActiveMembershipForWallets(wallets);

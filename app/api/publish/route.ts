@@ -10,11 +10,6 @@ function cid(value: unknown): string | null {
     : null;
 }
 
-function price(value: unknown): number {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
-
 export async function POST(request: NextRequest) {
   const auth = await getAdminUser();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: 401 });
@@ -44,8 +39,10 @@ export async function POST(request: NextRequest) {
       sfw_cid: sfwCid,
       nsfw_cid: nsfwCid,
       animated_cid: animatedCid,
-      price_usdc: price((body as { price_usdc?: unknown }).price_usdc),
-      price_animated_usdc: price((body as { price_animated_usdc?: unknown }).price_animated_usdc),
+      // Holder access is the only gate. Legacy price columns remain zero for
+      // backwards-compatible database migrations.
+      price_usdc: 0,
+      price_animated_usdc: 0,
     })
     .select("id")
     .single();

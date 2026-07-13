@@ -7,7 +7,7 @@ import { Loader2, Monitor, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { Artwork } from "@/lib/types";
 import { ROBINHOOD_CHAIN_ID } from "@/lib/robinhood-chain";
-import { MuseumOverlay } from "@/components/museum";
+import { MuseumChat, MuseumOverlay } from "@/components/museum";
 
 type AvatarChoice = "female" | "male";
 type AccessState = "checking" | "allowed" | "wallet-required" | "signature-required" | "wrong-network" | "not-eligible" | "not-configured" | "rpc-error";
@@ -51,6 +51,7 @@ export default function MuseumPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [authRefresh, setAuthRefresh] = useState(0);
+  const [favoriteArtworkIds, setFavoriteArtworkIds] = useState<Set<string>>(new Set());
 
   const fetchArtworks = useCallback(async (offset: number, append = false) => {
     const response = await fetch(`/api/museum/content?limit=80&offset=${offset}`, { cache: "no-store", credentials: "include" });
@@ -90,6 +91,20 @@ export default function MuseumPage() {
     setLoading(true);
     fetchArtworks(0).catch(() => setArtworks([])).finally(() => setLoading(false));
   }, [accessState, fetchArtworks]);
+
+  useEffect(() => {
+    if (accessState !== "allowed") return;
+    fetch("/api/museum/favorites", { cache: "no-store", credentials: "include" })
+      .then((response) => response.json())
+      .then((data) => setFavoriteArtworkIds(new Set(Array.isArray(data.contentIds) ? data.contentIds : [])))
+      .catch(() => setFavoriteArtworkIds(new Set()));
+  }, [accessState]);
+
+  const changeFavorite = useCallback(async (artwork: Artwork, favorite: boolean) => {
+    setFavoriteArtworkIds((current) => { const next = new Set(current); favorite ? next.add(artwork.id) : next.delete(artwork.id); return next; });
+    const response = await fetch("/api/museum/favorites", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentId: artwork.id, favorite }) });
+    if (!response.ok) setFavoriteArtworkIds((current) => { const next = new Set(current); favorite ? next.delete(artwork.id) : next.add(artwork.id); return next; });
+  }, []);
 
   useEffect(() => {
     if (accessState !== "allowed" || !address) return;
@@ -163,7 +178,8 @@ export default function MuseumPage() {
 
   return <div className="relative h-screen w-screen overflow-hidden font-anime" style={{ background: "#080610" }}>
     <MuseumScene artworks={artworks} avatarChoice={avatarChoice} onArtworkSelect={setSelectedArtwork} />
-    <MuseumOverlay selectedArtwork={selectedArtwork} onCloseArtwork={() => setSelectedArtwork(null)} onConnectWallet={() => openConnectModal?.()} onDisconnectWallet={() => disconnect()} walletConnected={Boolean(address)} hasMoreArtworks={hasMore} loadingMoreArtworks={loadingMore} onLoadMoreArtworks={() => { setLoadingMore(true); fetchArtworks(nextOffset, true).finally(() => setLoadingMore(false)); }} loadedArtworkCount={artworks.length} totalArtworkCount={totalCatalog} />
+    <MuseumOverlay selectedArtwork={selectedArtwork} onCloseArtwork={() => setSelectedArtwork(null)} onConnectWallet={() => openConnectModal?.()} onDisconnectWallet={() => disconnect()} walletConnected={Boolean(address)} hasMoreArtworks={hasMore} loadingMoreArtworks={loadingMore} onLoadMoreArtworks={() => { setLoadingMore(true); fetchArtworks(nextOffset, true).finally(() => setLoadingMore(false)); }} loadedArtworkCount={artworks.length} totalArtworkCount={totalCatalog} favoriteArtworkIds={favoriteArtworkIds} onFavoriteChange={changeFavorite} />
+    <MuseumChat />
     {(profileLoading || profileRequired) && <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#120f1e] p-6 text-white"><h2 className="text-xl font-semibold">Start Museum Experience</h2><p className="mt-2 text-sm text-white/65">Choose your avatar and name once.</p><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="Your name" maxLength={40} className="mt-5 w-full rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-sm outline-none focus:border-[#D7FF00]" /><div className="mt-4 grid grid-cols-2 gap-2">{(["female", "male"] as const).map((avatar) => <button key={avatar} onClick={() => setAvatarChoice(avatar)} className={`rounded-lg border px-3 py-2 text-sm ${avatarChoice === avatar ? "border-[#D7FF00] bg-[#D7FF00]/20" : "border-white/15"}`}>{avatar === "female" ? "Female" : "Male"}</button>)}</div>{profileError && <p className="mt-3 text-sm text-red-300">{profileError}</p>}<button onClick={saveProfile} disabled={profileSaving || profileLoading} className="mt-6 w-full rounded-lg bg-[#D7FF00] px-4 py-2 text-sm font-semibold disabled:opacity-60">{profileSaving ? "Saving..." : "Save and Enter Museum"}</button></div></div>}
   </div>;
 }

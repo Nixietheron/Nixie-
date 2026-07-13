@@ -35,8 +35,6 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  const is_paid = Boolean(body.is_paid);
-  const price_usdc = is_paid ? Number(body.price_usdc) ?? 0 : 0;
   const duration_hours = Number(body.duration_hours) || 24;
   if (duration_hours < 1 || duration_hours > 168) {
     return NextResponse.json({ error: "duration_hours must be 1–168" }, { status: 400 });
@@ -45,8 +43,8 @@ export async function POST(request: NextRequest) {
     image_cid,
     nsfw_cid: nsfw_cid || null,
     animated_cid: animated_cid || null,
-    is_paid,
-    price_usdc,
+    is_paid: false,
+    price_usdc: 0,
     duration_hours,
   });
   if (error) {

@@ -15,8 +15,6 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
   if (typeof body.title === "string") updates.title = body.title.trim();
   if (body.description !== undefined) updates.description = body.description ? String(body.description).trim() : null;
-  if (typeof body.price_usdc === "number") updates.price_usdc = body.price_usdc;
-  if (typeof body.price_animated_usdc === "number") updates.price_animated_usdc = body.price_animated_usdc;
   if (body.sfw_cid !== undefined) updates.sfw_cid = body.sfw_cid ? String(body.sfw_cid).trim() : null;
   if (body.nsfw_cid !== undefined) updates.nsfw_cid = body.nsfw_cid ? String(body.nsfw_cid).trim() : null;
   if (body.animated_cid !== undefined) updates.animated_cid = body.animated_cid ? String(body.animated_cid).trim() : null;
