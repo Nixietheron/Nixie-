@@ -51,8 +51,8 @@ export default async function RootLayout({
   const initialState = cookieToInitialState(serverConfig, (await headers()).get("cookie"));
 
   return (
-    <html lang="en">
-      <body className="font-anime antialiased safe-top safe-bottom">
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-anime antialiased safe-top safe-bottom" suppressHydrationWarning>
         <Providers initialState={initialState}>
           <div className="relative z-10 min-h-screen">
             {children}

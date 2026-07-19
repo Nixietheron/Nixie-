@@ -9,14 +9,18 @@ function securityPolicy(nonce: string): string {
   // source strings. Keep this exception local to development builds; the
   // production CSP remains nonce-based without unsafe-eval.
   const developmentEval = process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'";
+  // Three.js loaders may instantiate small WASM decoders in production. This is
+  // narrower than enabling general unsafe-eval and keeps the museum compatible
+  // with GLTF/texture tooling.
+  const wasmEval = process.env.NODE_ENV === "production" ? " 'wasm-unsafe-eval'" : "";
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentEval}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentEval}${wasmEval}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://gateway.pinata.cloud https://images.unsplash.com https://source.unsplash.com",
     "font-src 'self' data:",
     "media-src 'self' blob: https://gateway.pinata.cloud",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://rpc.mainnet.chain.robinhood.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.reown.com wss://*.reown.com https://*.coinbase.com wss://*.coinbase.com https://*.metamask.io wss://*.metamask.io",
+    "connect-src 'self' blob: https://*.supabase.co wss://*.supabase.co https://rpc.mainnet.chain.robinhood.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.reown.com wss://*.reown.com https://*.coinbase.com wss://*.coinbase.com https://*.metamask.io wss://*.metamask.io",
     "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com https://*.coinbase.com https://*.metamask.io",
     "worker-src 'self' blob:",
     "object-src 'none'",
