@@ -2,14 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, isAddress, keccak256, parseUnits, stringToHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { randomUUID } from "crypto";
-import { NIXIE_MAX_PER_WALLET, NIXIE_USD_PRICE } from "@/lib/nft-collection";
+import {
+  NIXIE_DEXSCREENER_PAIR,
+  NIXIE_GENESIS_ADDRESS,
+  NIXIE_MAX_PER_WALLET,
+  NIXIE_MAX_PRICE_CHANGE_5M_PERCENT,
+  NIXIE_MAX_PRICE_USD,
+  NIXIE_MIN_LIQUIDITY_USD,
+  NIXIE_TOKEN_ADDRESS,
+  NIXIE_USD_PRICE,
+} from "@/lib/nft-collection";
 import { ROBINHOOD_CHAIN_ID, robinhoodMainnet } from "@/lib/robinhood-chain";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const NIX_TOKEN = "0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f";
-const PAIR = "0x74A2e6bFC4507F68b4c98104722192597b71715A";
 const QUOTE_SECONDS = 180;
 const RATE_WINDOW_MS = 60_000;
 
@@ -64,7 +71,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "A valid wallet and mint quantity between 1 and 3 are required." }, { status: 400 });
     }
 
-    const contractAddress = process.env.NEXT_PUBLIC_NIXIE_NFT_ADDRESS;
+    const contractAddress = process.env.NEXT_PUBLIC_NIXIE_NFT_ADDRESS || NIXIE_GENESIS_ADDRESS;
     const signerKey = process.env.NIXIE_PRICE_SIGNER_PRIVATE_KEY as `0x${string}` | undefined;
     if (!contractAddress || !isAddress(contractAddress) || !signerKey || !/^0x[0-9a-fA-F]{64}$/.test(signerKey)) {
       return NextResponse.json({ error: "NFT sale quote service is not configured yet." }, { status: 503 });
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
     const client = createPublicClient({ chain: robinhoodMainnet, transport: http() });
     const saleAddress = contractAddress as `0x${string}`;
     const [response, onchainSigner, owner, treasury] = await Promise.all([
-      fetch(`https://api.dexscreener.com/latest/dex/pairs/robinhood/${PAIR}`, {
+      fetch(`https://api.dexscreener.com/latest/dex/pairs/robinhood/${NIXIE_DEXSCREENER_PAIR}`, {
         cache: "no-store",
         signal: AbortSignal.timeout(8_000),
       }),
@@ -90,20 +97,24 @@ export async function POST(request: NextRequest) {
       throw new Error("Quote signer must be isolated from owner and treasury keys");
     }
     const payload = await response.json() as { pairs?: DexPair[] };
-    const pair = payload.pairs?.find((item) => item.baseToken?.address?.toLowerCase() === NIX_TOKEN.toLowerCase());
+    const pair = payload.pairs?.find((item) => item.baseToken?.address?.toLowerCase() === NIXIE_TOKEN_ADDRESS.toLowerCase());
     const liquidity = pair?.liquidity?.usd;
     const livePrice = Number(pair?.priceUsd);
-    const maxAcceptedPrice = Number(process.env.NIXIE_MAX_NIX_PRICE_USD);
-    if (!Number.isFinite(maxAcceptedPrice) || maxAcceptedPrice <= 0) {
-      throw new Error("NIX mint price safety ceiling is not configured");
-    }
-    if (!pair?.priceUsd || !Number.isFinite(liquidity) || liquidity! < Number(process.env.NIXIE_MIN_LIQUIDITY_USD || "1000")) {
+    const configuredMaxAcceptedPrice = Number(process.env.NIXIE_MAX_NIX_PRICE_USD || NIXIE_MAX_PRICE_USD);
+    const maxAcceptedPrice = Number.isFinite(configuredMaxAcceptedPrice) && configuredMaxAcceptedPrice > 0
+      ? configuredMaxAcceptedPrice
+      : NIXIE_MAX_PRICE_USD;
+    const configuredMinLiquidity = Number(process.env.NIXIE_MIN_LIQUIDITY_USD || NIXIE_MIN_LIQUIDITY_USD);
+    const minLiquidity = Number.isFinite(configuredMinLiquidity) && configuredMinLiquidity > 0
+      ? configuredMinLiquidity
+      : NIXIE_MIN_LIQUIDITY_USD;
+    if (!pair?.priceUsd || !Number.isFinite(liquidity) || liquidity! < minLiquidity) {
       throw new Error("NIX market liquidity is currently below the mint safety threshold");
     }
     if (!Number.isFinite(livePrice) || livePrice <= 0 || livePrice > maxAcceptedPrice) {
       throw new Error("NIX price moved above the mint safety ceiling; minting is temporarily paused");
     }
-    const maxFiveMinuteMove = Number(process.env.NIXIE_MAX_PRICE_CHANGE_5M_PERCENT || "25");
+    const maxFiveMinuteMove = Number(process.env.NIXIE_MAX_PRICE_CHANGE_5M_PERCENT || NIXIE_MAX_PRICE_CHANGE_5M_PERCENT);
     const fiveMinuteMove = Number(pair.priceChange?.m5);
     if (
       Number.isFinite(fiveMinuteMove) &&

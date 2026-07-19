@@ -10,12 +10,17 @@ import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChai
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { formatUnits, isAddress, maxUint256, parseEventLogs, zeroAddress } from "viem";
 import { erc20ApprovalAbi, nixieGenesisAbi } from "@/lib/abi/nixie-genesis";
-import { NIXIE_MAX_PER_WALLET, NIXIE_USD_PRICE, nixieName } from "@/lib/nft-collection";
+import {
+  NIXIE_GENESIS_ADDRESS,
+  NIXIE_MAX_PER_WALLET,
+  NIXIE_TOKEN_ADDRESS,
+  NIXIE_USD_PRICE,
+  nixieName,
+} from "@/lib/nft-collection";
 import { ROBINHOOD_CHAIN_ID } from "@/lib/robinhood-chain";
 import { NixieRevealShow } from "@/components/nft/nixie-reveal-show";
 
-const NIX_ADDRESS = "0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f" as const;
-const NFT_ADDRESS = process.env.NEXT_PUBLIC_NIXIE_NFT_ADDRESS;
+const NFT_ADDRESS = process.env.NEXT_PUBLIC_NIXIE_NFT_ADDRESS || NIXIE_GENESIS_ADDRESS;
 
 type Quote = {
   quote: { buyer: `0x${string}`; quantity: number; nixAmount: string; nonce: string; deadline: string };
@@ -66,11 +71,11 @@ export function NftMintPanel() {
   const safeSaleAddress = saleAddress || zeroAddress;
 
   const { data: nixBalance, refetch: refetchBalance } = useReadContract({
-    address: NIX_ADDRESS, abi: erc20ApprovalAbi, functionName: "balanceOf", args: [safeWallet],
+    address: NIXIE_TOKEN_ADDRESS, abi: erc20ApprovalAbi, functionName: "balanceOf", args: [safeWallet],
     query: { enabled: Boolean(address) },
   });
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: NIX_ADDRESS, abi: erc20ApprovalAbi, functionName: "allowance", args: [safeWallet, safeSaleAddress],
+    address: NIXIE_TOKEN_ADDRESS, abi: erc20ApprovalAbi, functionName: "allowance", args: [safeWallet, safeSaleAddress],
     query: { enabled: Boolean(address && saleAddress) },
   });
   const { data: walletMinted, refetch: refetchWalletMinted } = useReadContract({
@@ -165,7 +170,7 @@ export function NftMintPanel() {
       await ensureRobinhoodChain();
       await publicClient.simulateContract({
         account: address,
-        address: NIX_ADDRESS,
+        address: NIXIE_TOKEN_ADDRESS,
         abi: erc20ApprovalAbi,
         functionName: "approve",
         args: [saleAddress, maxUint256],
@@ -173,7 +178,7 @@ export function NftMintPanel() {
       const hash = await writeContractAsync({
         account: address,
         chainId: ROBINHOOD_CHAIN_ID,
-        address: NIX_ADDRESS,
+        address: NIXIE_TOKEN_ADDRESS,
         abi: erc20ApprovalAbi,
         functionName: "approve",
         args: [saleAddress, maxUint256],
