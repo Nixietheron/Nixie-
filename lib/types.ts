@@ -67,7 +67,7 @@ import { ipfsUrl } from "@/lib/constants";
 
 /** NSFW image URL: only exposed when unlocked or free; otherwise empty (no CID leak). */
 function nsfwImageUrl(contentId: string, nsfwUnlocked: boolean, priceUsdc: number): string {
-  if (nsfwUnlocked || priceUsdc === 0) return `/api/ipfs-image?contentId=${contentId}`;
+  if (nsfwUnlocked || priceUsdc === 0) return `/api/ipfs-image?contentId=${contentId}&type=nsfw`;
   return "";
 }
 

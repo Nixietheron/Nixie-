@@ -49,17 +49,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid SIWE message fields" }, { status: 400 });
   }
 
-  /**
-   * Domain check: allow when trustedHosts has matches OR when the domain belongs to the same
-   * bare hostname (wallet_connect may produce a domain like "nixiepink.com" even if the proxy
-   * sends host as "www.nixiepink.com").
-   * Skip domain check entirely only as a last resort when trustedHosts is empty (unusual).
-   */
-  if (trustedHosts.size > 0 && !isTrustedSiweDomain(parsed.domain, trustedHosts)) {
-    // The nonce and signature remain mandatory; this also tolerates a www/apex proxy mismatch.
-    console.warn(
-      `[auth/evm] SIWE domain "${parsed.domain}" not in trusted set ${JSON.stringify(Array.from(trustedHosts))}; proceeding with nonce+sig check`
-    );
+  if (trustedHosts.size === 0) {
+    return NextResponse.json({ error: "Wallet sign-in is not configured" }, { status: 503 });
+  }
+  if (!isTrustedSiweDomain(parsed.domain, trustedHosts)) {
+    return NextResponse.json({ error: "SIWE domain mismatch" }, { status: 401 });
   }
 
   // Nonce quick-check before expensive RPC call

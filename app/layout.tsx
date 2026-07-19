@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { cookieToInitialState } from "wagmi";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { config } from "@/lib/wagmi-config";
+import { serverConfig } from "@/lib/wagmi-server-config";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://nixiepink.com";
 /** Favicon, Apple touch icon, Open Graph & Twitter/X link previews. */
@@ -48,7 +48,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // Read the wagmi cookie from the incoming request to preserve wallet state on refresh.
-  const initialState = cookieToInitialState(config, (await headers()).get("cookie"));
+  const initialState = cookieToInitialState(serverConfig, (await headers()).get("cookie"));
 
   return (
     <html lang="en">

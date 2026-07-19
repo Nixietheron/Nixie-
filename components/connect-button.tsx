@@ -16,7 +16,9 @@ export function ConnectButton() {
   }
 
   return <button type="button" disabled={status === "pending"} onClick={async () => {
-    const injectedConnector = connectors.find((connector) => connector.id === "injected");
+    const injectedConnector = connectors.find((connector) => /brave/i.test(`${connector.id} ${connector.name}`))
+      || connectors.find((connector) => /metamask/i.test(`${connector.id} ${connector.name}`))
+      || connectors.find((connector) => connector.type === "injected");
     if (injectedConnector && typeof window !== "undefined" && (window as Window & { ethereum?: unknown }).ethereum) {
       await connectAsync({ connector: injectedConnector, chainId: ROBINHOOD_CHAIN_ID }).catch(() => undefined);
       return;

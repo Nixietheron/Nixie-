@@ -1,0 +1,20 @@
+{
+  "network": "Robinhood Chain",
+  "chainId": 4663,
+  "rpcUrl": "https://rpc.mainnet.chain.robinhood.com",
+  "explorerUrl": "https://robinhoodchain.blockscout.com",
+  "contract": "0xd092B7e9FC3e2684b59B83212394d293E6a89550",
+  "deploymentTransaction": "0x2f5f8b7bb87245907f41763ec8eafdcb2d24a12ea00151a48ae2e03b80dbdb2a",
+  "deploymentBlock": 13323627,
+  "owner": "0x9b67F3835826192852D16373fE18Cef20381fb19",
+  "nixToken": "0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f",
+  "treasury": "0xd946d82224841038E3970ff87E70e291eacDc84C",
+  "quoteSigner": "0x711BB824A0b4BD0E48331754F0C7EDE4607CDDc6",
+  "contractURI": "ipfs://QmfGCckYg5EYoi71iLE5PpQHXqJvYa6berMauYSGvmxByY",
+  "contractURIUpdateTransaction": "0x0f5b6b3e28e43e03776c70f0dcbe4c8fc998bccff7e87d6fdc321267146e190a",
+  "tokenMetadataConfigured": 20,
+  "tokenMetadataFrozen": true,
+  "tokenMetadataFreezeTransaction": "0x4f9305386843e159f3fe2c3345758a7e566ad1b859ee5e90f1957ad965c21587",
+  "saleActive": true,
+  "saleActivationTransaction": "0xb50adf3d633e8b386d0e400e7c51ef677e52e1d74a1bb851390cf8d46ced57b1"
+}

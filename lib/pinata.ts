@@ -31,11 +31,11 @@ export async function uploadToPinata(
       pinata_secret_api_key: secret,
     },
     body: formData,
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Pinata upload failed: ${err}`);
+    throw new Error(`Pinata upload failed with status ${res.status}`);
   }
 
   const data = (await res.json()) as { IpfsHash: string };

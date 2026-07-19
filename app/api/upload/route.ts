@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getAdminUser } from "@/lib/auth-admin";
 import { uploadToPinata } from "@/lib/pinata";
-
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+import { validateUpload } from "@/lib/upload-security";
+import { randomUUID } from "crypto";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user?.email || (ADMIN_EMAIL && user.email !== ADMIN_EMAIL)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await getAdminUser();
+  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: 401 });
 
   const formData = await request.formData();
   const type = formData.get("type") as string; // "sfw" | "nsfw" | "animated"
@@ -26,12 +20,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { extension } = await validateUpload(file);
+    const safeFileName = `${type}-${randomUUID()}.${extension}`;
     // Upload as public so the gateway can serve the image (blurred preview in app).
     // Locking/visibility is enforced in-app; without payment the UI only shows blurred NSFW.
-    const cid = await uploadToPinata(file, file.name, { isPublic: true });
+    const cid = await uploadToPinata(file, safeFileName, { isPublic: true });
     return NextResponse.json({ cid });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Upload failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[upload] rejected or failed:", e instanceof Error ? e.message : "unknown error");
+    const isValidationError = e instanceof Error && [
+      "Invalid upload size",
+      "Unsupported upload type",
+      "File content does not match its type",
+    ].includes(e.message);
+    return NextResponse.json(
+      { error: isValidationError ? e.message : "Upload failed" },
+      { status: isValidationError ? 400 : 500 }
+    );
   }
 }

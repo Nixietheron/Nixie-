@@ -154,6 +154,90 @@ button {
   50% { opacity: 0.8; transform: scale(1.05); }
 }
 
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes nixie-card-reveal {
+  0% { opacity: 0; transform: perspective(1400px) rotateY(-1260deg) scale(.08); filter: blur(22px) brightness(2.4); }
+  18% { opacity: 1; transform: perspective(1400px) rotateY(-990deg) scale(.62); filter: blur(8px) brightness(1.8); }
+  68% { opacity: 1; transform: perspective(1400px) rotateY(24deg) scale(1.08); filter: blur(0) brightness(1.35); }
+  84% { transform: perspective(1400px) rotateY(-8deg) scale(.985); }
+  100% { opacity: 1; transform: perspective(1200px) rotateY(0deg) scale(1); filter: brightness(1); }
+}
+
+@keyframes nixie-card-seal {
+  0%, 46% { opacity: 1; }
+  58%, 100% { opacity: 0; }
+}
+
+@keyframes nixie-reveal-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes nixie-copy-reveal {
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes nixie-particle-drift {
+  0%, 100% { opacity: .12; transform: translateY(0) scale(.7); }
+  50% { opacity: .9; transform: translateY(-28px) scale(1.25); }
+}
+
+@keyframes nixie-summary-reveal {
+  0% { opacity: 0; transform: translateY(50px) rotate(-3deg) scale(.8); }
+  100% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+}
+
+.nixie-reveal-card {
+  transform-style: preserve-3d;
+  animation: nixie-card-reveal 3.4s cubic-bezier(.16, .85, .2, 1) both;
+}
+
+.nixie-reveal-card::after {
+  content: "NIXIE  ·  SEALED  ·  NIXIE";
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: radial-gradient(circle at center, rgba(215,255,0,.2), transparent 26%), linear-gradient(145deg, #17121d, #070609 72%);
+  color: #d7ff00;
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .35em;
+  text-align: center;
+  border: 1px solid rgba(215,255,0,.35);
+  animation: nixie-card-seal 3.4s linear both;
+}
+
+.nixie-reveal-copy {
+  animation: nixie-copy-reveal .8s .7s ease-out both;
+}
+
+.nixie-reveal-particle {
+  animation: nixie-particle-drift 3.2s ease-in-out infinite;
+}
+
+.nixie-summary-card {
+  animation: nixie-summary-reveal .8s cubic-bezier(.16, .85, .2, 1) both;
+}
+
+.nixie-reveal-progress {
+  animation: nixie-reveal-progress 3.4s linear both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nixie-reveal-card, .nixie-reveal-card::after, .nixie-reveal-copy, .nixie-reveal-particle, .nixie-summary-card, .nixie-reveal-progress {
+    animation-duration: .01ms !important;
+    animation-delay: 0ms !important;
+  }
+}
+
 .nixie-pulse {
   animation: pulse-glow 2s ease-in-out infinite;
 }

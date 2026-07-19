@@ -1,0 +1,156 @@
+{
+  "collection": {
+    "metadataCid": "QmfGCckYg5EYoi71iLE5PpQHXqJvYa6berMauYSGvmxByY",
+    "contractURI": "ipfs://QmfGCckYg5EYoi71iLE5PpQHXqJvYa6berMauYSGvmxByY",
+    "pendingMetadataCid": "QmQGNVMNa75h1JkUawNrNGxPbZeNy427bEZMJ386UzXEqw",
+    "pendingContractURI": "ipfs://QmQGNVMNa75h1JkUawNrNGxPbZeNy427bEZMJ386UzXEqw",
+    "bannerCid": "QmWGUQCiGgAHTKQ7pRF9kCmLL59xn9wmmAbdCDsMkUJuvr",
+    "finalMetadataCid": "QmfGCckYg5EYoi71iLE5PpQHXqJvYa6berMauYSGvmxByY",
+    "finalContractURI": "ipfs://QmfGCckYg5EYoi71iLE5PpQHXqJvYa6berMauYSGvmxByY",
+    "contractURIUpdateTransaction": "0x0f5b6b3e28e43e03776c70f0dcbe4c8fc998bccff7e87d6fdc321267146e190a",
+    "tokenMetadataFrozen": true,
+    "tokenMetadataFreezeTransaction": "0x4f9305386843e159f3fe2c3345758a7e566ad1b859ee5e90f1957ad965c21587"
+  },
+  "tokens": [
+    {
+      "tokenId": 1,
+      "name": "Velvet Arcana",
+      "sourceFile": "2026-07-18 01.07.34.jpg",
+      "imageCid": "Qmbjf8u3UPPqHY9Czj8iR7owXV9ausYkgupR8oyLh7Mubn",
+      "metadataCid": "QmQZApnhbia3EKrWwwT7HuAgjR5ABeLYxVHf9fDBnhwXnf"
+    },
+    {
+      "tokenId": 2,
+      "name": "Solenne Veil",
+      "sourceFile": "2026-07-18 01.07.39.jpg",
+      "imageCid": "QmUtjrTvntZaDxEENnadVv1J2Lcc3sqbZgkAi1wUFZinPu",
+      "metadataCid": "QmcpQHBqrVgtPzzGm27zmJ5C13qEUCU8JzBcwtYfgSvzRw"
+    },
+    {
+      "tokenId": 3,
+      "name": "Nocturna Lace",
+      "sourceFile": "2026-07-18 01.07.44.jpg",
+      "imageCid": "QmSGxbmcvVwksrc8RwwuLvfi98wEgXTDnZEKynjWm1wfNB",
+      "metadataCid": "QmZJHiK543kBB1hAmzKMvStHQCWb9AX1Prc3L3G23b81RY"
+    },
+    {
+      "tokenId": 4,
+      "name": "Sakura Mercy",
+      "sourceFile": "2026-07-18 01.07.49.jpg",
+      "imageCid": "QmafJneXend7KDEShaGLTMEi8ntpb7EgjxUhsBsiUxfsby",
+      "metadataCid": "QmT3qTd3uWzAYfxYZMdDeNHRT6nZbEtnCc9dPaqthmsEhA"
+    },
+    {
+      "tokenId": 5,
+      "name": "Astral Vixen",
+      "sourceFile": "2026-07-18 01.07.56.jpg",
+      "imageCid": "QmVL8Y3esVbjHBNwPZb7C2tbDyzpGFqb4MTekeDfT9a7r8",
+      "metadataCid": "QmeycC9mjLJTfzYJnY7SmuYTF47jrKzFzEavPoiQtoA1Xy"
+    },
+    {
+      "tokenId": 6,
+      "name": "Dawn Whisper",
+      "sourceFile": "2026-07-18 01.08.01.jpg",
+      "imageCid": "QmYXyANN5QNzEV2n1ihcatQHMPRsgTNWZcdCGedg94MLfs",
+      "metadataCid": "QmPUnouy9iB1T79rW9xPEk9K2C2BQJPtJeJYvPhv4pXWJF"
+    },
+    {
+      "tokenId": 7,
+      "name": "Obsidian Bloom",
+      "sourceFile": "2026-07-18 01.08.05.jpg",
+      "imageCid": "Qmc4zhoqv2Ec2bSMcQV9rou8QYGfVP7ZbJ8PNjnqev9KTL",
+      "metadataCid": "QmbXktn3JcKA4NZTk5GHnHpfuKBkg9dBnDb4o68CMhrknd"
+    },
+    {
+      "tokenId": 8,
+      "name": "Crimson Reverie",
+      "sourceFile": "2026-07-18 01.08.10.jpg",
+      "imageCid": "QmYF31Loe3USrmB8iANR55RCfEA6XEpBGCrshtmxcYmN1N",
+      "metadataCid": "QmXEV5DwzVaUsUMNSMP5YMKnNxFTVoPLZ2np4LC1gxQ5qE"
+    },
+    {
+      "tokenId": 9,
+      "name": "Neon Koi",
+      "sourceFile": "2026-07-18 01.08.14.jpg",
+      "imageCid": "Qmdvkf2cPPmEUqtoSX5a9KqoHG3epR3JNP7awHiiPHtMnD",
+      "metadataCid": "QmYRjE2oPJjYsfatBmHuvxEcjJV1U4fq1VMabKT329Howf"
+    },
+    {
+      "tokenId": 10,
+      "name": "Moonlit Maid",
+      "sourceFile": "2026-07-18 01.08.19.jpg",
+      "imageCid": "QmQBxW5XCsWN35qnTGYjwfYTFFCeFrPLeUofVeY65aVmdc",
+      "metadataCid": "QmdKy7KW7NLqBarv6HqPJfzkKWiqEL7ABF4h7BesDbMos3"
+    },
+    {
+      "tokenId": 11,
+      "name": "Cyber Kiss",
+      "sourceFile": "2026-07-18 01.08.23.jpg",
+      "imageCid": "QmVTe8kqg78hjqftbP5SnAyrmP68F6pneoHPadMGofTsuZ",
+      "metadataCid": "QmZJnFcagMY81H7FY2zPup2dZEm3fYitCe6pBQpVzmV4jV"
+    },
+    {
+      "tokenId": 12,
+      "name": "Pink Eclipse",
+      "sourceFile": "2026-07-18 01.08.27.jpg",
+      "imageCid": "QmSJf7ERUWxsYQhjxrJh3xFzgYkcKnPgBHEarCVmefp9oR",
+      "metadataCid": "QmaYTZab9sXGHtSXMgkgXdqrvuNiaAjxSMFLQvDJzztaTc"
+    },
+    {
+      "tokenId": 13,
+      "name": "Velvet Thorn",
+      "sourceFile": "2026-07-18 01.08.30.jpg",
+      "imageCid": "QmeWGyQQzLVhYCmJQcCSCfHmQk6j77Ds54f8owDWuzWS8N",
+      "metadataCid": "QmTeq7FJ8mZwgozZJeBTgNszenrGb2vaidxba1gmKtYJzh"
+    },
+    {
+      "tokenId": 14,
+      "name": "Lunar Bunny",
+      "sourceFile": "2026-07-18 01.08.34.jpg",
+      "imageCid": "QmTW2VQLg4SKQE8TBxmRFivfPK1hArbpo6LqKHLZrwmRHB",
+      "metadataCid": "QmQghJdKaEhzBDKbzcsVVR5W5mDLFwAfdZ3u21BVxcvvJW"
+    },
+    {
+      "tokenId": 15,
+      "name": "Celeste Tide",
+      "sourceFile": "2026-07-18 01.08.37.jpg",
+      "imageCid": "QmTLiQVzdhUdv4hrPY4Z2eyfc4qiPfhzoFh2UwyrmzPjG1",
+      "metadataCid": "Qmbr5Sa1qVedJ4K9UkiYjz3PCcDVHeEtg6V3st5roXnjSn"
+    },
+    {
+      "tokenId": 16,
+      "name": "Verdant Doll",
+      "sourceFile": "2026-07-18 01.08.41.jpg",
+      "imageCid": "QmYmpAr2MkdHCKW9kA3CmiXejvzTX8a8noeHygiVE1XvjD",
+      "metadataCid": "QmQ3DBd7d3UaKu9uFCHvATSVGocMGPQfbTEWa7tZ6G8rNB"
+    },
+    {
+      "tokenId": 17,
+      "name": "Nova Obscura",
+      "sourceFile": "2026-07-18 01.08.45.jpg",
+      "imageCid": "QmXngsCp1h1oxyP4JthTkLhwyN8Ka4YbbhSFXgRJ9AqogU",
+      "metadataCid": "QmPajVW4PngTkrRuZe6gWeYouAbq51zLP8nWhM3gsEr4mN"
+    },
+    {
+      "tokenId": 18,
+      "name": "Rose Remedy",
+      "sourceFile": "2026-07-18 01.08.49.jpg",
+      "imageCid": "Qma3o8GCSCLkPXrtPF3FXeJW7N1H2var22r4sQvWbmFA4Q",
+      "metadataCid": "QmV13bpSqtrVS2eVhjPdPRkfzhWk3Cm4PvbyL8Q2X2MRKo"
+    },
+    {
+      "tokenId": 19,
+      "name": "Amethyst Noir",
+      "sourceFile": "2026-07-18 01.08.53.jpg",
+      "imageCid": "QmW37k5gsug4GLKbxzzTJwBXiEgKHaF42mUNgAPnYs8nec",
+      "metadataCid": "QmVMouZn3t4LRJQRgveuPFB8Y4yzkrmXJtuqmTH4B3ndQz"
+    },
+    {
+      "tokenId": 20,
+      "name": "Seraphine Dusk",
+      "sourceFile": "2026-07-18 01.08.59.jpg",
+      "imageCid": "QmT8VpW5SKGD5Z4RZwTugD5a5zW6XYv1gXNDhtas2i9yP9",
+      "metadataCid": "Qmdga51zVeno3z7Qhey6XS9VFW6A2VYWRk7kCF9ngUbwaX"
+    }
+  ]
+}

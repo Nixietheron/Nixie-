@@ -7,7 +7,9 @@ import { Loader2, Monitor, ShieldCheck } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { Artwork } from "@/lib/types";
 import { ROBINHOOD_CHAIN_ID } from "@/lib/robinhood-chain";
-import { MuseumChat, MuseumLivePulse, MuseumOverlay } from "@/components/museum";
+import { MuseumChat } from "@/components/museum/museum-chat";
+import { MuseumLivePulse } from "@/components/museum/museum-live-pulse";
+import { MuseumOverlay } from "@/components/museum/museum-overlay";
 
 type AvatarChoice = "female" | "male";
 type AccessState = "checking" | "allowed" | "wallet-required" | "signature-required" | "wrong-network" | "not-eligible" | "not-configured" | "rpc-error";

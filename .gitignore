@@ -1,6 +1,9 @@
 node_modules
 .next
+.next-old*/
 .turbo
+cache/
+out/
 dist
 .DS_Store
 
@@ -23,4 +26,3 @@ skills-lock.json
 
 # OS
 Thumbs.db
-

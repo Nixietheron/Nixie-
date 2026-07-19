@@ -34,18 +34,34 @@ function SceneReadySignal({ onReady }: { onReady: () => void }) {
 function MuseumLoadingScreen({ ready }: { ready: boolean }) {
   const { active, progress } = useProgress();
   const [visible, setVisible] = useState(true);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    if (!ready || active) return;
-    const timeout = window.setTimeout(() => setVisible(false), 650);
-    return () => window.clearTimeout(timeout);
-  }, [active, ready]);
+    const progressComplete = progress >= 99.5;
+    const sceneCanOpen = progressComplete || (ready && !active);
+    if (!sceneCanOpen) return;
+
+    const fadeTimeout = window.setTimeout(() => setLeaving(true), 450);
+    const removeTimeout = window.setTimeout(() => setVisible(false), 1150);
+    return () => {
+      window.clearTimeout(fadeTimeout);
+      window.clearTimeout(removeTimeout);
+    };
+  }, [active, progress, ready]);
+
+  useEffect(() => {
+    const safetyTimeout = window.setTimeout(() => {
+      setLeaving(true);
+      window.setTimeout(() => setVisible(false), 700);
+    }, 9000);
+    return () => window.clearTimeout(safetyTimeout);
+  }, []);
 
   if (!visible) return null;
   const displayProgress = Math.max(8, Math.min(100, Math.round(progress || (ready ? 94 : 42))));
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden bg-[#09070d] transition-opacity duration-700">
+    <div className={`pointer-events-none absolute inset-0 z-40 overflow-hidden bg-[#09070d] transition-opacity duration-700 ${leaving ? "opacity-0" : "opacity-100"}`}>
       <div className="absolute inset-0 flex gap-px opacity-65">
         {LOADING_IMAGES.map((src, index) => (
           <div key={src} className="relative flex-1 overflow-hidden">
@@ -127,6 +143,7 @@ export function MuseumScene({
         gl.shadowMap.autoUpdate = false;
         gl.shadowMap.needsUpdate = true;
         scene.background = new THREE.Color("#34382a");
+        requestAnimationFrame(() => requestAnimationFrame(() => setSceneReady(true)));
       }}
     >
       <Suspense fallback={null}>

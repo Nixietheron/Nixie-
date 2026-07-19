@@ -1,5 +1,5 @@
 import { createPublicClient, http, isAddress, type Address } from "viem";
-import { erc20BalanceOfAbi, erc721BalanceOfAbi } from "@/lib/abi/access";
+import { erc20BalanceOfAbi, erc1155BalanceOfBatchAbi } from "@/lib/abi/access";
 import { robinhoodMainnet } from "@/lib/robinhood-chain";
 import { ROBINHOOD_RPC_CONFIGURED } from "@/lib/robinhood-chain";
 
@@ -11,6 +11,7 @@ const tokenAddress = process.env.ROBINHOOD_TOKEN_ADDRESS;
 const nftAddress = process.env.ROBINHOOD_NFT_ADDRESS;
 const tokenDecimals = Number(process.env.ROBINHOOD_TOKEN_DECIMALS || "18");
 const previewMode = process.env.MUSEUM_PREVIEW_MODE === "true";
+const nftCharacterCount = Number(process.env.NIXIE_NFT_CHARACTER_COUNT || "20");
 
 function parseTokenAmount(value: string, decimals: number): bigint {
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error("Invalid ROBINHOOD_TOKEN_DECIMALS");
@@ -32,6 +33,13 @@ function validContract(value: string | undefined): value is Address {
   return Boolean(value && isAddress(value));
 }
 
+function nftTokenIds() {
+  if (!Number.isInteger(nftCharacterCount) || nftCharacterCount < 1 || nftCharacterCount > 200) {
+    throw new Error("Invalid NIXIE_NFT_CHARACTER_COUNT");
+  }
+  return Array.from({ length: nftCharacterCount }, (_, index) => BigInt(index + 1));
+}
+
 export async function getMuseumAccess(wallet?: string): Promise<MuseumAccess> {
   if (!validContract(tokenAddress) && !validContract(nftAddress)) {
     return previewMode
@@ -48,11 +56,16 @@ export async function getMuseumAccess(wallet?: string): Promise<MuseumAccess> {
         ? client.readContract({ address: tokenAddress, abi: erc20BalanceOfAbi, functionName: "balanceOf", args: [wallet] })
         : Promise.resolve(BigInt(0)),
       validContract(nftAddress)
-        ? client.readContract({ address: nftAddress, abi: erc721BalanceOfAbi, functionName: "balanceOf", args: [wallet] })
-        : Promise.resolve(BigInt(0)),
+        ? client.readContract({
+            address: nftAddress,
+            abi: erc1155BalanceOfBatchAbi,
+            functionName: "balanceOfBatch",
+            args: [Array.from({ length: nftCharacterCount }, () => wallet as Address), nftTokenIds()],
+          })
+        : Promise.resolve([] as bigint[]),
     ]);
     if (tokenBalance >= minTokenBalance && validContract(tokenAddress)) return { allowed: true, source: "token" };
-    if (nftBalance > BigInt(0) && validContract(nftAddress)) return { allowed: true, source: "nft" };
+    if (nftBalance.some((balance) => balance > BigInt(0)) && validContract(nftAddress)) return { allowed: true, source: "nft" };
     return { allowed: false, reason: "not-eligible" };
   } catch (error) {
     console.error("[museum/access] ownership check failed", error);

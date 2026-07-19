@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
-import { ArrowRight, ArrowDown, ExternalLink, Flame, Mail } from "lucide-react";
+import { ArrowRight, ExternalLink, Flame, Mail, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
@@ -103,12 +103,12 @@ export default function SplashScreen() {
           </motion.div>
         ))}
 
-        {/* Light edge vignette only — no heavy left wash so figures stay visible */}
+        {/* Structured read zone: deep left gradient, subtle edge vignette. */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background:
-              "linear-gradient(to right, rgba(10,8,12,0.28) 0%, transparent 28%, transparent 72%, rgba(10,8,12,0.2) 100%)",
+              "linear-gradient(90deg, rgba(7,6,9,0.96) 0%, rgba(7,6,9,0.78) 22%, rgba(7,6,9,0.16) 48%, transparent 70%, rgba(7,6,9,0.2) 100%)",
           }}
         />
 
@@ -135,23 +135,28 @@ export default function SplashScreen() {
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: ready ? 1 : 0, y: ready ? 0 : -16 }}
           transition={{ delay: 0.3, duration: 0.7 }}
-          className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between border-b border-white/[0.08] bg-[#09070d]/75 px-6 py-3 backdrop-blur-xl sm:px-10 lg:px-16 xl:px-24"
+          className="fixed top-0 left-0 right-0 z-40 border-b border-white/[0.08] bg-[#09070d]/80 px-6 py-3.5 backdrop-blur-2xl sm:px-10 lg:px-16 xl:px-24"
         >
-            <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#D7FF00] animate-pulse" />
-              <span className="text-white/45 text-xs tracking-[0.2em] uppercase font-medium">
-                Nixie — Private Museum
-              </span>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              {burnedNix && <span title="Live $NIX balance at the burn address · refreshes every 30 minutes" className="hidden items-center gap-1.5 rounded-lg border border-orange-300/25 bg-orange-400/10 px-3 py-2 text-[11px] font-bold text-orange-200 md:inline-flex"><Flame className="h-3.5 w-3.5 text-orange-400" fill="currentColor" />Burned {burnedNix} $NIX</span>}
-              <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#D7FF00] px-3 py-2 text-[11px] font-black text-[#0a080c] transition hover:brightness-110 sm:px-4">BUY $NIX</a>
-              <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="hidden rounded-lg border border-white/20 px-3 py-2 text-[11px] font-bold text-white/80 transition hover:border-[#D7FF00]/60 hover:text-[#D7FF00] sm:inline-flex">DEX</a>
-              <a href={SITE.xUrl} target="_blank" rel="noopener noreferrer" className="hidden rounded-lg border border-white/20 px-3 py-2 text-[11px] font-bold text-white/80 transition hover:border-[#D7FF00]/60 hover:text-[#D7FF00] sm:inline-flex">X</a>
+          <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-6">
+            <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Nixie home">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#D7FF00] text-sm font-black text-[#09070d]">N</span>
+              <span className="hidden text-xs font-bold uppercase tracking-[0.22em] text-white/80 sm:block">Nixie</span>
+            </Link>
+
+            <nav className="hidden items-center gap-7 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/45 md:flex" aria-label="Primary navigation">
+              <Link href="/museum" className="transition hover:text-white">Museum</Link>
+              <Link href="/nft" className="transition hover:text-white">Genesis NFT</Link>
+              <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="transition hover:text-white">Buy $NIX</a>
+              <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="transition hover:text-white">Market</a>
+              <a href={SITE.xUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-white">X</a>
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-3">
               {!isConnected ? (
-                <button type="button" onClick={() => openConnectModal?.()} className="rounded-lg border border-[#D7FF00]/55 bg-black/35 px-3 py-2 text-[11px] font-bold text-[#D7FF00] transition hover:bg-[#D7FF00]/15 sm:px-4">Connect</button>
-              ) : <button type="button" onClick={disconnectWallet} title={`Disconnect ${address}`} className="hidden rounded-lg border border-[#D7FF00]/30 bg-[#D7FF00]/10 px-3 py-2 text-[11px] font-semibold text-[#D7FF00] transition hover:border-red-300/60 hover:bg-red-300/10 hover:text-red-200 sm:inline-flex">{shortAddress} · Disconnect</button>}
+                <button type="button" onClick={() => openConnectModal?.()} className="rounded-full border border-[#D7FF00]/45 bg-[#D7FF00]/10 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#D7FF00] transition hover:bg-[#D7FF00]/20 sm:px-5">Connect wallet</button>
+              ) : (
+                <button type="button" onClick={disconnectWallet} title={`Disconnect ${address}`} className="rounded-full border border-white/15 bg-white/[0.06] px-4 py-2.5 text-[11px] font-semibold text-white/75 transition hover:border-red-300/40 hover:bg-red-300/10 hover:text-red-200 sm:px-5">{shortAddress}<span className="hidden sm:inline"> · Disconnect</span></button>
+              )}
             </div>
           </div>
         </motion.div>
@@ -159,18 +164,18 @@ export default function SplashScreen() {
         <div className="flex-1 min-h-[20vh]" aria-hidden />
 
         {/* Main copy — bottom-aligned */}
-        <div className="shrink-0 pb-10 sm:pb-12 max-w-xl lg:max-w-2xl">
+        <div className="shrink-0 pb-12 sm:pb-16 max-w-xl lg:max-w-2xl">
           <AnimatePresence>
             {ready && (
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4, duration: 0.7 }}
-                className="flex items-center gap-3 mb-4"
+                className="mb-5 flex items-center gap-3"
               >
                 <div className="h-px w-10 shrink-0" style={{ background: "#D7FF00" }} />
                 <span className="text-[#D7FF00] text-xs font-semibold tracking-[0.35em] uppercase">
-                  Anime Art Collection
+                  Private digital universe
                 </span>
               </motion.div>
             )}
@@ -182,8 +187,8 @@ export default function SplashScreen() {
                 initial={{ opacity: 0, y: 32 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.45, duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-                className="font-black text-white leading-[0.9] tracking-[-0.03em] mb-4 select-none"
-                style={{ fontSize: "clamp(2.75rem, 9vw, 5.5rem)" }}
+                className="mb-5 select-none font-black leading-[0.88] tracking-[-0.055em] text-white"
+                style={{ fontSize: "clamp(4rem, 9vw, 7.5rem)" }}
               >
                 Nixie
               </motion.h1>
@@ -196,10 +201,9 @@ export default function SplashScreen() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.58, duration: 0.75 }}
-                className="text-white/60 text-base sm:text-[17px] leading-[1.65] mb-6 max-w-md"
+                className="mb-7 max-w-lg text-base leading-[1.65] text-white/60 sm:text-[17px]"
               >
-                I&apos;m Nixie — an anime-inspired digital character. Enter my private 3D museum
-                with a Nixie token or NFT on Robinhood Mainnet.
+                Step into Nixie&apos;s private 3D museum—an evolving world of art, stories and holder-only experiences on Robinhood Mainnet.
               </motion.p>
             )}
           </AnimatePresence>
@@ -210,16 +214,16 @@ export default function SplashScreen() {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.63, duration: 0.65 }}
-                className="mb-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 rounded-2xl border border-[#D7FF00]/35 bg-[#0b1000]/75 p-4 backdrop-blur-md shadow-[0_12px_50px_rgba(215,255,0,0.12)]"
+                className="mb-7 flex max-w-lg items-center gap-4 rounded-2xl border border-white/10 bg-black/45 px-4 py-3.5 backdrop-blur-xl"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#D7FF00]/40 bg-[#D7FF00]/15 text-[#D7FF00]">
-                  <span className="text-lg font-black">$</span>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D7FF00] text-[#09070d]">
+                  <Sparkles className="h-4 w-4" />
                 </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#D7FF00]">Live museum access</p>
-                  <p className="mt-0.5 text-xl font-black tracking-tight text-white">Museum opens at 500K $NIX</p>
-                  <p className="mt-1 text-xs leading-relaxed text-white/55">Hold 500K $NIX to unlock the full private museum.</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Museum access</p>
+                  <p className="mt-1 text-sm font-bold text-white sm:text-base">Hold 500K $NIX <span className="font-normal text-white/35">or</span> 1 Genesis NFT</p>
                 </div>
+                <span className="hidden rounded-full border border-[#D7FF00]/25 bg-[#D7FF00]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#D7FF00] sm:block">Live</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -230,40 +234,25 @@ export default function SplashScreen() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.7, duration: 0.65 }}
-                className="flex flex-wrap items-center gap-4"
+                className="flex flex-col items-start gap-5"
               >
-                <Link href="/museum">
-                  <motion.button
-                    whileHover={{ scale: 1.04, backgroundColor: "#fff" }}
-                    whileTap={{ scale: 0.96 }}
-                    className="group flex items-center gap-2.5 bg-white text-[#0a080c] font-bold text-[15px] px-7 py-3.5 rounded-2xl transition-all duration-200 shadow-lg shadow-black/30"
-                  >
-                    Enter 3D Museum
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
-                </Link>
-                <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2.5 rounded-2xl bg-[#D7FF00] px-7 py-3.5 text-[15px] font-bold text-[#0a080c] shadow-lg shadow-[#D7FF00]/15 transition hover:scale-[1.04]">
-                  BUY $NIX <ExternalLink className="h-4 w-4" />
-                </a>
-                <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-black/25 px-6 py-3.5 text-[15px] font-bold text-white/90 backdrop-blur-sm transition hover:border-[#D7FF00]/55 hover:text-[#D7FF00]">
-                  Dexscreener <ExternalLink className="h-4 w-4" />
-                </a>
-                {!isConnected && <button type="button" onClick={() => openConnectModal?.()} className="rounded-2xl border border-[#D7FF00]/45 bg-[#D7FF00]/10 px-6 py-3.5 text-[15px] font-bold text-[#D7FF00] transition hover:bg-[#D7FF00]/20">Connect wallet</button>}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link href="/museum" className="group inline-flex items-center gap-3 rounded-full bg-[#D7FF00] px-7 py-4 text-[14px] font-black uppercase tracking-[0.08em] text-[#09070d] shadow-[0_16px_50px_rgba(215,255,0,0.16)] transition hover:-translate-y-0.5 hover:brightness-105">
+                    Enter museum
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                  <Link href="/nft" className="inline-flex items-center gap-2.5 rounded-full border border-white/20 bg-white/[0.06] px-7 py-4 text-[14px] font-bold uppercase tracking-[0.08em] text-white transition hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/10">
+                    Mint Genesis
+                    <Sparkles className="h-4 w-4 text-[#D7FF00]" />
+                  </Link>
+                </div>
 
-          <AnimatePresence>
-            {ready && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.95, duration: 0.8 }}
-                className="hidden sm:flex items-center gap-2 mt-8 text-white/25 text-xs"
-              >
-                <ArrowDown className="w-3.5 h-3.5" />
-                <span>Scroll for site info</span>
-                <div className="w-10 h-px bg-white/15" />
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold text-white/40">
+                  <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition hover:text-[#D7FF00]">Buy $NIX <ExternalLink className="h-3.5 w-3.5" /></a>
+                  <span className="h-1 w-1 rounded-full bg-white/20" />
+                  <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition hover:text-white">View market <ExternalLink className="h-3.5 w-3.5" /></a>
+                  {burnedNix && <><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span className="hidden items-center gap-1.5 sm:inline-flex"><Flame className="h-3.5 w-3.5 text-orange-400" />{burnedNix} $NIX burned</span></>}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

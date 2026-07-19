@@ -10,40 +10,28 @@ function hostOnly(value: string): string {
  */
 export function getTrustedSiweHosts(request: NextRequest): Set<string> {
   const set = new Set<string>();
-  const xf = request.headers.get("x-forwarded-host");
-  const hHost = request.headers.get("host");
-  for (const raw of [xf, hHost]) {
-    const h = hostOnly(raw ?? "");
-    if (h) {
-      set.add(h);
-      if (h.startsWith("www.")) set.add(h.slice(4));
-      else set.add(`www.${h}`);
-    }
-  }
-  try {
-    const nu = request.nextUrl.host;
-    const nh = hostOnly(nu);
-    if (nh) {
-      set.add(nh);
-      if (nh.startsWith("www.")) set.add(nh.slice(4));
-      else set.add(`www.${nh}`);
-    }
-  } catch {
-    /* ignore */
-  }
+  const addHost = (h: string) => {
+    if (!h) return;
+    set.add(h);
+    if (h.startsWith("www.")) set.add(h.slice(4));
+    else set.add(`www.${h}`);
+  };
+
+  // Production trust comes only from configured canonical origins, never Host headers.
   for (const key of ["NEXT_PUBLIC_APP_URL", "APP_URL"] as const) {
     const v = process.env[key];
     if (!v) continue;
     try {
       const h = hostOnly(new URL(v).host);
-      if (h) {
-        set.add(h);
-        if (h.startsWith("www.")) set.add(h.slice(4));
-        else set.add(`www.${h}`);
-      }
+      addHost(h);
     } catch {
       /* ignore */
     }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    const requestHost = hostOnly(request.nextUrl.host);
+    if (["localhost", "127.0.0.1", "::1"].includes(requestHost)) addHost(requestHost);
   }
   set.delete("");
   return set;

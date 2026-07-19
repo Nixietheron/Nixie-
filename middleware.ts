@@ -4,6 +4,39 @@ import { createServerClient } from "@supabase/ssr";
 
 const hasSupabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+function securityPolicy(nonce: string): string {
+  // Next.js development tooling (webpack + React Refresh) evaluates generated
+  // source strings. Keep this exception local to development builds; the
+  // production CSP remains nonce-based without unsafe-eval.
+  const developmentEval = process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'";
+  const directives = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentEval}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://gateway.pinata.cloud https://images.unsplash.com https://source.unsplash.com",
+    "font-src 'self' data:",
+    "media-src 'self' blob: https://gateway.pinata.cloud",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://rpc.mainnet.chain.robinhood.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.reown.com wss://*.reown.com https://*.coinbase.com wss://*.coinbase.com https://*.metamask.io wss://*.metamask.io",
+    "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com https://*.coinbase.com https://*.metamask.io",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ];
+  if (process.env.NODE_ENV === "production") directives.push("upgrade-insecure-requests");
+  return directives.join("; ");
+}
+
+function applySecurityHeaders(response: NextResponse, csp: string): NextResponse {
+  response.headers.set("Content-Security-Policy", csp);
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  return response;
+}
+
 function canonicalHostnameFromEnv(): string | null {
   const u = process.env.NEXT_PUBLIC_APP_URL;
   if (!u) return null;
@@ -33,16 +66,26 @@ function redirectToCanonicalHost(request: NextRequest): NextResponse | null {
 }
 
 export async function middleware(request: NextRequest) {
+  const nonce = crypto.randomUUID().replaceAll("-", "");
+  const csp = securityPolicy(nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
+
   const canonicalRedirect = redirectToCanonicalHost(request);
-  if (canonicalRedirect) return canonicalRedirect;
+  if (canonicalRedirect) return applySecurityHeaders(canonicalRedirect, csp);
 
   const path = request.nextUrl.pathname;
   if (path.startsWith("/admin") && !path.startsWith("/admin/login")) {
-    if (!hasSupabase) {
-      return NextResponse.next({ request: { headers: request.headers } });
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    if (!hasSupabase || !adminEmail) {
+      return applySecurityHeaders(
+        NextResponse.redirect(new URL("/admin/login?error=configuration", request.url)),
+        csp
+      );
     }
     let response = NextResponse.next({
-      request: { headers: request.headers },
+      request: { headers: requestHeaders },
     });
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,12 +104,12 @@ export async function middleware(request: NextRequest) {
       }
     );
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
+    if (!user?.email || user.email.trim().toLowerCase() !== adminEmail) {
+      return applySecurityHeaders(NextResponse.redirect(new URL("/admin/login", request.url)), csp);
     }
-    return response;
+    return applySecurityHeaders(response, csp);
   }
-  return await updateSession(request);
+  return applySecurityHeaders(await updateSession(request, requestHeaders), csp);
 }
 
 export const config = {
