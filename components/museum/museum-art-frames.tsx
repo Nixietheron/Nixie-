@@ -85,12 +85,9 @@ function createCullingStore(): MuseumCullingStore {
 }
 
 function resolveTextureUrl(artwork: Artwork): string {
-  // Go through the authenticated proxy for every museum texture. This keeps
-  // token-holder media private and avoids gateway CORS failures in canvas.
-  if (artwork.sfwPreview.startsWith("/")) return artwork.sfwPreview;
-  if (artwork.hasNsfw && artwork.nsfwFull) {
-    return `/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=nsfw`;
-  }
+  // Gallery walls should use the light preview image so the room feels alive
+  // immediately. Full NSFW/animated media stays in the click-through overlay.
+  if (artwork.sfwPreview?.startsWith("/")) return artwork.sfwPreview;
   if (artwork.id) return `/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=sfw`;
   const src = artwork.sfwPreview;
   if (!src) return "";
