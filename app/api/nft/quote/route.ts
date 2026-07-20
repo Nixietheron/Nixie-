@@ -55,10 +55,85 @@ function canIssueQuote(request: NextRequest) {
 
 function requiredNixAmount(priceUsd: string) {
   const nixUsd = parseUnits(priceUsd, 18);
-  if (nixUsd <= BigInt(0)) throw new Error("Dexscreener returned an invalid NIX price");
+  if (nixUsd <= BigInt(0)) throw new Error("Market returned an invalid NIX price");
   const targetUsd = parseUnits(String(NIXIE_USD_PRICE), 18);
   const nixDecimals = BigInt(10) ** BigInt(18);
   return (targetUsd * nixDecimals + nixUsd - BigInt(1)) / nixUsd;
+}
+
+const v3PoolAbi = [
+  {
+    name: "slot0",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "sqrtPriceX96", type: "uint160" },
+      { name: "tick", type: "int24" },
+      { name: "observationIndex", type: "uint16" },
+      { name: "observationCardinality", type: "uint16" },
+      { name: "observationCardinalityNext", type: "uint16" },
+      { name: "feeProtocol", type: "uint8" },
+      { name: "unlocked", type: "bool" },
+    ],
+  },
+  { name: "liquidity", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint128" }] },
+] as const;
+
+async function resolveNixMarketPrice(client: ReturnType<typeof createPublicClient>) {
+  const [dex, fallback] = await Promise.allSettled([
+    fetch(`https://api.dexscreener.com/latest/dex/pairs/robinhood/${NIXIE_DEXSCREENER_PAIR}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    }).then(async (response) => {
+      if (!response.ok) throw new Error("Dexscreener price service is unavailable");
+      const payload = await response.json() as { pairs?: DexPair[] | null; pair?: DexPair | null };
+      const pairs = payload.pairs ?? (payload.pair ? [payload.pair] : []);
+      const pair = pairs.find((item) => item.baseToken?.address?.toLowerCase() === NIXIE_TOKEN_ADDRESS.toLowerCase());
+      const liquidity = pair?.liquidity?.usd;
+      const livePrice = Number(pair?.priceUsd);
+      if (!pair?.priceUsd || !Number.isFinite(livePrice) || livePrice <= 0 || !Number.isFinite(liquidity)) {
+        throw new Error("Dexscreener did not return the NIX pair");
+      }
+      return {
+        priceUsd: pair.priceUsd,
+        liquidityUsd: liquidity!,
+        fiveMinuteMove: Number(pair.priceChange?.m5),
+        source: "dexscreener" as const,
+      };
+    }),
+    (async () => {
+      const [slot0, poolLiquidity, ethUsdPayload] = await Promise.all([
+        client.readContract({ address: NIXIE_DEXSCREENER_PAIR, abi: v3PoolAbi, functionName: "slot0" }),
+        client.readContract({ address: NIXIE_DEXSCREENER_PAIR, abi: v3PoolAbi, functionName: "liquidity" }),
+        fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(8_000),
+        }).then((response) => response.json() as Promise<{ ethereum?: { usd?: number } }>),
+      ]);
+      const sqrtPriceX96 = slot0[0];
+      const q192 = BigInt(2) ** BigInt(192);
+      const precision = BigInt(10) ** BigInt(18);
+      const nixPerEth = (sqrtPriceX96 * sqrtPriceX96 * precision) / q192;
+      const ethUsd = Number(ethUsdPayload.ethereum?.usd);
+      if (nixPerEth <= BigInt(0) || poolLiquidity <= BigInt(0) || !Number.isFinite(ethUsd) || ethUsd <= 0) {
+        throw new Error("On-chain NIX pool price is unavailable");
+      }
+      const nixPerEthFloat = Number(nixPerEth) / 1e18;
+      const priceUsd = ethUsd / nixPerEthFloat;
+      if (!Number.isFinite(priceUsd) || priceUsd <= 0) throw new Error("On-chain NIX pool price is invalid");
+      return {
+        priceUsd: priceUsd.toFixed(18).replace(/0+$/, "").replace(/\.$/, ""),
+        liquidityUsd: NIXIE_MIN_LIQUIDITY_USD,
+        fiveMinuteMove: Number.NaN,
+        source: "onchain-pool" as const,
+      };
+    })(),
+  ]);
+
+  if (dex.status === "fulfilled") return dex.value;
+  if (fallback.status === "fulfilled") return fallback.value;
+  throw new Error(dex.reason instanceof Error ? dex.reason.message : "NIX market price is unavailable");
 }
 
 export async function POST(request: NextRequest) {
@@ -80,26 +155,20 @@ export async function POST(request: NextRequest) {
     const account = privateKeyToAccount(signerKey);
     const client = createPublicClient({ chain: robinhoodMainnet, transport: http() });
     const saleAddress = contractAddress as `0x${string}`;
-    const [response, onchainSigner, owner, treasury] = await Promise.all([
-      fetch(`https://api.dexscreener.com/latest/dex/pairs/robinhood/${NIXIE_DEXSCREENER_PAIR}`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(8_000),
-      }),
+    const [market, onchainSigner, owner, treasury] = await Promise.all([
+      resolveNixMarketPrice(client),
       client.readContract({ address: saleAddress, abi: saleSecurityAbi, functionName: "priceSigner" }),
       client.readContract({ address: saleAddress, abi: saleSecurityAbi, functionName: "owner" }),
       client.readContract({ address: saleAddress, abi: saleSecurityAbi, functionName: "treasury" }),
     ]);
-    if (!response.ok) throw new Error("Dexscreener price service is unavailable");
     if (onchainSigner.toLowerCase() !== account.address.toLowerCase()) {
       throw new Error("Configured quote signer does not match the sale contract");
     }
     if ([owner, treasury].some((address) => address.toLowerCase() === account.address.toLowerCase())) {
       throw new Error("Quote signer must be isolated from owner and treasury keys");
     }
-    const payload = await response.json() as { pairs?: DexPair[] };
-    const pair = payload.pairs?.find((item) => item.baseToken?.address?.toLowerCase() === NIXIE_TOKEN_ADDRESS.toLowerCase());
-    const liquidity = pair?.liquidity?.usd;
-    const livePrice = Number(pair?.priceUsd);
+    const liquidity = market.liquidityUsd;
+    const livePrice = Number(market.priceUsd);
     const configuredMaxAcceptedPrice = Number(process.env.NIXIE_MAX_NIX_PRICE_USD || NIXIE_MAX_PRICE_USD);
     const maxAcceptedPrice = Number.isFinite(configuredMaxAcceptedPrice) && configuredMaxAcceptedPrice > 0
       ? configuredMaxAcceptedPrice
@@ -108,14 +177,14 @@ export async function POST(request: NextRequest) {
     const minLiquidity = Number.isFinite(configuredMinLiquidity) && configuredMinLiquidity > 0
       ? configuredMinLiquidity
       : NIXIE_MIN_LIQUIDITY_USD;
-    if (!pair?.priceUsd || !Number.isFinite(liquidity) || liquidity! < minLiquidity) {
+    if (!Number.isFinite(liquidity) || liquidity < minLiquidity) {
       throw new Error("NIX market liquidity is currently below the mint safety threshold");
     }
     if (!Number.isFinite(livePrice) || livePrice <= 0 || livePrice > maxAcceptedPrice) {
       throw new Error("NIX price moved above the mint safety ceiling; minting is temporarily paused");
     }
     const maxFiveMinuteMove = Number(process.env.NIXIE_MAX_PRICE_CHANGE_5M_PERCENT || NIXIE_MAX_PRICE_CHANGE_5M_PERCENT);
-    const fiveMinuteMove = Number(pair.priceChange?.m5);
+    const fiveMinuteMove = Number(market.fiveMinuteMove);
     if (
       Number.isFinite(fiveMinuteMove) &&
       Number.isFinite(maxFiveMinuteMove) &&
@@ -125,7 +194,7 @@ export async function POST(request: NextRequest) {
       throw new Error("NIX price is moving too quickly; minting is temporarily paused");
     }
 
-    const nixAmount = requiredNixAmount(pair.priceUsd) * BigInt(quantity);
+    const nixAmount = requiredNixAmount(market.priceUsd) * BigInt(quantity);
     const minimumAmountAtSafetyCeiling = requiredNixAmount(String(maxAcceptedPrice)) * BigInt(quantity);
     if (nixAmount < minimumAmountAtSafetyCeiling) {
       throw new Error("Quote amount is below the configured economic safety floor");
@@ -143,8 +212,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       quote: { buyer: wallet, quantity, nixAmount: nixAmount.toString(), nonce: nonce.toString(), deadline: deadline.toString() },
       signature,
-      priceUsd: pair.priceUsd,
+      priceUsd: market.priceUsd,
       liquidityUsd: liquidity,
+      priceSource: market.source,
       expiresAt: Number(deadline) * 1000,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

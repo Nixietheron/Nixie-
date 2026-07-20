@@ -20,7 +20,7 @@ function securityPolicy(nonce: string): string {
     "img-src 'self' data: blob: https://gateway.pinata.cloud https://images.unsplash.com https://source.unsplash.com",
     "font-src 'self' data:",
     "media-src 'self' blob: https://gateway.pinata.cloud",
-    "connect-src 'self' blob: https://*.supabase.co wss://*.supabase.co https://rpc.mainnet.chain.robinhood.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.reown.com wss://*.reown.com https://*.coinbase.com wss://*.coinbase.com https://*.metamask.io wss://*.metamask.io",
+    "connect-src 'self' blob: https://*.supabase.co wss://*.supabase.co https://rpc.mainnet.chain.robinhood.com https://*.g.alchemy.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.reown.com wss://*.reown.com https://*.coinbase.com wss://*.coinbase.com https://*.metamask.io wss://*.metamask.io",
     "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com https://*.coinbase.com https://*.metamask.io",
     "worker-src 'self' blob:",
     "object-src 'none'",
