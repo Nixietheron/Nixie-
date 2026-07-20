@@ -84,17 +84,25 @@ function createCullingStore(): MuseumCullingStore {
   };
 }
 
-function resolveTextureUrl(artwork: Artwork): string {
+function resolveTextureUrls(artwork: Artwork): string[] {
+  const urls: string[] = [];
+  const add = (url: string | null | undefined) => {
+    if (!url || urls.includes(url)) return;
+    urls.push(url);
+  };
+
   // Gallery walls should use the light preview image so the room feels alive
   // immediately. Full NSFW/animated media stays in the click-through overlay.
-  if (artwork.sfwPreview?.startsWith("/")) return artwork.sfwPreview;
-  if (artwork.id) return `/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=sfw`;
-  const src = artwork.sfwPreview;
-  if (!src) return "";
-  if (src.includes("/ipfs/")) {
-    return ipfsProxyUrl(src) || src;
-  }
-  return src;
+  const preview = artwork.sfwPreview;
+  if (preview?.startsWith("/")) add(preview);
+  else add(ipfsProxyUrl(preview) || preview);
+
+  // Keep the authenticated proxy as a fallback. This protects us from public
+  // gateway hiccups without making every wall texture depend on another
+  // on-chain access check before the room can paint.
+  if (artwork.id) add(`/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=sfw`);
+
+  return urls;
 }
 
 function blurImage(img: HTMLImageElement, radius: number): HTMLCanvasElement {
@@ -188,12 +196,24 @@ function ArtFrame({
       return;
     }
 
-    const url = resolveTextureUrl(artwork);
-    if (!url) return;
+    const urls = resolveTextureUrls(artwork);
+    if (!urls.length) return;
 
     let cancelled = false;
 
-    loadCachedImage(url)
+    const loadTexture = async () => {
+      let lastError: unknown = null;
+      for (const url of urls) {
+        try {
+          return await loadCachedImage(url);
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError ?? new Error("Image load failed");
+    };
+
+    loadTexture()
       .then((img) => {
         if (cancelled) return;
         let source: TexImageSource = img;
@@ -226,7 +246,7 @@ function ArtFrame({
     return () => {
       cancelled = true;
     };
-  }, [lodTier, artwork.id, artwork.sfwPreview, artwork.nsfwFull, artwork.nsfwUnlocked, artwork.hasNsfw, isLocked]);
+  }, [lodTier, artwork, isLocked]);
 
   useEffect(() => {
     return () => {
