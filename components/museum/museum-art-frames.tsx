@@ -2,7 +2,6 @@
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { Artwork } from "@/lib/types";
 import { ipfsProxyUrl } from "@/lib/constants";
@@ -26,6 +25,50 @@ const LOD_LOW_DIST = 62;
 const LOD_CULL_DIST = 78;
 
 const LOW_RES_MAX_EDGE = 256;
+
+function CanvasLabel({
+  text,
+  position,
+  fontSize,
+  color,
+  maxWidth = 1.8,
+}: {
+  text: string;
+  position: [number, number, number];
+  fontSize: number;
+  color: string;
+  maxWidth?: number;
+}) {
+  const { texture, width, height } = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 768;
+    canvas.height = 160;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = color;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "800 58px Arial, Helvetica, sans-serif";
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2, canvas.width - 48);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    return { texture, width: maxWidth, height: fontSize * 1.7 };
+  }, [color, fontSize, maxWidth, text]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[width, height]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} depthWrite={false} />
+    </mesh>
+  );
+}
 
 export type MuseumCullingStore = {
   frustum: THREE.Frustum;
@@ -252,40 +295,12 @@ function ArtFrame({
         )}
       </mesh>
 
+      {isLocked && <CanvasLabel text="LOCKED" position={[0, 0.3, 0.12]} fontSize={0.28} color="#ffffff" maxWidth={1.2} />}
       {isLocked && (
-        <Text
-          position={[0, 0.3, 0.12]}
-          fontSize={0.45}
-          color="#ffffff"
-          anchorX="center"
-          anchorY="middle"
-        >
-          🔒
-        </Text>
-      )}
-      {isLocked && (
-        <Text
-          position={[0, -0.2, 0.12]}
-          fontSize={0.14}
-          color="#F4FFD1"
-          anchorX="center"
-          anchorY="middle"
-          maxWidth={1.6}
-        >
-          {"Nixie Museum Collection"}
-        </Text>
+        <CanvasLabel text="Nixie Museum Collection" position={[0, -0.2, 0.12]} fontSize={0.14} color="#F4FFD1" maxWidth={1.6} />
       )}
 
-      <Text
-        position={[0, -1.75, 0.1]}
-        fontSize={0.13}
-        color="#B8A9C9"
-        anchorX="center"
-        anchorY="top"
-        maxWidth={1.8}
-      >
-        {artwork.title || "Untitled"}
-      </Text>
+      <CanvasLabel text={artwork.title || "Untitled"} position={[0, -1.75, 0.1]} fontSize={0.13} color="#B8A9C9" maxWidth={1.8} />
     </group>
   );
 }

@@ -31,6 +31,53 @@ function SceneReadySignal({ onReady }: { onReady: () => void }) {
   return null;
 }
 
+function MuseumShellFallback({ galleryCount }: { galleryCount: number }) {
+  const length = 46 + (galleryCount - 1) * 38;
+  const centerZ = -8 - (galleryCount - 1) * 19;
+  const backZ = -27 - (galleryCount - 1) * 38;
+
+  return (
+    <group>
+      <ambientLight intensity={2.6} color="#f5ffd4" />
+      <hemisphereLight intensity={1.8} color="#f4ffd0" groundColor="#4b5034" />
+      <directionalLight position={[4, 9, 6]} intensity={2.4} color="#fff8dc" />
+      <fog attach="fog" args={["#313527", 40, Math.max(95, length + 24)]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, centerZ]}>
+        <planeGeometry args={[42, length]} />
+        <meshStandardMaterial color="#303326" roughness={0.78} metalness={0.08} />
+      </mesh>
+      <mesh position={[-20, 3.15, centerZ]}>
+        <boxGeometry args={[0.35, 6.3, length]} />
+        <meshStandardMaterial color="#444835" roughness={0.62} />
+      </mesh>
+      <mesh position={[20, 3.15, centerZ]}>
+        <boxGeometry args={[0.35, 6.3, length]} />
+        <meshStandardMaterial color="#444835" roughness={0.62} />
+      </mesh>
+      <mesh position={[0, 3.15, backZ]}>
+        <boxGeometry args={[42, 6.3, 0.35]} />
+        <meshStandardMaterial color="#444835" roughness={0.62} />
+      </mesh>
+      <mesh position={[0, 3.15, 14]}>
+        <boxGeometry args={[42, 6.3, 0.35]} />
+        <meshStandardMaterial color="#444835" roughness={0.62} />
+      </mesh>
+      {[-12, -6, 0, 6, 12].map((x) => (
+        <mesh key={x} position={[x, 2.4, -9]}>
+          <boxGeometry args={[2.25, 3.05, 0.14]} />
+          <meshStandardMaterial color="#17121e" emissive="#D7FF00" emissiveIntensity={0.12} roughness={0.42} metalness={0.25} />
+        </mesh>
+      ))}
+      {[-5.65, 5.65].map((x) => (
+        <mesh key={x} rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.035, centerZ]}>
+          <planeGeometry args={[0.045, Math.max(0, length - 4)]} />
+          <meshBasicMaterial color="#D7FF00" transparent opacity={0.6} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function MuseumLoadingScreen({ ready }: { ready: boolean }) {
   const { active, progress } = useProgress();
   const [visible, setVisible] = useState(true);
@@ -146,12 +193,14 @@ export function MuseumScene({
         requestAnimationFrame(() => requestAnimationFrame(() => setSceneReady(true)));
       }}
     >
-      <MuseumEnvironment galleryCount={galleryCount} />
-      <MuseumArtFrames
-        publicArtworks={publicArtworks}
-        nsfwArtworks={nsfwArtworks}
-        onSelect={onArtworkSelect}
-      />
+      <Suspense fallback={<MuseumShellFallback galleryCount={galleryCount} />}>
+        <MuseumEnvironment galleryCount={galleryCount} />
+        <MuseumArtFrames
+          publicArtworks={publicArtworks}
+          nsfwArtworks={nsfwArtworks}
+          onSelect={onArtworkSelect}
+        />
+      </Suspense>
       <Suspense fallback={null}>
         <MuseumCharacterController
           avatarChoice={avatarChoice}

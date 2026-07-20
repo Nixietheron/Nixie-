@@ -19,6 +19,8 @@ const MIN_DISTANCE = 2.5;
 const MAX_DISTANCE = 12;
 const DESIRED_HEIGHT = 1.7;
 const FLOOR_CLEARANCE = 0.055;
+const ENABLE_GLTF_AVATAR = process.env.NEXT_PUBLIC_ENABLE_MUSEUM_GLTF_AVATAR !== "false";
+const PRELOAD_GLTF_AVATARS = process.env.NEXT_PUBLIC_PRELOAD_MUSEUM_GLTF_AVATARS === "true";
 
 const _forward = new THREE.Vector3();
 const _right = new THREE.Vector3();
@@ -34,7 +36,90 @@ type UnlockAnimationTarget = {
   frameZ: number;
 };
 
-function CharacterModel({
+function ProceduralCharacterModel({
+  avatarChoice,
+  groupRef,
+  movingRef,
+}: {
+  avatarChoice: "female" | "male";
+  groupRef: React.RefObject<THREE.Group>;
+  movingRef: React.MutableRefObject<boolean>;
+}) {
+  const bodyRef = useRef<THREE.Group>(null);
+  const hairRef = useRef<THREE.Group>(null);
+  const isFemale = avatarChoice === "female";
+  const hairColor = isFemale ? "#bfff00" : "#8dff5a";
+  const outfitColor = isFemale ? "#08080c" : "#15151d";
+
+  useFrame((state, delta) => {
+    const t = state.clock.elapsedTime;
+    const moving = movingRef.current ?? false;
+    if (bodyRef.current) {
+      bodyRef.current.position.y = Math.sin(t * (moving ? 8 : 2.2)) * (moving ? 0.035 : 0.012);
+      bodyRef.current.rotation.z = THREE.MathUtils.lerp(
+        bodyRef.current.rotation.z,
+        moving ? Math.sin(t * 8) * 0.025 : Math.sin(t * 1.7) * 0.01,
+        Math.min(1, delta * 8),
+      );
+    }
+    if (hairRef.current) {
+      hairRef.current.rotation.y = Math.sin(t * 1.4) * 0.055;
+      hairRef.current.rotation.z = Math.sin(t * 1.1) * 0.025;
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 0, -3]} rotation={[0, Math.PI, 0]}>
+      <group ref={bodyRef} position={[0, FLOOR_CLEARANCE, 0]}>
+        <mesh position={[0, 0.92, 0]} castShadow>
+          <capsuleGeometry args={[0.28, 0.65, 8, 16]} />
+          <meshStandardMaterial color="#f2c7b9" roughness={0.45} metalness={0.02} />
+        </mesh>
+        <mesh position={[0, 1.42, 0.02]} castShadow>
+          <sphereGeometry args={[0.24, 24, 16]} />
+          <meshStandardMaterial color="#f3c9bc" roughness={0.42} />
+        </mesh>
+        <group ref={hairRef}>
+          <mesh position={[0, 1.51, -0.02]} castShadow>
+            <sphereGeometry args={[0.285, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.72]} />
+            <meshStandardMaterial color={hairColor} roughness={0.34} emissive={hairColor} emissiveIntensity={0.12} />
+          </mesh>
+          <mesh position={[0, 1.05, -0.11]} rotation={[0.12, 0, 0]} castShadow>
+            <coneGeometry args={[0.42, 1.05, 24]} />
+            <meshStandardMaterial color={hairColor} roughness={0.38} emissive={hairColor} emissiveIntensity={0.1} />
+          </mesh>
+        </group>
+        <mesh position={[0, 0.86, 0.03]} castShadow>
+          <capsuleGeometry args={[0.23, 0.48, 8, 16]} />
+          <meshStandardMaterial color={outfitColor} roughness={0.2} metalness={0.45} />
+        </mesh>
+        <mesh position={[0, 0.43, 0]} castShadow>
+          <capsuleGeometry args={[0.18, 0.42, 8, 16]} />
+          <meshStandardMaterial color="#111117" roughness={0.32} metalness={0.25} />
+        </mesh>
+        <mesh position={[-0.32, 0.92, 0]} rotation={[0, 0, 0.38]} castShadow>
+          <capsuleGeometry args={[0.065, 0.58, 8, 12]} />
+          <meshStandardMaterial color="#f0c3b7" roughness={0.48} />
+        </mesh>
+        <mesh position={[0.32, 0.92, 0]} rotation={[0, 0, -0.38]} castShadow>
+          <capsuleGeometry args={[0.065, 0.58, 8, 12]} />
+          <meshStandardMaterial color="#f0c3b7" roughness={0.48} />
+        </mesh>
+        <mesh position={[-0.13, 0.1, 0]} castShadow>
+          <capsuleGeometry args={[0.075, 0.56, 8, 12]} />
+          <meshStandardMaterial color="#1a1a22" roughness={0.36} metalness={0.18} />
+        </mesh>
+        <mesh position={[0.13, 0.1, 0]} castShadow>
+          <capsuleGeometry args={[0.075, 0.56, 8, 12]} />
+          <meshStandardMaterial color="#1a1a22" roughness={0.36} metalness={0.18} />
+        </mesh>
+        <pointLight position={[0, 1.3, 0.35]} color="#ccff00" intensity={0.45} distance={2.2} />
+      </group>
+    </group>
+  );
+}
+
+function GltfCharacterModel({
   avatarChoice,
   groupRef,
   movingRef,
@@ -185,6 +270,17 @@ function CharacterModel({
       </group>
     </group>
   );
+}
+
+function CharacterModel(props: {
+  avatarChoice: "female" | "male";
+  groupRef: React.RefObject<THREE.Group>;
+  movingRef: React.MutableRefObject<boolean>;
+}) {
+  if (!ENABLE_GLTF_AVATAR) {
+    return <ProceduralCharacterModel {...props} />;
+  }
+  return <GltfCharacterModel {...props} />;
 }
 
 const DEFAULT_MIN_WALK_Z = -27;
@@ -467,5 +563,7 @@ export function MuseumCharacterController({
   );
 }
 
-useGLTF.preload("/api/museum-avatar?avatar=female");
-useGLTF.preload("/api/museum-avatar?avatar=male");
+if (ENABLE_GLTF_AVATAR && PRELOAD_GLTF_AVATARS) {
+  useGLTF.preload("/api/museum-avatar?avatar=female");
+  useGLTF.preload("/api/museum-avatar?avatar=male");
+}

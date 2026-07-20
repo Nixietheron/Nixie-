@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Text } from "@react-three/drei";
 import * as THREE from "three";
 
 const LIME = "#D7FF00";
@@ -9,6 +8,64 @@ const INK = "#22261e";
 const STONE = "#4a4a36";
 const WALL = "#4a4b39";
 const BRASS = "#81734b";
+
+function CanvasLabel({
+  text,
+  position,
+  rotation = [0, 0, 0],
+  fontSize,
+  color,
+  maxWidth = 6,
+  textAlign = "center",
+  lineHeight = 1.25,
+}: {
+  text: string;
+  position: [number, number, number];
+  rotation?: [number, number, number];
+  fontSize: number;
+  color: string;
+  maxWidth?: number;
+  textAlign?: CanvasTextAlign;
+  lineHeight?: number;
+}) {
+  const { texture, width, height } = useMemo(() => {
+    const lines = text.split("\n");
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = Math.max(128, Math.ceil(lines.length * 160 * lineHeight));
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = color;
+      ctx.textAlign = textAlign;
+      ctx.textBaseline = "middle";
+      ctx.font = "800 86px Arial, Helvetica, sans-serif";
+      const x = textAlign === "left" ? 40 : textAlign === "right" ? canvas.width - 40 : canvas.width / 2;
+      const step = 108 * lineHeight;
+      const startY = canvas.height / 2 - ((lines.length - 1) * step) / 2;
+      lines.forEach((line, index) => ctx.fillText(line, x, startY + index * step, canvas.width - 80));
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    return {
+      texture,
+      width: maxWidth,
+      height: Math.max(fontSize * 1.6, fontSize * lines.length * lineHeight * 1.45),
+    };
+  }, [color, fontSize, lineHeight, maxWidth, text, textAlign]);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+
+  return (
+    <mesh position={position} rotation={rotation}>
+      <planeGeometry args={[width, height]} />
+      <meshBasicMaterial map={texture} transparent toneMapped={false} depthWrite={false} />
+    </mesh>
+  );
+}
 
 function StoneFloor({ length, centerZ }: { length: number; centerZ: number }) {
   const texture = useMemo(() => {
@@ -253,9 +310,7 @@ function FeaturedNixiePortrait({ src, position, caption }: { src: string; positi
         <boxGeometry args={[4.15, 0.05, 0.08]} />
         <meshBasicMaterial color={LIME} />
       </mesh>
-      <Text fontSize={0.15} color="#f6f3df" anchorX="center" anchorY="middle" letterSpacing={0.08} position={[0, -0.38, 0.14]}>
-        {caption}
-      </Text>
+      <CanvasLabel text={caption} fontSize={0.15} color="#f6f3df" position={[0, -0.38, 0.14]} maxWidth={2.4} />
     </group>
   );
 }
@@ -266,12 +321,8 @@ function FeaturedCollection() {
       <FeaturedNixiePortrait src="/nixie2.webp" position={[-6.4, 0, 0]} caption="NIXIE / MIDNIGHT" />
       <FeaturedNixiePortrait src="/nixie4.webp" position={[0, 0, 0.18]} caption="NIXIE / PRIVATE EDITION" />
       <FeaturedNixiePortrait src="/nixie6.webp" position={[6.4, 0, 0]} caption="NIXIE / AFTER DARK" />
-      <Text fontSize={0.25} color={LIME} anchorX="center" anchorY="middle" letterSpacing={0.18} position={[0, 5.35, 0.16]}>
-        FEATURED COLLECTION
-      </Text>
-      <Text fontSize={0.16} color="#f5f1df" anchorX="center" anchorY="middle" letterSpacing={0.04} position={[0, 4.9, 0.16]}>
-        GLAMOUR, DESIRE & DIGITAL FANTASY
-      </Text>
+      <CanvasLabel text="FEATURED COLLECTION" fontSize={0.25} color={LIME} position={[0, 5.35, 0.16]} maxWidth={5.2} />
+      <CanvasLabel text="GLAMOUR, DESIRE & DIGITAL FANTASY" fontSize={0.16} color="#f5f1df" position={[0, 4.9, 0.16]} maxWidth={5.6} />
     </group>
   );
 }
@@ -281,18 +332,10 @@ function GalleryWallCopy({ room }: { room: number }) {
   const sideZ = -9 - room * 38;
   return (
     <group>
-      <Text fontSize={0.26} color={LIME} anchorX="center" anchorY="middle" letterSpacing={0.14} position={[0, 5.28, z]}>
-        NIXIE AFTER HOURS
-      </Text>
-      <Text fontSize={0.135} maxWidth={11.6} textAlign="center" color="#eeefd6" anchorX="center" anchorY="middle" lineHeight={1.45} position={[0, 4.65, z]}>
-        {"A private invitation to linger after the lights go low.\nVelvet moods, slow glances, and a little digital temptation."}
-      </Text>
-      <Text fontSize={0.15} color="#e7ebc8" anchorX="center" anchorY="middle" letterSpacing={0.06} position={[-19.72, 5.15, sideZ]} rotation={[0, Math.PI / 2, 0]}>
-        SOFT LIGHT · SHARP LOOKS · NO RUSH
-      </Text>
-      <Text fontSize={0.15} color="#e7ebc8" anchorX="center" anchorY="middle" letterSpacing={0.06} position={[19.72, 5.15, sideZ]} rotation={[0, -Math.PI / 2, 0]}>
-        DESIRE LIVES IN THE DETAILS · KEEP LOOKING
-      </Text>
+      <CanvasLabel text="NIXIE AFTER HOURS" fontSize={0.26} color={LIME} position={[0, 5.28, z]} maxWidth={5.2} />
+      <CanvasLabel text={"A private invitation to linger after the lights go low.\nVelvet moods, slow glances, and a little digital temptation."} fontSize={0.135} color="#eeefd6" lineHeight={1.45} position={[0, 4.65, z]} maxWidth={9.5} />
+      <CanvasLabel text="SOFT LIGHT · SHARP LOOKS · NO RUSH" fontSize={0.15} color="#e7ebc8" position={[-19.72, 5.15, sideZ]} rotation={[0, Math.PI / 2, 0]} maxWidth={5.4} />
+      <CanvasLabel text="DESIRE LIVES IN THE DETAILS · KEEP LOOKING" fontSize={0.15} color="#e7ebc8" position={[19.72, 5.15, sideZ]} rotation={[0, -Math.PI / 2, 0]} maxWidth={5.8} />
     </group>
   );
 }
