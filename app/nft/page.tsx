@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowDown, ExternalLink, EyeOff, Gem, KeyRound, Shuffle, Sparkles } from "lucide-react";
 import { NftMintPanel } from "@/components/nft/nft-mint-panel";
 import { NftWalletButton } from "@/components/nft/nft-wallet-button";
+import { NIXIE_GENESIS_ADDRESS, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
 
 export const metadata: Metadata = {
   title: "Nixie Genesis — Mint on Robinhood Chain",
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: { images: ["/nft/genesis/14.jpg"] },
 };
 
-const contract = "0xd092B7e9FC3e2684b59B83212394d293E6a89550";
+const contract = NIXIE_GENESIS_ADDRESS;
 const openSeaUrl = "https://opensea.io/collection/nixiegenesis";
 
 export default function NftPage() {
@@ -24,6 +25,7 @@ export default function NftPage() {
         <Link href="/" className="flex items-center gap-2 text-sm font-black tracking-[-.03em]"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d7ff00] text-black">N</span>NIXIE</Link>
         <nav className="flex items-center gap-2 sm:gap-3">
           <a href="#collection" className="hidden text-xs font-bold text-white/45 hover:text-white md:block">Collection</a>
+          <a href={NIXIE_UNISWAP_BUY_URL} target="_blank" rel="noreferrer" className="hidden items-center gap-1 rounded-full bg-[#d7ff00] px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-black hover:brightness-110 sm:flex">Buy NIX <ExternalLink className="h-3 w-3" /></a>
           <a href={openSeaUrl} target="_blank" rel="noreferrer" className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[.04] px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-white/65 hover:border-[#d7ff00]/40 hover:text-[#d7ff00] sm:flex">OpenSea <ExternalLink className="h-3 w-3" /></a>
           <NftWalletButton />
         </nav>

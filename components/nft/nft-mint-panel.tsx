@@ -3,8 +3,8 @@
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle, Check, CheckCircle2, ExternalLink, LoaderCircle, RefreshCw,
-  ShieldCheck, Sparkles, WalletCards, WandSparkles,
+  AlertTriangle, Check, CheckCircle2, Copy, ExternalLink, LoaderCircle, RefreshCw,
+  ShieldCheck, ShoppingBag, Sparkles, WalletCards, WandSparkles,
 } from "lucide-react";
 import { useAccount, useChainId, usePublicClient, useReadContract, useSwitchChain, useWriteContract } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
@@ -14,6 +14,7 @@ import {
   NIXIE_GENESIS_ADDRESS,
   NIXIE_MAX_PER_WALLET,
   NIXIE_TOKEN_ADDRESS,
+  NIXIE_UNISWAP_BUY_URL,
   NIXIE_USD_PRICE,
   nixieName,
 } from "@/lib/nft-collection";
@@ -64,6 +65,7 @@ export function NftMintPanel() {
   const [confirmedApprovalAmount, setConfirmedApprovalAmount] = useState(0n);
   const [mintHash, setMintHash] = useState<`0x${string}`>();
   const [mintConfirming, setMintConfirming] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
   const { writeContractAsync, isPending } = useWriteContract();
   const publicClient = usePublicClient({ chainId: ROBINHOOD_CHAIN_ID });
   const saleAddress = NFT_ADDRESS && isAddress(NFT_ADDRESS) ? NFT_ADDRESS as `0x${string}` : undefined;
@@ -104,6 +106,17 @@ export function NftMintPanel() {
   const mintedSupply = 1000 - Number(remainingSupply ?? 1000n);
   const progress = Math.min(100, Math.max(0, mintedSupply / 10));
   const explorer = mintHash ? `https://robinhoodchain.blockscout.com/tx/${mintHash}` : null;
+  const shortNixAddress = `${NIXIE_TOKEN_ADDRESS.slice(0, 6)}…${NIXIE_TOKEN_ADDRESS.slice(-4)}`;
+
+  const copyNixContract = async () => {
+    try {
+      await navigator.clipboard.writeText(NIXIE_TOKEN_ADDRESS);
+      setCopiedToken(true);
+      window.setTimeout(() => setCopiedToken(false), 1800);
+    } catch {
+      setNotice("NIX contract: " + NIXIE_TOKEN_ADDRESS);
+    }
+  };
 
   const loadQuote = useCallback(async () => {
     if (!address || !saleAddress || remainingWalletMints === 0 || wrongNetwork) return;
@@ -279,6 +292,35 @@ export function NftMintPanel() {
           <div className="flex items-center justify-between"><span className="text-xs font-bold text-white/45">Live total</span><span className="text-xl font-black text-[#d7ff00]">{quote ? `${displayNix(quotedAmount)} NIX` : "—"}</span></div>
           <div className="mt-2 flex items-center justify-between text-[10px] text-white/35"><span>Always ${(effectiveQuantity * NIXIE_USD_PRICE).toFixed(2)} USD</span><span>{quote ? `$${quote.priceUsd} / NIX` : "Fetching market…"}</span></div>
           {isConnected && <div className="mt-3 flex items-center justify-between border-t border-white/[.06] pt-3 text-[10px]"><span className="text-white/35">Your wallet</span><span className="font-bold text-white/60">{displayNix(nixBalance)} NIX · {remainingWalletMints}/3 mints left</span></div>}
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-[#d7ff00]/20 bg-[#d7ff00]/[.055] p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[.2em] text-[#d7ff00]">Need NIX?</p>
+              <p className="mt-1 text-[10px] leading-4 text-white/45">Buy on Uniswap, or copy the token contract.</p>
+            </div>
+            <span className="hidden rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white/45 sm:inline-flex">
+              {shortNixAddress}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <a
+              href={NIXIE_UNISWAP_BUY_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 rounded-xl bg-white px-3 py-3 text-[10px] font-black uppercase tracking-wider text-black hover:bg-[#d7ff00]"
+            >
+              <ShoppingBag className="h-3.5 w-3.5" /> Buy NIX
+            </a>
+            <button
+              type="button"
+              onClick={copyNixContract}
+              className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-3 text-[10px] font-black uppercase tracking-wider text-white/70 hover:border-[#d7ff00]/40 hover:text-[#d7ff00]"
+            >
+              <Copy className="h-3.5 w-3.5" /> {copiedToken ? "Copied" : "Copy contract"}
+            </button>
+          </div>
         </div>
 
         {quote && saleActive && <div className="mt-3 flex items-center justify-between rounded-xl bg-white/[.035] px-3 py-2 text-[10px]"><span className="text-white/35">Signed quote expires</span><span className={`font-black ${quoteSeconds <= 15 ? "text-amber-300" : "text-white/65"}`}>{quoteSeconds}s</span></div>}
