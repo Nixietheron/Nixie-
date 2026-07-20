@@ -146,13 +146,13 @@ export function MuseumScene({
         requestAnimationFrame(() => requestAnimationFrame(() => setSceneReady(true)));
       }}
     >
+      <MuseumEnvironment galleryCount={galleryCount} />
+      <MuseumArtFrames
+        publicArtworks={publicArtworks}
+        nsfwArtworks={nsfwArtworks}
+        onSelect={onArtworkSelect}
+      />
       <Suspense fallback={null}>
-        <MuseumEnvironment galleryCount={galleryCount} />
-        <MuseumArtFrames
-          publicArtworks={publicArtworks}
-          nsfwArtworks={nsfwArtworks}
-          onSelect={onArtworkSelect}
-        />
         <MuseumCharacterController
           avatarChoice={avatarChoice}
           minWalkZ={minWalkZ}
@@ -160,8 +160,8 @@ export function MuseumScene({
           unlockAnimationTarget={unlockAnimationTarget}
           onUnlockAnimationDone={onUnlockAnimationDone}
         />
-        <SceneReadySignal onReady={() => setSceneReady(true)} />
       </Suspense>
+      <SceneReadySignal onReady={() => setSceneReady(true)} />
     </Canvas>
     <MuseumLoadingScreen ready={sceneReady} />
     </div>

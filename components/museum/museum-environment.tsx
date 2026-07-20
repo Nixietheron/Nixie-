@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { Text, useTexture } from "@react-three/drei";
+import { useEffect, useMemo, useState } from "react";
+import { Text } from "@react-three/drei";
 import * as THREE from "three";
 
 const LIME = "#D7FF00";
@@ -198,8 +198,43 @@ function RoomDressing({ room }: { room: number }) {
 }
 
 function FeaturedNixiePortrait({ src, position, caption }: { src: string; position: [number, number, number]; caption: string }) {
-  const texture = useTexture(src);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let currentTexture: THREE.Texture | null = null;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      src,
+      (loaded) => {
+        if (cancelled) {
+          loaded.dispose();
+          return;
+        }
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        loaded.minFilter = THREE.LinearFilter;
+        loaded.magFilter = THREE.LinearFilter;
+        loaded.generateMipmaps = false;
+        currentTexture = loaded;
+        setTexture((prev) => {
+          prev?.dispose();
+          return loaded;
+        });
+      },
+      undefined,
+      () => {
+        if (!cancelled) setTexture((prev) => {
+          prev?.dispose();
+          return null;
+        });
+      },
+    );
+    return () => {
+      cancelled = true;
+      currentTexture?.dispose();
+    };
+  }, [src]);
+
   return (
     <group position={position}>
       <mesh position={[0, 2.55, 0]} castShadow receiveShadow>
@@ -208,7 +243,11 @@ function FeaturedNixiePortrait({ src, position, caption }: { src: string; positi
       </mesh>
       <mesh position={[0, 2.55, 0.115]}>
         <planeGeometry args={[3.67, 4.87]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
+        {texture ? (
+          <meshBasicMaterial map={texture} toneMapped={false} />
+        ) : (
+          <meshBasicMaterial color="#2a2040" />
+        )}
       </mesh>
       <mesh position={[0, 0.19, 0.135]}>
         <boxGeometry args={[4.15, 0.05, 0.08]} />
