@@ -9,7 +9,6 @@ export const NIXIE_UNISWAP_BUY_URL =
 export const NIXIE_USD_PRICE = 5;
 export const NIXIE_MAX_PER_WALLET = 3;
 export const NIXIE_MIN_LIQUIDITY_USD = 1000;
-export const NIXIE_MAX_PRICE_USD = 0.000012;
 
 export const NIXIE_CHARACTERS = [
   "Velvet Arcana", "Solenne Veil", "Nocturna Lace", "Sakura Mercy", "Astral Vixen",
