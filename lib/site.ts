@@ -2,5 +2,5 @@
 export const SITE = {
   name: "Nixie",
   contactEmail: "hello@nixiepink.com",
-  xUrl: "https://x.com/NixieTheron",
+  xUrl: "https://x.com/NixieHood",
 } as const;

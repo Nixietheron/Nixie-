@@ -6,7 +6,6 @@ import {
   NIXIE_DEXSCREENER_PAIR,
   NIXIE_GENESIS_ADDRESS,
   NIXIE_MAX_PER_WALLET,
-  NIXIE_MAX_PRICE_CHANGE_5M_PERCENT,
   NIXIE_MAX_PRICE_USD,
   NIXIE_MIN_LIQUIDITY_USD,
   NIXIE_TOKEN_ADDRESS,
@@ -19,6 +18,8 @@ export const dynamic = "force-dynamic";
 
 const QUOTE_SECONDS = 180;
 const RATE_WINDOW_MS = 60_000;
+const PRICE_CACHE_SECONDS = 5 * 60;
+const PRICE_STALE_FALLBACK_SECONDS = 15 * 60;
 
 type DexPair = {
   baseToken?: { address?: string };
@@ -26,12 +27,22 @@ type DexPair = {
   liquidity?: { usd?: number };
   priceChange?: { m5?: number };
 };
+
+type NixMarketPrice = {
+  priceUsd: string;
+  liquidityUsd: number;
+  fiveMinuteMove: number;
+  source: "dexscreener" | "onchain-pool" | "dexscreener-cache" | "onchain-pool-cache";
+  fetchedAt: number;
+};
+
 const saleSecurityAbi = [
   { name: "priceSigner", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   { name: "owner", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
   { name: "treasury", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
 ] as const;
 const quoteRateLimits = new Map<string, { count: number; resetAt: number }>();
+let nixMarketCache: NixMarketPrice | null = null;
 
 function rateLimitKey(request: NextRequest) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -80,7 +91,7 @@ const v3PoolAbi = [
   { name: "liquidity", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint128" }] },
 ] as const;
 
-async function resolveNixMarketPrice(client: ReturnType<typeof createPublicClient>) {
+async function fetchNixMarketPrice(client: ReturnType<typeof createPublicClient>): Promise<NixMarketPrice> {
   const [dex, fallback] = await Promise.allSettled([
     fetch(`https://api.dexscreener.com/latest/dex/pairs/robinhood/${NIXIE_DEXSCREENER_PAIR}`, {
       cache: "no-store",
@@ -99,6 +110,7 @@ async function resolveNixMarketPrice(client: ReturnType<typeof createPublicClien
         priceUsd: pair.priceUsd,
         liquidityUsd: liquidity!,
         fiveMinuteMove: Number(pair.priceChange?.m5),
+        fetchedAt: Date.now(),
         source: "dexscreener" as const,
       };
     }),
@@ -126,6 +138,7 @@ async function resolveNixMarketPrice(client: ReturnType<typeof createPublicClien
         priceUsd: priceUsd.toFixed(18).replace(/0+$/, "").replace(/\.$/, ""),
         liquidityUsd: NIXIE_MIN_LIQUIDITY_USD,
         fiveMinuteMove: Number.NaN,
+        fetchedAt: Date.now(),
         source: "onchain-pool" as const,
       };
     })(),
@@ -134,6 +147,45 @@ async function resolveNixMarketPrice(client: ReturnType<typeof createPublicClien
   if (dex.status === "fulfilled") return dex.value;
   if (fallback.status === "fulfilled") return fallback.value;
   throw new Error(dex.reason instanceof Error ? dex.reason.message : "NIX market price is unavailable");
+}
+
+async function resolveNixMarketPrice(client: ReturnType<typeof createPublicClient>): Promise<NixMarketPrice> {
+  const now = Date.now();
+  const cacheMs = positiveSeconds(process.env.NIXIE_PRICE_CACHE_SECONDS, PRICE_CACHE_SECONDS) * 1000;
+  const staleFallbackMs = positiveSeconds(process.env.NIXIE_PRICE_STALE_FALLBACK_SECONDS, PRICE_STALE_FALLBACK_SECONDS) * 1000;
+
+  if (nixMarketCache && now - nixMarketCache.fetchedAt < cacheMs) {
+    return {
+      ...nixMarketCache,
+      source: nixMarketCache.source === "onchain-pool" || nixMarketCache.source === "onchain-pool-cache"
+        ? "onchain-pool-cache"
+        : "dexscreener-cache",
+    };
+  }
+
+  try {
+    nixMarketCache = await fetchNixMarketPrice(client);
+    return nixMarketCache;
+  } catch (error) {
+    if (nixMarketCache && now - nixMarketCache.fetchedAt < staleFallbackMs) {
+      console.warn(
+        "[nft/quote] using stale NIX market cache:",
+        error instanceof Error ? error.message : "unknown error",
+      );
+      return {
+        ...nixMarketCache,
+        source: nixMarketCache.source === "onchain-pool" || nixMarketCache.source === "onchain-pool-cache"
+          ? "onchain-pool-cache"
+          : "dexscreener-cache",
+      };
+    }
+    throw error;
+  }
+}
+
+function positiveSeconds(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 30 && parsed <= 3600 ? parsed : fallback;
 }
 
 export async function POST(request: NextRequest) {
@@ -183,16 +235,9 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(livePrice) || livePrice <= 0 || livePrice > maxAcceptedPrice) {
       throw new Error("NIX price moved above the mint safety ceiling; minting is temporarily paused");
     }
-    const maxFiveMinuteMove = Number(process.env.NIXIE_MAX_PRICE_CHANGE_5M_PERCENT || NIXIE_MAX_PRICE_CHANGE_5M_PERCENT);
-    const fiveMinuteMove = Number(market.fiveMinuteMove);
-    if (
-      Number.isFinite(fiveMinuteMove) &&
-      Number.isFinite(maxFiveMinuteMove) &&
-      maxFiveMinuteMove > 0 &&
-      Math.abs(fiveMinuteMove) > maxFiveMinuteMove
-    ) {
-      throw new Error("NIX price is moving too quickly; minting is temporarily paused");
-    }
+    // The mint uses a 5-minute server-side NIX price window. We intentionally
+    // do not pause on Dexscreener's m5 volatility field: a fast candle should
+    // not break checkout while the cached quote window is still valid.
 
     const nixAmount = requiredNixAmount(market.priceUsd) * BigInt(quantity);
     const minimumAmountAtSafetyCeiling = requiredNixAmount(String(maxAcceptedPrice)) * BigInt(quantity);
@@ -215,6 +260,8 @@ export async function POST(request: NextRequest) {
       priceUsd: market.priceUsd,
       liquidityUsd: liquidity,
       priceSource: market.source,
+      priceFetchedAt: market.fetchedAt,
+      priceCacheSeconds: positiveSeconds(process.env.NIXIE_PRICE_CACHE_SECONDS, PRICE_CACHE_SECONDS),
       expiresAt: Number(deadline) * 1000,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
