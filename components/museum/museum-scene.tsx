@@ -9,6 +9,7 @@ import { MuseumCharacterController } from "./museum-character-controller";
 import {
   MuseumArtFrames,
   getPublicFrameSlotForArtwork,
+  loadMuseumArtworkTextureImage,
 } from "./museum-art-frames";
 import type { Artwork } from "@/lib/types";
 import { PENTHOUSE_BOUNDS, getGalleryCount, getPenthouseMinZ } from "@/lib/museum/penthouse-layout";
@@ -78,7 +79,22 @@ function MuseumShellFallback({ galleryCount }: { galleryCount: number }) {
   );
 }
 
-function MuseumLoadingScreen({ ready }: { ready: boolean }) {
+async function preloadWithConcurrency<T>(
+  items: T[],
+  worker: (item: T) => Promise<void>,
+  concurrency = 4,
+) {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(concurrency, Math.max(1, items.length)) }, async () => {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await worker(item);
+    }
+  });
+  await Promise.all(runners);
+}
+
+function MuseumLoadingScreen({ ready, posterProgress }: { ready: boolean; posterProgress: number }) {
   const { active, progress } = useProgress();
   const [visible, setVisible] = useState(true);
   const [leaving, setLeaving] = useState(false);
@@ -97,7 +113,9 @@ function MuseumLoadingScreen({ ready }: { ready: boolean }) {
   }, [active, progress, ready]);
 
   if (!visible) return null;
-  const displayProgress = Math.max(8, Math.min(ready ? 100 : 98, Math.round(progress || (ready ? 100 : 42))));
+  const dreiProgress = progress || (ready ? 100 : 42);
+  const combinedProgress = Math.min(dreiProgress, posterProgress);
+  const displayProgress = Math.max(8, Math.min(ready ? 100 : 98, Math.round(combinedProgress)));
 
   return (
     <div className={`pointer-events-none absolute inset-0 z-40 overflow-hidden bg-[#09070d] transition-opacity duration-700 ${leaving ? "opacity-0" : "opacity-100"}`}>
@@ -135,6 +153,8 @@ export function MuseumScene({
 }: MuseumSceneProps) {
   const [sceneReady, setSceneReady] = useState(false);
   const [characterReady, setCharacterReady] = useState(false);
+  const [posterReady, setPosterReady] = useState(false);
+  const [posterProgress, setPosterProgress] = useState(0);
   // A single token gate opens the full collection in one open-plan gallery.
   const { publicArtworks, nsfwArtworks, allArtworks } = useMemo(() => {
     const publicItems = artworks.filter((a) => a.sfwPreview && !a.hasNsfw);
@@ -160,6 +180,49 @@ export function MuseumScene({
   }, [unlockAnimationArtworkId, allArtworks]);
   const galleryCount = getGalleryCount(allArtworks.length);
   const minWalkZ = getPenthouseMinZ(allArtworks.length);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPosterReady(false);
+    setPosterProgress(allArtworks.length ? 4 : 100);
+
+    if (!allArtworks.length) {
+      setPosterReady(true);
+      return;
+    }
+
+    let completed = 0;
+    const markDone = () => {
+      completed += 1;
+      if (!cancelled) {
+        setPosterProgress(Math.max(4, Math.round((completed / allArtworks.length) * 100)));
+      }
+    };
+
+    preloadWithConcurrency(
+      allArtworks,
+      async (artwork) => {
+        try {
+          await loadMuseumArtworkTextureImage(artwork);
+        } catch {
+          // Broken/empty media should not trap visitors behind the loading veil.
+          // The frame keeps its fallback color, and the overlay can still retry.
+        } finally {
+          markDone();
+        }
+      },
+      4,
+    ).finally(() => {
+      if (!cancelled) {
+        setPosterProgress(100);
+        setPosterReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allArtworks]);
 
   useEffect(() => {
     setCharacterReady(false);
@@ -210,7 +273,7 @@ export function MuseumScene({
       </Suspense>
       <SceneReadySignal onReady={() => setSceneReady(true)} />
     </Canvas>
-    <MuseumLoadingScreen ready={sceneReady && characterReady} />
+    <MuseumLoadingScreen ready={sceneReady && characterReady && posterReady} posterProgress={posterProgress} />
     </div>
   );
 }

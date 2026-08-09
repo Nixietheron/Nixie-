@@ -84,7 +84,7 @@ function createCullingStore(): MuseumCullingStore {
   };
 }
 
-function resolveTextureUrls(artwork: Artwork): string[] {
+export function resolveMuseumArtworkTextureUrls(artwork: Artwork): string[] {
   const urls: string[] = [];
   const add = (url: string | null | undefined) => {
     if (!url || urls.includes(url)) return;
@@ -102,6 +102,21 @@ function resolveTextureUrls(artwork: Artwork): string[] {
   else add(ipfsProxyUrl(preview) || preview);
 
   return urls;
+}
+
+export async function loadMuseumArtworkTextureImage(artwork: Artwork): Promise<HTMLImageElement> {
+  const urls = resolveMuseumArtworkTextureUrls(artwork);
+  if (!urls.length) throw new Error("Artwork has no texture URL");
+
+  let lastError: unknown = null;
+  for (const url of urls) {
+    try {
+      return await loadCachedImage(url);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error("Image load failed");
 }
 
 function blurImage(img: HTMLImageElement, radius: number): HTMLCanvasElement {
@@ -175,8 +190,8 @@ function ArtFrame({
   const isLocked = false;
   const accentColor = FRAME_LIME;
 
-  const lodTierRef = useRef<"none" | "low" | "high">("none");
-  const [lodTier, setLodTier] = useState<"none" | "low" | "high">("none");
+  const lodTierRef = useRef<"none" | "low" | "high">("low");
+  const [lodTier, setLodTier] = useState<"none" | "low" | "high">("low");
 
   useFrame(() => {
     const next = computeLodTier(worldPos, cullingStoreRef.current);
@@ -195,24 +210,9 @@ function ArtFrame({
       return;
     }
 
-    const urls = resolveTextureUrls(artwork);
-    if (!urls.length) return;
-
     let cancelled = false;
 
-    const loadTexture = async () => {
-      let lastError: unknown = null;
-      for (const url of urls) {
-        try {
-          return await loadCachedImage(url);
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      throw lastError ?? new Error("Image load failed");
-    };
-
-    loadTexture()
+    loadMuseumArtworkTextureImage(artwork)
       .then((img) => {
         if (cancelled) return;
         let source: TexImageSource = img;
