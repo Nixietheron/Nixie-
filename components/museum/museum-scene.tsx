@@ -85,7 +85,7 @@ function MuseumLoadingScreen({ ready }: { ready: boolean }) {
 
   useEffect(() => {
     const progressComplete = progress >= 99.5;
-    const sceneCanOpen = progressComplete || (ready && !active);
+    const sceneCanOpen = ready && (progressComplete || !active);
     if (!sceneCanOpen) return;
 
     const fadeTimeout = window.setTimeout(() => setLeaving(true), 450);
@@ -96,16 +96,8 @@ function MuseumLoadingScreen({ ready }: { ready: boolean }) {
     };
   }, [active, progress, ready]);
 
-  useEffect(() => {
-    const safetyTimeout = window.setTimeout(() => {
-      setLeaving(true);
-      window.setTimeout(() => setVisible(false), 700);
-    }, 9000);
-    return () => window.clearTimeout(safetyTimeout);
-  }, []);
-
   if (!visible) return null;
-  const displayProgress = Math.max(8, Math.min(100, Math.round(progress || (ready ? 94 : 42))));
+  const displayProgress = Math.max(8, Math.min(ready ? 100 : 98, Math.round(progress || (ready ? 100 : 42))));
 
   return (
     <div className={`pointer-events-none absolute inset-0 z-40 overflow-hidden bg-[#09070d] transition-opacity duration-700 ${leaving ? "opacity-0" : "opacity-100"}`}>
@@ -142,6 +134,7 @@ export function MuseumScene({
   onUnlockAnimationDone,
 }: MuseumSceneProps) {
   const [sceneReady, setSceneReady] = useState(false);
+  const [characterReady, setCharacterReady] = useState(false);
   // A single token gate opens the full collection in one open-plan gallery.
   const { publicArtworks, nsfwArtworks, allArtworks } = useMemo(() => {
     const publicItems = artworks.filter((a) => a.sfwPreview && !a.hasNsfw);
@@ -167,6 +160,10 @@ export function MuseumScene({
   }, [unlockAnimationArtworkId, allArtworks]);
   const galleryCount = getGalleryCount(allArtworks.length);
   const minWalkZ = getPenthouseMinZ(allArtworks.length);
+
+  useEffect(() => {
+    setCharacterReady(false);
+  }, [avatarChoice]);
 
   return (
     <div className="relative h-full w-full">
@@ -208,11 +205,12 @@ export function MuseumScene({
           maxWalkX={PENTHOUSE_BOUNDS.maxX}
           unlockAnimationTarget={unlockAnimationTarget}
           onUnlockAnimationDone={onUnlockAnimationDone}
+          onCharacterReady={() => setCharacterReady(true)}
         />
       </Suspense>
       <SceneReadySignal onReady={() => setSceneReady(true)} />
     </Canvas>
-    <MuseumLoadingScreen ready={sceneReady} />
+    <MuseumLoadingScreen ready={sceneReady && characterReady} />
     </div>
   );
 }

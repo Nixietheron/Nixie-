@@ -16,6 +16,10 @@ type AccessState = "checking" | "allowed" | "wallet-required" | "signature-requi
 
 const MuseumScene = dynamic(() => import("@/components/museum/museum-scene").then((m) => m.MuseumScene), { ssr: false });
 const GATE_IMAGES = ["/nixie2.webp", "/nixie3.webp", "/nixie4.webp", "/nixie5.webp", "/nixie6.webp"] as const;
+const MUSEUM_AVATAR_URLS: Record<AvatarChoice, string> = {
+  female: "/api/museum-avatar?avatar=female",
+  male: "/api/museum-avatar?avatar=male",
+};
 
 function MuseumGateBackdrop() {
   return <div className="pointer-events-none absolute inset-0 overflow-hidden"><div className="absolute inset-0 flex gap-px opacity-55">{GATE_IMAGES.map((src, index) => <div key={src} className="relative flex-1 overflow-hidden"><div className="absolute inset-0 scale-110 bg-cover bg-center" style={{ backgroundImage: `url(${src})`, backgroundPosition: `center calc(50% + ${index % 2 ? 30 : 58}px)` }} /><div className="absolute inset-0 bg-[#080610]/70" /></div>)}</div><div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(215,255,0,0.12),transparent_36%),linear-gradient(to_bottom,rgba(8,6,16,0.65),rgba(8,6,16,0.92))]" /></div>;
@@ -90,9 +94,16 @@ export default function MuseumPage() {
 
   useEffect(() => {
     if (accessState !== "allowed") return;
+    void import("@/components/museum/museum-scene");
+    void fetch(MUSEUM_AVATAR_URLS.female, { cache: "force-cache" }).catch(() => undefined);
     setLoading(true);
     fetchArtworks(0).catch(() => setArtworks([])).finally(() => setLoading(false));
   }, [accessState, fetchArtworks]);
+
+  useEffect(() => {
+    if (accessState !== "allowed") return;
+    void fetch(MUSEUM_AVATAR_URLS[avatarChoice], { cache: "force-cache" }).catch(() => undefined);
+  }, [accessState, avatarChoice]);
 
   useEffect(() => {
     if (accessState !== "allowed") return;

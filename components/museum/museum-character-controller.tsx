@@ -40,16 +40,23 @@ function ProceduralCharacterModel({
   avatarChoice,
   groupRef,
   movingRef,
+  onReady,
 }: {
   avatarChoice: "female" | "male";
   groupRef: React.RefObject<THREE.Group>;
   movingRef: React.MutableRefObject<boolean>;
+  onReady?: () => void;
 }) {
   const bodyRef = useRef<THREE.Group>(null);
   const hairRef = useRef<THREE.Group>(null);
   const isFemale = avatarChoice === "female";
   const hairColor = isFemale ? "#bfff00" : "#8dff5a";
   const outfitColor = isFemale ? "#08080c" : "#15151d";
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => onReady?.());
+    return () => cancelAnimationFrame(frame);
+  }, [onReady]);
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
@@ -123,10 +130,12 @@ function GltfCharacterModel({
   avatarChoice,
   groupRef,
   movingRef,
+  onReady,
 }: {
   avatarChoice: "female" | "male";
   groupRef: React.RefObject<THREE.Group>;
   movingRef: React.MutableRefObject<boolean>;
+  onReady?: () => void;
 }) {
   const containerRef = useRef<THREE.Group>(null!);
   const avatarUrl = useMemo(
@@ -161,6 +170,20 @@ function GltfCharacterModel({
   };
 
   const metrics = useMemo(() => computeScaleAndYOffset(clonedScene), [clonedScene]);
+
+  useEffect(() => {
+    // Signal only after the GLB is loaded, cloned, measured, and committed for
+    // at least one rendered frame. The museum loading veil should not disappear
+    // while the avatar is still being parsed.
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => onReady?.());
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [clonedScene, metrics.scale, metrics.yOffset, onReady]);
 
   useEffect(() => {
     // Find hips once for root-motion cancellation.
@@ -276,6 +299,7 @@ function CharacterModel(props: {
   avatarChoice: "female" | "male";
   groupRef: React.RefObject<THREE.Group>;
   movingRef: React.MutableRefObject<boolean>;
+  onReady?: () => void;
 }) {
   if (!ENABLE_GLTF_AVATAR) {
     return <ProceduralCharacterModel {...props} />;
@@ -291,12 +315,14 @@ export function MuseumCharacterController({
   maxWalkX = 7.5,
   unlockAnimationTarget,
   onUnlockAnimationDone,
+  onCharacterReady,
 }: {
   avatarChoice?: "female" | "male";
   minWalkZ?: number;
   maxWalkX?: number;
   unlockAnimationTarget?: UnlockAnimationTarget | null;
   onUnlockAnimationDone?: (artworkId: string) => void;
+  onCharacterReady?: () => void;
 }) {
   const characterRef = useRef<THREE.Group>(null!);
   const movingRef = useRef(false);
@@ -548,7 +574,7 @@ export function MuseumCharacterController({
 
   return (
     <group>
-      <CharacterModel avatarChoice={avatarChoice} groupRef={characterRef} movingRef={movingRef} />
+      <CharacterModel avatarChoice={avatarChoice} groupRef={characterRef} movingRef={movingRef} onReady={onCharacterReady} />
       <group ref={hammerGroupRef} visible={false}>
         <mesh>
           <boxGeometry args={[0.08, 0.55, 0.08]} />

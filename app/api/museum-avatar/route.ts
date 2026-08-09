@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     return new Response(data, {
       headers: {
         "Content-Type": "model/gltf-binary",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch {
