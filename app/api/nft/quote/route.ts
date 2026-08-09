@@ -32,7 +32,7 @@ type NixMarketPrice = {
   priceUsd: string;
   liquidityUsd: number;
   fiveMinuteMove: number;
-  source: "dexscreener" | "onchain-pool" | "dexscreener-cache" | "onchain-pool-cache";
+  source: "dexscreener" | "onchain-pool" | "dexscreener-cache" | "onchain-pool-cache" | "dexscreener-capped" | "onchain-pool-capped" | "dexscreener-cache-capped" | "onchain-pool-cache-capped";
   fetchedAt: number;
 };
 
@@ -188,6 +188,35 @@ function positiveSeconds(value: string | undefined, fallback: number) {
   return Number.isInteger(parsed) && parsed >= 30 && parsed <= 3600 ? parsed : fallback;
 }
 
+function capMarketPriceForQuote(market: NixMarketPrice, maxAcceptedPrice: number): NixMarketPrice {
+  const livePrice = Number(market.priceUsd);
+  if (!Number.isFinite(livePrice) || livePrice <= 0) {
+    throw new Error("NIX market price is invalid");
+  }
+  if (!Number.isFinite(maxAcceptedPrice) || maxAcceptedPrice <= 0 || livePrice <= maxAcceptedPrice) {
+    return market;
+  }
+
+  const source = market.source.includes("onchain-pool")
+    ? market.source.includes("cache")
+      ? "onchain-pool-cache-capped"
+      : "onchain-pool-capped"
+    : market.source.includes("cache")
+      ? "dexscreener-cache-capped"
+      : "dexscreener-capped";
+
+  console.warn(
+    "[nft/quote] NIX price above configured quote ceiling; using capped quote price:",
+    { livePrice: market.priceUsd, cappedPrice: maxAcceptedPrice },
+  );
+
+  return {
+    ...market,
+    priceUsd: String(maxAcceptedPrice),
+    source,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!canIssueQuote(request)) {
@@ -220,7 +249,6 @@ export async function POST(request: NextRequest) {
       throw new Error("Quote signer must be isolated from owner and treasury keys");
     }
     const liquidity = market.liquidityUsd;
-    const livePrice = Number(market.priceUsd);
     const configuredMaxAcceptedPrice = Number(process.env.NIXIE_MAX_NIX_PRICE_USD || NIXIE_MAX_PRICE_USD);
     const maxAcceptedPrice = Number.isFinite(configuredMaxAcceptedPrice) && configuredMaxAcceptedPrice > 0
       ? configuredMaxAcceptedPrice
@@ -232,14 +260,15 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(liquidity) || liquidity < minLiquidity) {
       throw new Error("NIX market liquidity is currently below the mint safety threshold");
     }
-    if (!Number.isFinite(livePrice) || livePrice <= 0 || livePrice > maxAcceptedPrice) {
-      throw new Error("NIX price moved above the mint safety ceiling; minting is temporarily paused");
-    }
+    const quoteMarket = capMarketPriceForQuote(market, maxAcceptedPrice);
     // The mint uses a 5-minute server-side NIX price window. We intentionally
     // do not pause on Dexscreener's m5 volatility field: a fast candle should
-    // not break checkout while the cached quote window is still valid.
+    // not break checkout while the cached quote window is still valid. Likewise,
+    // the max price is a conservative quote ceiling, not a public-sale kill
+    // switch: if NIX pumps above the ceiling, buyers pay the ceiling amount
+    // instead of the sale showing an unavailable-pricing error.
 
-    const nixAmount = requiredNixAmount(market.priceUsd) * BigInt(quantity);
+    const nixAmount = requiredNixAmount(quoteMarket.priceUsd) * BigInt(quantity);
     const minimumAmountAtSafetyCeiling = requiredNixAmount(String(maxAcceptedPrice)) * BigInt(quantity);
     if (nixAmount < minimumAmountAtSafetyCeiling) {
       throw new Error("Quote amount is below the configured economic safety floor");
@@ -257,9 +286,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       quote: { buyer: wallet, quantity, nixAmount: nixAmount.toString(), nonce: nonce.toString(), deadline: deadline.toString() },
       signature,
-      priceUsd: market.priceUsd,
+      priceUsd: quoteMarket.priceUsd,
+      observedPriceUsd: market.priceUsd,
       liquidityUsd: liquidity,
-      priceSource: market.source,
+      priceSource: quoteMarket.source,
       priceFetchedAt: market.fetchedAt,
       priceCacheSeconds: positiveSeconds(process.env.NIXIE_PRICE_CACHE_SECONDS, PRICE_CACHE_SECONDS),
       expiresAt: Number(deadline) * 1000,
