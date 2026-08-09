@@ -91,12 +91,16 @@ export function resolveMuseumArtworkTextureUrls(artwork: Artwork): string[] {
     urls.push(url);
   };
 
-  // Use our authenticated same-origin proxy first.  Public IPFS gateways can
-  // be slow, blocked by CORS, or unavailable for private Pinata media; the
-  // museum pass has already been verified before this scene renders.
+  // The museum is already token-gated, so wall frames should use the same
+  // authorized full portrait that opens in the artwork drawer. Many collection
+  // entries only have a reliable NSFW/full CID; forcing SFW first leaves black
+  // placeholders even though the clicked artwork loads correctly.
+  if (artwork.id && artwork.hasNsfw) add(`/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=nsfw`);
+
+  // Keep the lighter SFW poster as a fallback for entries that have it.
   if (artwork.id) add(`/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=sfw`);
 
-  // Keep public preview URLs as a fallback for legacy/free content.
+  // Keep public preview URLs as a final fallback for legacy/free content.
   const preview = artwork.sfwPreview;
   if (preview?.startsWith("/")) add(preview);
   else add(ipfsProxyUrl(preview) || preview);
