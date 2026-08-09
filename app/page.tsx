@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { SITE } from "@/lib/site";
+import { TelegramLogo } from "@/components/icons/telegram-logo";
 
 /** Landing hero: one artwork per column (left → right). */
 const HERO_IMAGES = [
@@ -149,6 +150,10 @@ export default function SplashScreen() {
               <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="transition hover:text-white">Buy $NIX</a>
               <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="transition hover:text-white">Market</a>
               <a href={SITE.xUrl} target="_blank" rel="noopener noreferrer" className="transition hover:text-white">X</a>
+              <a href={SITE.telegramUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition hover:text-white">
+                <TelegramLogo className="h-3.5 w-3.5" />
+                TG
+              </a>
             </nav>
 
             <div className="flex shrink-0 items-center gap-3">
@@ -251,6 +256,8 @@ export default function SplashScreen() {
                   <a href={BUY_NIX_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition hover:text-[#D7FF00]">Buy $NIX <ExternalLink className="h-3.5 w-3.5" /></a>
                   <span className="h-1 w-1 rounded-full bg-white/20" />
                   <a href={DEXSCREENER_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition hover:text-white">View market <ExternalLink className="h-3.5 w-3.5" /></a>
+                  <span className="h-1 w-1 rounded-full bg-white/20" />
+                  <a href={SITE.telegramUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 transition hover:text-[#D7FF00]"><TelegramLogo className="h-3.5 w-3.5" />Telegram</a>
                   {burnedNix && <><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span className="hidden items-center gap-1.5 sm:inline-flex"><Flame className="h-3.5 w-3.5 text-orange-400" />{burnedNix} $NIX burned</span></>}
                 </div>
               </motion.div>
@@ -320,6 +327,17 @@ export default function SplashScreen() {
                 >
                   X
                   <ExternalLink className="w-3.5 h-3.5 opacity-50" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href={SITE.telegramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-white/60 hover:text-white transition-colors"
+                >
+                  <TelegramLogo className="w-3.5 h-3.5 opacity-70" />
+                  Telegram
                 </a>
               </li>
               <li>

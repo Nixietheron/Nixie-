@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ArrowDown, ExternalLink, EyeOff, Gem, KeyRound, Shuffle, Sparkles } from "lucide-react";
 import { NftMintPanel } from "@/components/nft/nft-mint-panel";
 import { NftWalletButton } from "@/components/nft/nft-wallet-button";
+import { TelegramLogo } from "@/components/icons/telegram-logo";
+import { SITE } from "@/lib/site";
 import { NIXIE_GENESIS_ADDRESS, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
 
 export const metadata: Metadata = {
@@ -27,6 +29,7 @@ export default function NftPage() {
           <a href="#collection" className="hidden text-xs font-bold text-white/45 hover:text-white md:block">Collection</a>
           <a href={NIXIE_UNISWAP_BUY_URL} target="_blank" rel="noreferrer" className="hidden items-center gap-1 rounded-full bg-[#d7ff00] px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-black hover:brightness-110 sm:flex">Buy NIX <ExternalLink className="h-3 w-3" /></a>
           <a href={openSeaUrl} target="_blank" rel="noreferrer" className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[.04] px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-white/65 hover:border-[#d7ff00]/40 hover:text-[#d7ff00] sm:flex">OpenSea <ExternalLink className="h-3 w-3" /></a>
+          <a href={SITE.telegramUrl} target="_blank" rel="noreferrer" className="hidden items-center gap-1 rounded-full border border-white/10 bg-white/[.04] px-3 py-2.5 text-[10px] font-black uppercase tracking-wider text-white/65 hover:border-[#d7ff00]/40 hover:text-[#d7ff00] lg:flex"><TelegramLogo className="h-3.5 w-3.5" />TG</a>
           <NftWalletButton />
         </nav>
       </header>
@@ -89,7 +92,7 @@ export default function NftPage() {
         </div>
       </section>
 
-      <footer className="relative border-t border-white/10 px-5 py-10 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-5 text-xs text-white/35 sm:flex-row sm:items-center"><p>© 2026 Nixie Genesis · 18+ digital art collection</p><div className="flex flex-wrap gap-4"><a href={openSeaUrl} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">OpenSea</a><a href={`https://robinhoodchain.blockscout.com/address/${contract}`} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">Verified contract</a><a href="https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a" target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">NIX market</a><Link href="/" className="hover:text-[#d7ff00]">Museum</Link></div></div></footer>
+      <footer className="relative border-t border-white/10 px-5 py-10 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-5 text-xs text-white/35 sm:flex-row sm:items-center"><p>© 2026 Nixie Genesis · 18+ digital art collection</p><div className="flex flex-wrap gap-4"><a href={openSeaUrl} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">OpenSea</a><a href={`https://robinhoodchain.blockscout.com/address/${contract}`} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">Verified contract</a><a href="https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a" target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">NIX market</a><a href={SITE.telegramUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-[#d7ff00]"><TelegramLogo className="h-3.5 w-3.5" />Telegram</a><Link href="/" className="hover:text-[#d7ff00]">Museum</Link></div></div></footer>
     </main>
   );
 }
