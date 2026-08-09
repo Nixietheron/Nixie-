@@ -6,7 +6,7 @@ import { NftMintPanel } from "@/components/nft/nft-mint-panel";
 import { NftWalletButton } from "@/components/nft/nft-wallet-button";
 import { TelegramLogo } from "@/components/icons/telegram-logo";
 import { SITE } from "@/lib/site";
-import { NIXIE_GENESIS_ADDRESS, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
+import { NIXIE_DEXSCREENER_URL, NIXIE_GENESIS_ADDRESS, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
 
 export const metadata: Metadata = {
   title: "Nixie Genesis — Mint on Robinhood Chain",
@@ -92,7 +92,7 @@ export default function NftPage() {
         </div>
       </section>
 
-      <footer className="relative border-t border-white/10 px-5 py-10 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-5 text-xs text-white/35 sm:flex-row sm:items-center"><p>© 2026 Nixie Genesis · 18+ digital art collection</p><div className="flex flex-wrap gap-4"><a href={openSeaUrl} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">OpenSea</a><a href={`https://robinhoodchain.blockscout.com/address/${contract}`} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">Verified contract</a><a href="https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a" target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">NIX market</a><a href={SITE.telegramUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-[#d7ff00]"><TelegramLogo className="h-3.5 w-3.5" />Telegram</a><Link href="/" className="hover:text-[#d7ff00]">Museum</Link></div></div></footer>
+      <footer className="relative border-t border-white/10 px-5 py-10 sm:px-8 lg:px-12"><div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-5 text-xs text-white/35 sm:flex-row sm:items-center"><p>© 2026 Nixie Genesis · 18+ digital art collection</p><div className="flex flex-wrap gap-4"><a href={openSeaUrl} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">OpenSea</a><a href={`https://robinhoodchain.blockscout.com/address/${contract}`} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">Verified contract</a><a href={NIXIE_DEXSCREENER_URL} target="_blank" rel="noreferrer" className="hover:text-[#d7ff00]">NIX market</a><a href={SITE.telegramUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-[#d7ff00]"><TelegramLogo className="h-3.5 w-3.5" />Telegram</a><Link href="/" className="hover:text-[#d7ff00]">Museum</Link></div></div></footer>
     </main>
   );
 }

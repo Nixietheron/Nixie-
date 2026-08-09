@@ -3,14 +3,14 @@ import { createPublicClient, formatUnits, http, isAddress, zeroAddress, type Add
 import { erc20TransferEventAbi } from "@/lib/abi/erc20";
 import { ROBINHOOD_RPC_URL, robinhoodMainnet } from "@/lib/robinhood-chain";
 import { createAdminClient } from "@/lib/supabase/server";
+import { NIXIE_DEXSCREENER_URL, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const STREAM_KEY = "nix-buy-alerts-v1";
 const MAX_NOTIFICATIONS_PER_RUN = 30;
-const NOXA_BUY_URL = "https://fun.noxa.fi/robinhood/token/0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f";
-const DEXSCREENER_URL = "https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a";
+const DEXSCREENER_URL = NIXIE_DEXSCREENER_URL;
 const DEXSCREENER_PAIR_API = "https://api.dexscreener.com/latest/dex/pairs/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a";
 
 function delay(milliseconds: number) {
@@ -82,7 +82,7 @@ async function sendTelegramAlert(text: string) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: "Buy $NIX · Noxa", url: NOXA_BUY_URL },
+            { text: "Buy $NIX · Uniswap", url: NIXIE_UNISWAP_BUY_URL },
             { text: "Chart · Dexscreener", url: DEXSCREENER_URL },
           ],
         ],

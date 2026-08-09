@@ -8,6 +8,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { SITE } from "@/lib/site";
 import { TelegramLogo } from "@/components/icons/telegram-logo";
+import { NIXIE_DEXSCREENER_URL, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
 
 /** Landing hero: one artwork per column (left → right). */
 const HERO_IMAGES = [
@@ -18,8 +19,8 @@ const HERO_IMAGES = [
   "/nixie6.webp",
 ] as const;
 
-const BUY_NIX_URL = "https://fun.noxa.fi/robinhood/token/0x41b24bb02b0884b3b696f1a4e7c4bc3d4a31fc8f";
-const DEXSCREENER_URL = "https://dexscreener.com/robinhood/0x74a2e6bfc4507f68b4c98104722192597b71715a";
+const BUY_NIX_URL = NIXIE_UNISWAP_BUY_URL;
+const DEXSCREENER_URL = NIXIE_DEXSCREENER_URL;
 
 export default function SplashScreen() {
   const [ready, setReady] = useState(false);
