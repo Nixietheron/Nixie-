@@ -6,7 +6,7 @@ import { NftMintPanel } from "@/components/nft/nft-mint-panel";
 import { NftWalletButton } from "@/components/nft/nft-wallet-button";
 import { TelegramLogo } from "@/components/icons/telegram-logo";
 import { SITE } from "@/lib/site";
-import { NIXIE_DEXSCREENER_URL, NIXIE_GENESIS_ADDRESS, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
+import { NIXIE_DEXSCREENER_URL, NIXIE_GENESIS_ADDRESS, NIXIE_OPENSEA_URL, NIXIE_UNISWAP_BUY_URL } from "@/lib/nft-collection";
 
 export const metadata: Metadata = {
   title: "Nixie Genesis — Mint on Robinhood Chain",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 const contract = NIXIE_GENESIS_ADDRESS;
-const openSeaUrl = "https://opensea.io/collection/nixiegenesis";
+const openSeaUrl = NIXIE_OPENSEA_URL;
 
 export default function NftPage() {
   return (

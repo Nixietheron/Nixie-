@@ -6,6 +6,8 @@ export const NIXIE_DEXSCREENER_URL =
   `https://dexscreener.com/robinhood/${NIXIE_DEXSCREENER_PAIR.toLowerCase()}` as const;
 export const NIXIE_UNISWAP_BUY_URL =
   `https://app.uniswap.org/swap?outputCurrency=${NIXIE_TOKEN_ADDRESS}&chain=robinhood` as const;
+export const NIXIE_OPENSEA_URL = "https://opensea.io/collection/nixiegenesis" as const;
+export const NIXIE_MINT_URL = "https://nixiepink.com/nft" as const;
 export const NIXIE_USD_PRICE = 5;
 export const NIXIE_MAX_PER_WALLET = 3;
 export const NIXIE_MIN_LIQUIDITY_USD = 1000;

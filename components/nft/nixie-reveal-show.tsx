@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ChevronRight, ExternalLink, Sparkles, X } from "lucide-react";
 import { nixieName } from "@/lib/nft-collection";
+import { NixieShareCard } from "@/components/nft/nixie-share-card";
 
 type Props = {
   open: boolean;
@@ -87,6 +88,8 @@ export function NixieRevealShow({ open, tokenIds, transactionHash, onClose }: Pr
 
             <div className="mt-7 flex items-center justify-center gap-2 lg:justify-start">{tokenIds.map((_, index) => <span key={index} className={`h-1.5 rounded-full transition-all duration-500 ${index === activeIndex ? "w-10 bg-[#d7ff00]" : index < activeIndex ? "w-4 bg-white/50" : "w-4 bg-white/15"}`} />)}</div>
 
+            <NixieShareCard tokenId={tokenId} />
+
             <button type="button" onClick={next} className="mt-7 inline-flex min-w-56 items-center justify-center gap-2 rounded-full bg-[#d7ff00] px-6 py-4 text-sm font-black text-black shadow-[0_16px_50px_rgba(215,255,0,.16)] hover:-translate-y-0.5 hover:brightness-110">{!isLast ? "Reveal the next Nixie" : tokenIds.length > 1 ? "See everyone you revealed" : "Keep her close"}<ChevronRight className="h-4 w-4" /></button>
             {!isLast && <p className="mt-3 text-[10px] text-white/30">Take a look — the next card arrives in a few seconds, or continue now.</p>}
           </div>}
@@ -98,6 +101,11 @@ export function NixieRevealShow({ open, tokenIds, transactionHash, onClose }: Pr
           <h1 className="mt-4 text-center text-5xl font-black tracking-[-.065em] sm:text-7xl">THEY&apos;RE ALL YOURS.</h1>
           <div className={`mt-10 grid w-full max-w-4xl gap-3 ${tokenIds.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
             {tokenIds.map((id, index) => <div key={`${id}-${index}`} className="nixie-summary-card relative aspect-[3/4] overflow-hidden rounded-2xl border border-white/15" style={{ animationDelay: `${index * 0.18}s` }}><Image src={`/nft/genesis/${String(id).padStart(2, "0")}.jpg`} alt={nixieName(id)} fill sizes="33vw" className="object-cover" /><div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" /><div className="absolute inset-x-0 bottom-0 p-3 sm:p-5"><p className="text-xs font-black sm:text-lg">{nixieName(id)}</p><p className="mt-1 text-[8px] font-black uppercase tracking-[.16em] text-[#d7ff00] sm:text-[10px]">Genesis #{String(id).padStart(2, "0")}</p></div></div>)}
+          </div>
+          <div className={`mt-5 grid w-full max-w-4xl gap-3 ${tokenIds.length === 1 ? "grid-cols-1" : tokenIds.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+            {tokenIds.map((id, index) => (
+              <NixieShareCard key={`share-${id}-${index}`} tokenId={id} variant="compact" />
+            ))}
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-3"><button type="button" onClick={onClose} className="rounded-full bg-[#d7ff00] px-7 py-4 text-sm font-black text-black hover:brightness-110">Return to the portal</button>{transactionHash && <a href={`https://robinhoodchain.blockscout.com/tx/${transactionHash}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-full border border-white/15 px-6 py-4 text-sm font-black text-white/65 hover:border-white/35 hover:text-white">View transaction <ExternalLink className="h-4 w-4" /></a>}</div>
         </div>
