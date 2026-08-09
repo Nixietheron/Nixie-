@@ -91,16 +91,15 @@ function resolveTextureUrls(artwork: Artwork): string[] {
     urls.push(url);
   };
 
-  // Gallery walls should use the light preview image so the room feels alive
-  // immediately. Full NSFW/animated media stays in the click-through overlay.
+  // Use our authenticated same-origin proxy first.  Public IPFS gateways can
+  // be slow, blocked by CORS, or unavailable for private Pinata media; the
+  // museum pass has already been verified before this scene renders.
+  if (artwork.id) add(`/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=sfw`);
+
+  // Keep public preview URLs as a fallback for legacy/free content.
   const preview = artwork.sfwPreview;
   if (preview?.startsWith("/")) add(preview);
   else add(ipfsProxyUrl(preview) || preview);
-
-  // Keep the authenticated proxy as a fallback. This protects us from public
-  // gateway hiccups without making every wall texture depend on another
-  // on-chain access check before the room can paint.
-  if (artwork.id) add(`/api/ipfs-image?contentId=${encodeURIComponent(artwork.id)}&type=sfw`);
 
   return urls;
 }

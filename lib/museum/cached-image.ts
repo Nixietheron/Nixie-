@@ -7,46 +7,37 @@ export function loadCachedImage(url: string): Promise<HTMLImageElement> {
   let p = imageByUrl.get(url);
   if (!p) {
     p = new Promise<HTMLImageElement>((resolve, reject) => {
-      const loadImage = (src: string, revoke?: () => void) => {
+      const loadImage = (src: string, options?: { crossOrigin?: "" | "anonymous" | "use-credentials"; revoke?: () => void }) => {
         const img = new Image();
+        if (options?.crossOrigin !== undefined) img.crossOrigin = options.crossOrigin;
         img.onload = () => {
           resolve(img);
-          if (revoke) window.setTimeout(revoke, 1000);
+          if (options?.revoke) window.setTimeout(options.revoke, 1000);
         };
         img.onerror = () => {
-          revoke?.();
+          options?.revoke?.();
           reject(new Error("Image load failed"));
         };
         img.src = src;
       };
 
       // Protected museum media is served from our own API and depends on the
-      // holder's wallet session cookie.  `crossOrigin="anonymous"` strips that
-      // credential context, so fetch same-origin media explicitly and turn it
-      // into a blob URL before creating the Three.js texture.
+      // holder's wallet session cookie. Load same-origin URLs directly so the
+      // browser sends cookies naturally and CSP/blob URL edge cases cannot leave
+      // every gallery frame stuck on the fallback material.
       const isSameOrigin =
         url.startsWith("/") ||
         (typeof window !== "undefined" && url.startsWith(window.location.origin));
 
       if (isSameOrigin) {
-        fetch(url, { credentials: "include", cache: "force-cache" })
-          .then((response) => {
-            if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`);
-            return response.blob();
-          })
-          .then((blob) => {
-            const objectUrl = URL.createObjectURL(blob);
-            loadImage(objectUrl, () => URL.revokeObjectURL(objectUrl));
-          })
-          .catch(reject);
+        loadImage(url);
         return;
       }
 
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Image load failed"));
-      img.src = url;
+      loadImage(url, { crossOrigin: "anonymous" });
+    });
+    p.catch(() => {
+      if (imageByUrl.get(url) === p) imageByUrl.delete(url);
     });
     imageByUrl.set(url, p);
   }
