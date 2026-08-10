@@ -2,12 +2,36 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
+import { loadCachedImage } from "@/lib/museum/cached-image";
 
 const LIME = "#D7FF00";
 const INK = "#22261e";
 const STONE = "#4a4a36";
 const WALL = "#4a4b39";
 const BRASS = "#81734b";
+
+function createImageCanvasTexture(img: HTMLImageElement, maxEdge = 1024): THREE.CanvasTexture {
+  const naturalWidth = img.naturalWidth || img.width || 1;
+  const naturalHeight = img.naturalHeight || img.height || 1;
+  const maxSide = Math.max(naturalWidth, naturalHeight);
+  const scale = Math.min(1, maxEdge / maxSide);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.floor(naturalWidth * scale));
+  canvas.height = Math.max(1, Math.floor(naturalHeight * scale));
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+}
 
 function CanvasLabel({
   text,
@@ -259,36 +283,25 @@ function FeaturedNixiePortrait({ src, position, caption }: { src: string; positi
 
   useEffect(() => {
     let cancelled = false;
-    let currentTexture: THREE.Texture | null = null;
-    const loader = new THREE.TextureLoader();
-    loader.load(
-      src,
-      (loaded) => {
+    loadCachedImage(src)
+      .then((img) => {
         if (cancelled) {
-          loaded.dispose();
           return;
         }
-        loaded.colorSpace = THREE.SRGBColorSpace;
-        loaded.minFilter = THREE.LinearFilter;
-        loaded.magFilter = THREE.LinearFilter;
-        loaded.generateMipmaps = false;
-        currentTexture = loaded;
+        const loaded = createImageCanvasTexture(img);
         setTexture((prev) => {
           prev?.dispose();
           return loaded;
         });
-      },
-      undefined,
-      () => {
+      })
+      .catch(() => {
         if (!cancelled) setTexture((prev) => {
           prev?.dispose();
           return null;
         });
-      },
-    );
+      });
     return () => {
       cancelled = true;
-      currentTexture?.dispose();
     };
   }, [src]);
 
@@ -301,7 +314,14 @@ function FeaturedNixiePortrait({ src, position, caption }: { src: string; positi
       <mesh position={[0, 2.55, 0.115]}>
         <planeGeometry args={[3.67, 4.87]} />
         {texture ? (
-          <meshBasicMaterial map={texture} toneMapped={false} />
+          <meshBasicMaterial
+            map={texture}
+            toneMapped={false}
+            side={THREE.DoubleSide}
+            polygonOffset
+            polygonOffsetFactor={-4}
+            polygonOffsetUnits={-4}
+          />
         ) : (
           <meshBasicMaterial color="#2a2040" />
         )}

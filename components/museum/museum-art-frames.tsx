@@ -25,6 +25,7 @@ const LOD_LOW_DIST = 62;
 const LOD_CULL_DIST = 78;
 
 const LOW_RES_MAX_EDGE = 256;
+const HIGH_RES_MAX_EDGE = 1024;
 
 function CanvasLabel({
   text,
@@ -125,19 +126,21 @@ export async function loadMuseumArtworkTextureImage(artwork: Artwork): Promise<H
 
 function blurImage(img: HTMLImageElement, radius: number): HTMLCanvasElement {
   const c = document.createElement("canvas");
-  c.width = img.width;
-  c.height = img.height;
+  c.width = img.naturalWidth || img.width;
+  c.height = img.naturalHeight || img.height;
   const ctx = c.getContext("2d")!;
   ctx.filter = `blur(${radius}px) brightness(0.7)`;
   ctx.drawImage(img, 0, 0);
   return c;
 }
 
-function downscaleImage(img: HTMLImageElement, maxEdge: number): HTMLCanvasElement {
-  const maxSide = Math.max(img.width, img.height);
+function drawImageToCanvas(img: HTMLImageElement, maxEdge: number): HTMLCanvasElement {
+  const naturalWidth = img.naturalWidth || img.width || 1;
+  const naturalHeight = img.naturalHeight || img.height || 1;
+  const maxSide = Math.max(naturalWidth, naturalHeight);
   const scale = Math.min(1, maxEdge / maxSide);
-  const w = Math.max(1, Math.floor(img.width * scale));
-  const h = Math.max(1, Math.floor(img.height * scale));
+  const w = Math.max(1, Math.floor(naturalWidth * scale));
+  const h = Math.max(1, Math.floor(naturalHeight * scale));
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
@@ -146,6 +149,16 @@ function downscaleImage(img: HTMLImageElement, maxEdge: number): HTMLCanvasEleme
   ctx.imageSmoothingQuality = "medium";
   ctx.drawImage(img, 0, 0, w, h);
   return c;
+}
+
+function createArtworkTexture(source: HTMLCanvasElement): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(source);
+  tex.needsUpdate = true;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  return tex;
 }
 
 function computeLodTier(worldPos: THREE.Vector3, store: MuseumCullingStore): "none" | "low" | "high" {
@@ -219,19 +232,15 @@ function ArtFrame({
     loadMuseumArtworkTextureImage(artwork)
       .then((img) => {
         if (cancelled) return;
-        let source: TexImageSource = img;
+        let source: HTMLCanvasElement;
         if (isLocked) {
           source = blurImage(img, 18);
         } else if (lodTier === "low") {
-          const src = source instanceof HTMLImageElement ? source : img;
-          source = downscaleImage(src, LOW_RES_MAX_EDGE);
+          source = drawImageToCanvas(img, LOW_RES_MAX_EDGE);
+        } else {
+          source = drawImageToCanvas(img, HIGH_RES_MAX_EDGE);
         }
-        const tex = new THREE.Texture(source);
-        tex.needsUpdate = true;
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.minFilter = THREE.LinearFilter;
-        tex.magFilter = THREE.LinearFilter;
-        tex.generateMipmaps = false;
+        const tex = createArtworkTexture(source);
         setTexture((prev) => {
           if (prev) prev.dispose();
           return tex;
@@ -309,7 +318,14 @@ function ArtFrame({
       >
         <planeGeometry args={[1.8, 2.6]} />
         {texture ? (
-          <meshBasicMaterial map={texture} toneMapped={false} />
+          <meshBasicMaterial
+            map={texture}
+            toneMapped={false}
+            side={THREE.DoubleSide}
+            polygonOffset
+            polygonOffsetFactor={-4}
+            polygonOffsetUnits={-4}
+          />
         ) : (
           <meshBasicMaterial color="#2a2040" />
         )}
